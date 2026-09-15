@@ -65,13 +65,13 @@ function RoomCard({
     >
       <div
         className={cn(
-          "px-2 py-1.5 text-center text-sm font-semibold text-forest-900",
+          "px-2 py-2 text-center text-base font-semibold text-forest-900",
           b ? "bg-gold-300" : "bg-cream-200"
         )}
       >
         {resource.name}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-2 text-xs leading-tight">
+      <div className="flex flex-1 flex-col gap-1.5 p-2.5 text-sm leading-tight">
         <div className="flex gap-1">
           <span className="shrink-0 text-ink-400">K.</span>
           <span className="min-w-0 flex-1 truncate text-ink-900">{b?.customerName || "—"}</span>
@@ -86,29 +86,29 @@ function RoomCard({
             {visibleAddons.map((name, i) => (
               <span
                 key={i}
-                className="inline-flex max-w-full items-center gap-0.5 rounded-full bg-forest-700/10 px-1.5 py-0.5 text-[10px] font-medium text-forest-800"
+                className="inline-flex max-w-full items-center gap-1 rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800"
               >
-                <Sparkles className="h-2.5 w-2.5 shrink-0" />
+                <Sparkles className="h-3 w-3 shrink-0" />
                 <span className="truncate">{name}</span>
               </span>
             ))}
             {extraAddonCount > 0 && (
-              <span className="inline-flex items-center rounded-full bg-forest-700/10 px-1.5 py-0.5 text-[10px] font-medium text-forest-800">
+              <span className="inline-flex items-center rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800">
                 +{extraAddonCount}
               </span>
             )}
           </div>
         )}
 
-        <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1">
+        <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1.5">
           <span className="text-ink-400">Total</span>
-          <span className="text-sm font-medium text-ink-900">
+          <span className="text-base font-semibold text-ink-900">
             {total != null ? total.toLocaleString("th-TH") : "—"}
           </span>
         </div>
         {!b && !readOnly && (
           <div className="flex items-center gap-1 pt-0.5 text-gold-600">
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             <span>จองห้องนี้</span>
           </div>
         )}
