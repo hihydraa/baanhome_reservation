@@ -22,8 +22,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ROLE_LABELS } from "@/lib/labels";
 
-type UserRow = { id: string; name: string; username: string; role: "ADMIN" | "STAFF"; createdAt: string };
+type UserRow = {
+  id: string;
+  name: string;
+  username: string;
+  role: "ADMIN" | "STAFF" | "HOUSEKEEPER";
+  createdAt: string;
+};
+
+const ROLE_BADGE_VARIANT: Record<string, "gold" | "muted" | "outline"> = {
+  ADMIN: "gold",
+  STAFF: "muted",
+  HOUSEKEEPER: "outline",
+};
 
 export function UserManager({ users, currentUserId }: { users: UserRow[]; currentUserId: string }) {
   const router = useRouter();
@@ -92,9 +105,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
               <TableCell>{u.name}</TableCell>
               <TableCell>{u.username}</TableCell>
               <TableCell>
-                <Badge variant={u.role === "ADMIN" ? "gold" : "muted"}>
-                  {u.role === "ADMIN" ? "ผู้ดูแลระบบ" : "พนักงาน"}
-                </Badge>
+                <Badge variant={ROLE_BADGE_VARIANT[u.role] ?? "muted"}>{ROLE_LABELS[u.role] ?? u.role}</Badge>
               </TableCell>
               <TableCell className="text-right">
                 {u.id !== currentUserId && (
@@ -130,6 +141,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
               <Label>สิทธิ์การใช้งาน</Label>
               <Select value={role} onChange={(e) => setRole(e.target.value)}>
                 <option value="STAFF">พนักงาน</option>
+                <option value="HOUSEKEEPER">แม่บ้าน</option>
                 <option value="ADMIN">ผู้ดูแลระบบ</option>
               </Select>
             </div>

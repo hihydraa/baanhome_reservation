@@ -8,16 +8,26 @@ import type { Prisma, Resource } from "@prisma/client";
 type BanquetWithRelations = Prisma.BanquetBookingGetPayload<{ include: { payment: true } }>;
 type BanquetResource = Resource & { bookings: BanquetWithRelations[] };
 
-export function BanquetStrip({ resources, date }: { resources: BanquetResource[]; date: Date }) {
+export function BanquetStrip({
+  resources,
+  date,
+  readOnly = false,
+}: {
+  resources: BanquetResource[];
+  date: Date;
+  readOnly?: boolean;
+}) {
   const dateStr = toDateOnlyString(date);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>ห้องจัดเลี้ยงวันนี้</CardTitle>
-        <Link href={`/banquet?date=${dateStr}`} className="text-sm font-medium text-forest-700 hover:underline">
-          ดูตารางรายชั่วโมง
-        </Link>
+        {!readOnly && (
+          <Link href={`/banquet?date=${dateStr}`} className="text-sm font-medium text-forest-700 hover:underline">
+            ดูตารางรายชั่วโมง
+          </Link>
+        )}
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-3">
         {resources.map((r) => (
@@ -27,20 +37,38 @@ export function BanquetStrip({ resources, date }: { resources: BanquetResource[]
               <p className="text-xs text-ink-400">ว่างทั้งวัน</p>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {r.bookings.map((b) => (
-                  <Link
-                    key={b.id}
-                    href={`/banquet/${b.id}`}
-                    className="flex items-center justify-between rounded-md bg-gold-100 px-2 py-1 text-xs hover:bg-gold-100/70"
-                  >
-                    <span className="font-medium text-forest-800">
-                      {formatTime(b.startTime)}-{formatTime(b.endTime)}
-                    </span>
-                    <Badge variant="outline" className="text-[10px]">
-                      {BANQUET_EVENT_TYPE_LABELS[b.eventType]}
-                    </Badge>
-                  </Link>
-                ))}
+                {r.bookings.map((b) => {
+                  const chipContent = (
+                    <>
+                      <span className="font-medium text-forest-800">
+                        {formatTime(b.startTime)}-{formatTime(b.endTime)}
+                        {readOnly && <span className="ml-1.5 font-normal text-ink-600">{b.customerName}</span>}
+                      </span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {BANQUET_EVENT_TYPE_LABELS[b.eventType]}
+                      </Badge>
+                    </>
+                  );
+                  if (readOnly) {
+                    return (
+                      <div
+                        key={b.id}
+                        className="flex items-center justify-between rounded-md bg-gold-100 px-2 py-1 text-xs"
+                      >
+                        {chipContent}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={b.id}
+                      href={`/banquet/${b.id}`}
+                      className="flex items-center justify-between rounded-md bg-gold-100 px-2 py-1 text-xs hover:bg-gold-100/70"
+                    >
+                      {chipContent}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

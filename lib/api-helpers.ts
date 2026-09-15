@@ -21,6 +21,21 @@ export async function requireAdmin() {
   return { session, response: null };
 }
 
+/** Like requireSession, but rejects the read-only HOUSEKEEPER role — use on every booking/payment mutation route. */
+export async function requireWriteAccess() {
+  const session = await auth();
+  if (!session?.user) {
+    return { session: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+  if (session.user.role === "HOUSEKEEPER") {
+    return {
+      session: null,
+      response: NextResponse.json({ error: "บัญชีแม่บ้านดูข้อมูลได้อย่างเดียว ไม่สามารถแก้ไขได้" }, { status: 403 }),
+    };
+  }
+  return { session, response: null };
+}
+
 export function zodErrorResponse(error: ZodError) {
   const issues = error.issues.map((i) => ({ path: i.path, message: i.message }));
   const message = issues.map((i) => i.message).join(" / ") || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง";

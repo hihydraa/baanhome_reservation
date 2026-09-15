@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { accommodationBookingInputSchema } from "@/lib/validators";
 import { parseDateOnly } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, response } = await requireSession();
+  const { session, response } = await requireWriteAccess();
   if (response) return response;
 
   const body = await req.json();

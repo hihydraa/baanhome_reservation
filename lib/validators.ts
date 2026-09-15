@@ -93,5 +93,5 @@ export const userInputSchema = z.object({
     .min(3, "อย่างน้อย 3 ตัวอักษร")
     .regex(/^[a-zA-Z0-9._-]+$/, "ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ -"),
   password: z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร"),
-  role: z.enum(["ADMIN", "STAFF"]).default("STAFF"),
+  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]).default("STAFF"),
 });

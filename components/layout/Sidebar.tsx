@@ -12,8 +12,9 @@ const NAV_ITEMS = [
   { href: "/cancellations", label: "ประวัติการยกเลิก", icon: History },
 ];
 
-export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
   const pathname = usePathname();
+  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard") : NAV_ITEMS;
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
@@ -28,7 +29,7 @@ export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           const Icon = item.icon;
           return (

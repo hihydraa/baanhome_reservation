@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { banquetBookingInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
@@ -23,7 +23,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { session, response } = await requireSession();
+  const { session, response } = await requireWriteAccess();
   if (response) return response;
 
   const { id } = await params;
@@ -97,7 +97,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { response } = await requireSession();
+  const { response } = await requireWriteAccess();
   if (response) return response;
 
   const { id } = await params;

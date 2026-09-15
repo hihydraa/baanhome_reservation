@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, zodErrorResponse } from "@/lib/api-helpers";
+import { requireWriteAccess, zodErrorResponse } from "@/lib/api-helpers";
 import { paymentInputSchema } from "@/lib/validators";
 
 type Params = { params: Promise<{ id: string }> };
 
 /** id is the related booking's id (accommodation or banquet); the Payment is 1:1 with each. */
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { response } = await requireSession();
+  const { response } = await requireWriteAccess();
   if (response) return response;
 
   const { id } = await params;

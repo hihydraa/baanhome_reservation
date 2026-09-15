@@ -20,6 +20,17 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
 
+  const isHousekeeper = req.auth?.user?.role === "HOUSEKEEPER";
+  const isAllowedForHousekeeper =
+    req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/dashboard");
+
+  if (isLoggedIn && isHousekeeper && !isAllowedForHousekeeper) {
+    if (isApiRoute) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
+  }
+
   return NextResponse.next();
 });
 

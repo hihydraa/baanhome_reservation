@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { parseDateOnly, todayDateOnly } from "@/lib/dates";
 import { DateNav } from "@/components/dashboard/DateNav";
 import { DailyGrid } from "@/components/dashboard/DailyGrid";
@@ -10,6 +11,8 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  const session = await auth();
+  const readOnly = session?.user.role === "HOUSEKEEPER";
   const { date: dateParam } = await searchParams;
   const date = dateParam ? parseDateOnly(dateParam) : todayDateOnly();
   const nextDay = new Date(date);
@@ -61,9 +64,9 @@ export default async function DashboardPage({
         <DateNav date={date} />
       </div>
 
-      <BanquetStrip resources={banquetWithBookings} date={date} />
+      <BanquetStrip resources={banquetWithBookings} date={date} readOnly={readOnly} />
 
-      <DailyGrid resourcesByZone={resourcesByZone} date={date} />
+      <DailyGrid resourcesByZone={resourcesByZone} date={date} readOnly={readOnly} />
     </div>
   );
 }

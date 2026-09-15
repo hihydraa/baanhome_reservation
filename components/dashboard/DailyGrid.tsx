@@ -15,9 +15,11 @@ type ResourceWithBooking = Resource & {
 export function DailyGrid({
   resourcesByZone,
   date,
+  readOnly = false,
 }: {
   resourcesByZone: Record<string, ResourceWithBooking[]>;
   date: Date;
+  readOnly?: boolean;
 }) {
   const dateStr = toDateOnlyString(date);
 
@@ -28,7 +30,7 @@ export function DailyGrid({
           <h3 className="text-sm font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
             {resources.map((r) => (
-              <RoomCard key={r.id} resource={r} dateStr={dateStr} />
+              <RoomCard key={r.id} resource={r} dateStr={dateStr} readOnly={readOnly} />
             ))}
           </div>
         </div>
@@ -37,7 +39,15 @@ export function DailyGrid({
   );
 }
 
-function RoomCard({ resource, dateStr }: { resource: ResourceWithBooking; dateStr: string }) {
+function RoomCard({
+  resource,
+  dateStr,
+  readOnly,
+}: {
+  resource: ResourceWithBooking;
+  dateStr: string;
+  readOnly: boolean;
+}) {
   const b = resource.booking;
   const total = b?.payment?.totalAmount != null ? Number(b.payment.totalAmount) : null;
 
@@ -71,7 +81,7 @@ function RoomCard({ resource, dateStr }: { resource: ResourceWithBooking; dateSt
             {total != null ? total.toLocaleString("th-TH") : "—"}
           </span>
         </div>
-        {!b && (
+        {!b && !readOnly && (
           <div className="flex items-center gap-1 pt-0.5 text-gold-600">
             <Plus className="h-3 w-3" />
             <span>จองห้องนี้</span>
@@ -80,6 +90,10 @@ function RoomCard({ resource, dateStr }: { resource: ResourceWithBooking; dateSt
       </div>
     </div>
   );
+
+  if (readOnly) {
+    return <div className="h-full">{cardBody}</div>;
+  }
 
   const href = b
     ? `/accommodation/${b.id}`

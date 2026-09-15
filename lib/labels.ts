@@ -52,3 +52,9 @@ export const BOOKING_TYPE_LABELS: Record<string, string> = {
   ACCOMMODATION: "ห้องพัก",
   BANQUET: "ห้องจัดเลี้ยง",
 };
+
+export const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "ผู้ดูแลระบบ",
+  STAFF: "พนักงาน",
+  HOUSEKEEPER: "แม่บ้าน",
+};
