@@ -1,6 +1,6 @@
 export const ZONE_LABELS: Record<string, string> = {
   RESORT: "Resort",
-  POOL_VILLA: "Pool Villa",
+  POOL_VILLA: "พูลวิลล่า",
   BANQUET: "ห้องจัดเลี้ยง",
 };
 

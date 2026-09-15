@@ -1,16 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { PaymentStatusBadge } from "@/components/payment/PaymentStatusBadge";
-import { ACCOMMODATION_STATUS_LABELS, ADDON_TYPE_LABELS, ZONE_LABELS } from "@/lib/labels";
+import { cn } from "@/lib/utils";
+import { ZONE_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
 import type { Prisma, Resource } from "@prisma/client";
 
@@ -19,12 +10,6 @@ type BookingWithRelations = Prisma.AccommodationBookingGetPayload<{
 }>;
 type ResourceWithBooking = Resource & {
   booking?: BookingWithRelations;
-};
-
-const STATUS_ROW_CLASS: Record<string, string> = {
-  CHECKED_IN: "bg-forest-700/5",
-  RESERVED: "bg-gold-100/40",
-  CANCELLED: "bg-cream-200/40",
 };
 
 export function DailyGrid({
@@ -41,74 +26,68 @@ export function DailyGrid({
       {Object.entries(resourcesByZone).map(([zone, resources]) => (
         <div key={zone} className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ห้อง</TableHead>
-                <TableHead>สถานะ</TableHead>
-                <TableHead>ลูกค้า</TableHead>
-                <TableHead>เบอร์โทร</TableHead>
-                <TableHead>บริการเสริม</TableHead>
-                <TableHead>การชำระเงิน</TableHead>
-                <TableHead className="text-right">จัดการ</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {resources.map((r) => {
-                const b = r.booking;
-                const rowClass = b ? STATUS_ROW_CLASS[b.status] : "";
-                return (
-                  <TableRow key={r.id} className={rowClass}>
-                    <TableCell className="font-medium">{r.name}</TableCell>
-                    <TableCell>
-                      {b ? (
-                        <Badge variant={b.status === "CHECKED_IN" ? "success" : "gold"}>
-                          {ACCOMMODATION_STATUS_LABELS[b.status]}
-                        </Badge>
-                      ) : (
-                        <Badge variant="muted">ว่าง</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{b?.customerName ?? "-"}</TableCell>
-                    <TableCell>{b?.phone ?? "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {b?.addons.map((a) => (
-                          <Badge key={a.id} variant="outline">
-                            {ADDON_TYPE_LABELS[a.type]}
-                            {a.quantity > 1 ? ` x${a.quantity}` : ""}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <PaymentStatusBadge status={b?.payment?.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {b ? (
-                        <Link
-                          href={`/accommodation/${b.id}`}
-                          className="text-sm font-medium text-forest-700 hover:underline"
-                        >
-                          ดู/แก้ไข
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/accommodation?newResource=${r.id}&date=${dateStr}`}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-gold-600 hover:underline"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          จองห้องนี้
-                        </Link>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+            {resources.map((r) => (
+              <RoomCard key={r.id} resource={r} dateStr={dateStr} />
+            ))}
+          </div>
         </div>
       ))}
     </div>
+  );
+}
+
+function RoomCard({ resource, dateStr }: { resource: ResourceWithBooking; dateStr: string }) {
+  const b = resource.booking;
+  const total = b?.payment?.totalAmount != null ? Number(b.payment.totalAmount) : null;
+
+  const cardBody = (
+    <div
+      className={cn(
+        "relative flex h-full flex-col overflow-hidden rounded-md border border-cream-200 bg-white shadow-sm transition-shadow hover:shadow-md",
+        b && "border-gold-400"
+      )}
+    >
+      <div
+        className={cn(
+          "px-2 py-1 text-center text-xs font-semibold text-forest-900",
+          b ? "bg-gold-300" : "bg-cream-200"
+        )}
+      >
+        {resource.name}
+      </div>
+      <div className="flex flex-1 flex-col gap-1 p-2 text-[11px] leading-tight">
+        <div className="flex gap-1">
+          <span className="shrink-0 text-ink-400">K.</span>
+          <span className="truncate text-ink-900">{b?.customerName || "—"}</span>
+        </div>
+        <div className="flex gap-1">
+          <span className="shrink-0 text-ink-400">T.</span>
+          <span className="truncate text-ink-900">{b?.phone || "—"}</span>
+        </div>
+        <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1">
+          <span className="text-ink-400">Total</span>
+          <span className="font-medium text-ink-900">
+            {total != null ? total.toLocaleString("th-TH") : "—"}
+          </span>
+        </div>
+        {!b && (
+          <div className="flex items-center gap-1 pt-0.5 text-gold-600">
+            <Plus className="h-3 w-3" />
+            <span>จองห้องนี้</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const href = b
+    ? `/accommodation/${b.id}`
+    : `/accommodation?newResource=${resource.id}&date=${dateStr}`;
+
+  return (
+    <Link href={href} className="block h-full">
+      {cardBody}
+    </Link>
   );
 }
