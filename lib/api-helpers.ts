@@ -22,10 +22,9 @@ export async function requireAdmin() {
 }
 
 export function zodErrorResponse(error: ZodError) {
-  return NextResponse.json(
-    { error: "Validation failed", issues: error.issues.map((i) => ({ path: i.path, message: i.message })) },
-    { status: 400 }
-  );
+  const issues = error.issues.map((i) => ({ path: i.path, message: i.message }));
+  const message = issues.map((i) => i.message).join(" / ") || "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง";
+  return NextResponse.json({ error: message, issues }, { status: 400 });
 }
 
 export function errorResponse(message: string, status = 400) {
