@@ -30,6 +30,7 @@ export type BanquetFormValue = {
   linkedAccommodationId: string;
   status: string;
   notes: string;
+  cancelReason: string;
   payment: PaymentFormValue;
 };
 
@@ -47,6 +48,7 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     linkedAccommodationId: "",
     status: "RESERVED",
     notes: "",
+    cancelReason: "",
     payment: { totalAmount: 0, depositAmount: 0, status: "DEPOSIT", method: "CASH", notes: "" },
     ...overrides,
   };
@@ -244,6 +246,18 @@ export function BanquetForm({
           <Label>หมายเหตุ</Label>
           <Textarea rows={2} value={value.notes} onChange={(e) => setValue({ ...value, notes: e.target.value })} />
         </div>
+
+        {value.status === "CANCELLED" && (
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>เหตุผลที่ยกเลิก</Label>
+            <Textarea
+              rows={2}
+              placeholder="ระบุเหตุผลการยกเลิก (ถ้ามี)"
+              value={value.cancelReason}
+              onChange={(e) => setValue({ ...value, cancelReason: e.target.value })}
+            />
+          </div>
+        )}
       </div>
 
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}

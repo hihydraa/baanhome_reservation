@@ -44,6 +44,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     linkedAccommodationId: booking.linkedAccommodationId ?? "",
     status: booking.status,
     notes: booking.notes ?? "",
+    cancelReason: "",
     payment: booking.payment
       ? {
           totalAmount: Number(booking.payment.totalAmount),

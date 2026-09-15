@@ -47,3 +47,8 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: "เงินสด",
   TRANSFER: "โอนเงิน",
 };
+
+export const BOOKING_TYPE_LABELS: Record<string, string> = {
+  ACCOMMODATION: "ห้องพัก",
+  BANQUET: "ห้องจัดเลี้ยง",
+};

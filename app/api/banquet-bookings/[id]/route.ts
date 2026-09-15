@@ -4,6 +4,7 @@ import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpe
 import { banquetBookingInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
+import { logBanquetCancellation } from "@/lib/cancellation-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -22,11 +23,14 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { response } = await requireSession();
+  const { session, response } = await requireSession();
   if (response) return response;
 
   const { id } = await params;
-  const existing = await prisma.banquetBooking.findUnique({ where: { id } });
+  const existing = await prisma.banquetBooking.findUnique({
+    where: { id },
+    include: { resource: true },
+  });
   if (!existing) return errorResponse("ไม่พบการจอง", 404);
 
   const body = await req.json();
@@ -74,6 +78,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     },
     include: { resource: true, payment: true, linkedAccommodation: true },
   });
+
+  if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {
+    await logBanquetCancellation({
+      bookingId: booking.id,
+      resourceName: existing.resource.name,
+      customerName: booking.customerName,
+      phone: booking.phone,
+      eventDate: booking.eventDate,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      reason: data.cancelReason,
+      cancelledById: session!.user.id,
+    });
+  }
 
   return NextResponse.json(booking);
 }

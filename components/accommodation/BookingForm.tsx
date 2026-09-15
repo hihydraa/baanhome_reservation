@@ -26,6 +26,7 @@ export type AccommodationBookingFormValue = {
   guestCount: number;
   status: string;
   notes: string;
+  cancelReason: string;
   addons: AddonFormValue[];
   payment: PaymentFormValue;
 };
@@ -44,6 +45,7 @@ export function defaultAccommodationFormValue(
     guestCount: 1,
     status: "RESERVED",
     notes: "",
+    cancelReason: "",
     addons: [],
     payment: { totalAmount: 0, depositAmount: 0, status: "PAY_LATER", method: "CASH", notes: "" },
     ...overrides,
@@ -186,6 +188,18 @@ export function AccommodationBookingForm({
             onChange={(e) => setValue({ ...value, notes: e.target.value })}
           />
         </div>
+
+        {value.status === "CANCELLED" && (
+          <div className="col-span-2 flex flex-col gap-1.5">
+            <Label>เหตุผลที่ยกเลิก</Label>
+            <Textarea
+              rows={2}
+              placeholder="ระบุเหตุผลการยกเลิก (ถ้ามี)"
+              value={value.cancelReason}
+              onChange={(e) => setValue({ ...value, cancelReason: e.target.value })}
+            />
+          </div>
+        )}
       </div>
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} />

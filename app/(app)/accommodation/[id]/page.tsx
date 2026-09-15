@@ -34,6 +34,7 @@ export default async function AccommodationDetailPage({
     guestCount: booking.guestCount,
     status: booking.status,
     notes: booking.notes ?? "",
+    cancelReason: "",
     addons: booking.addons.map((a) => ({
       type: a.type,
       description: a.description ?? "",

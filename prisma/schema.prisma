@@ -68,6 +68,11 @@ enum PaymentMethod {
   TRANSFER
 }
 
+enum BookingType {
+  ACCOMMODATION
+  BANQUET
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -78,6 +83,7 @@ model User {
 
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
+  cancellationLogs      CancellationLog[]
 }
 
 model Resource {
@@ -152,6 +158,22 @@ model BanquetBooking {
   payment Payment?
 
   @@index([resourceId, eventDate])
+}
+
+model CancellationLog {
+  id            String      @id @default(cuid())
+  bookingType   BookingType
+  bookingId     String
+  resourceName  String
+  customerName  String
+  phone         String?
+  bookingPeriod String
+  reason        String?
+  cancelledById String?
+  cancelledBy   User?       @relation(fields: [cancelledById], references: [id])
+  cancelledAt   DateTime    @default(now())
+
+  @@index([cancelledAt])
 }
 
 model Payment {

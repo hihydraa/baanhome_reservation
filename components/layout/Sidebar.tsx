@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "ภาพรวมรายวัน", icon: LayoutGrid },
   { href: "/accommodation", label: "จองห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "จองห้องจัดเลี้ยง", icon: CalendarClock },
+  { href: "/cancellations", label: "ประวัติการยกเลิก", icon: History },
 ];
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {

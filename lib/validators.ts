@@ -47,6 +47,7 @@ export const accommodationBookingInputSchema = z
     guestCount: z.coerce.number().int().min(1).default(1),
     status: accommodationStatusEnum.default("RESERVED"),
     notes: z.string().optional(),
+    cancelReason: z.string().optional(),
     addons: z.array(addonInputSchema).default([]),
     payment: paymentInputSchema.optional(),
   })
@@ -67,6 +68,7 @@ export const banquetBookingInputSchema = z
     linkedAccommodationId: z.string().optional().nullable(),
     status: banquetStatusEnum.default("RESERVED"),
     notes: z.string().optional(),
+    cancelReason: z.string().optional(),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
     payment: paymentBaseObject
