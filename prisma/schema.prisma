@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum ResourceZone {
+  RESORT
+  POOL_VILLA
+  BANQUET
+}
+
+enum ResourceType {
+  ACCOMMODATION
+  BANQUET
+}
+
+enum BookingSource {
+  WALK_IN
+  AGODA
+  PHONE
+  OTHER
+}
+
+enum AccommodationStatus {
+  RESERVED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum AddonType {
+  EXTRA_BED
+  PET
+  BORROWED_ITEM
+}
+
+enum BanquetEventType {
+  MEETING
+  BANQUET
+  SEMINAR
+  OTHER
+}
+
+enum BanquetStatus {
+  RESERVED
+  CONFIRMED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PAID
+  DEPOSIT
+  PAY_LATER
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         UserRole @default(STAFF)
+  createdAt    DateTime @default(now())
+
+  accommodationBookings AccommodationBooking[]
+  banquetBookings       BanquetBooking[]
+}
+
+model Resource {
+  id        String       @id @default(cuid())
+  name      String
+  zone      ResourceZone
+  type      ResourceType
+  capacity  Int?
+  sortOrder Int          @default(0)
+
+  accommodationBookings AccommodationBooking[]
+  banquetBookings       BanquetBooking[]
+
+  @@index([type, zone, sortOrder])
+}
+
+model AccommodationBooking {
+  id           String              @id @default(cuid())
+  resourceId   String
+  resource     Resource            @relation(fields: [resourceId], references: [id])
+  customerName String
+  phone        String
+  source       BookingSource       @default(WALK_IN)
+  checkIn      DateTime
+  checkOut     DateTime
+  guestCount   Int                 @default(1)
+  status       AccommodationStatus @default(RESERVED)
+  notes        String?
+  createdById  String?
+  createdBy    User?               @relation(fields: [createdById], references: [id])
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  addons                AccommodationAddon[]
+  payment               Payment?
+  linkedBanquetBookings BanquetBooking[]     @relation("LinkedAccommodation")
+
+  @@index([resourceId, checkIn, checkOut])
+}
+
+model AccommodationAddon {
+  id          String               @id @default(cuid())
+  bookingId   String
+  booking     AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type        AddonType
+  description String?
+  quantity    Int                  @default(1)
+  price       Decimal              @default(0) @db.Decimal(10, 2)
+}
+
+model BanquetBooking {
+  id                    String                @id @default(cuid())
+  resourceId            String
+  resource              Resource              @relation(fields: [resourceId], references: [id])
+  customerName          String
+  phone                 String?
+  eventDate             DateTime
+  startTime             DateTime
+  endTime               DateTime
+  eventType             BanquetEventType      @default(MEETING)
+  headcount             Int                   @default(1)
+  foodService           String?
+  linkedAccommodationId String?
+  linkedAccommodation   AccommodationBooking? @relation("LinkedAccommodation", fields: [linkedAccommodationId], references: [id])
+  status                BanquetStatus         @default(RESERVED)
+  notes                 String?
+  createdById           String?
+  createdBy             User?                 @relation(fields: [createdById], references: [id])
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+
+  payment Payment?
+
+  @@index([resourceId, eventDate])
+}
+
+model Payment {
+  id                     String                @id @default(cuid())
+  accommodationBookingId String?               @unique
+  accommodationBooking   AccommodationBooking? @relation(fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+  banquetBookingId       String?               @unique
+  banquetBooking         BanquetBooking?       @relation(fields: [banquetBookingId], references: [id], onDelete: Cascade)
+  totalAmount            Decimal               @default(0) @db.Decimal(10, 2)
+  depositAmount          Decimal               @default(0) @db.Decimal(10, 2)
+  status                 PaymentStatus         @default(PAY_LATER)
+  method                 PaymentMethod         @default(CASH)
+  paidAt                 DateTime?
+  notes                  String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+}

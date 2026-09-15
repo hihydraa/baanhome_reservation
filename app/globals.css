@@ -1,26 +1,81 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-forest-900: #0b2b1f;
+  --color-forest-800: #0f3527;
+  --color-forest-700: #14432f;
+  --color-forest-600: #1d5a40;
+  --color-forest-500: #2a7350;
+
+  --color-gold-600: #ad8620;
+  --color-gold-500: #c9a227;
+  --color-gold-400: #d9b84a;
+  --color-gold-300: #e8cd7c;
+  --color-gold-100: #f5e9c4;
+
+  --color-cream-200: #efe6d3;
+  --color-cream-100: #f7f2e7;
+  --color-cream-50: #fbf8f1;
+
+  --color-ink-900: #1f2a24;
+  --color-ink-600: #4b5a52;
+  --color-ink-400: #7c8a82;
+
+  --color-status-available: #ffffff;
+  --color-status-reserved: #f5e9c4;
+  --color-status-checked-in: #14432f;
+  --color-status-cancelled: #e7e2d8;
+
+  --background: var(--color-cream-100);
+  --foreground: var(--color-ink-900);
 }
 
 @theme inline {
+  --color-forest-900: var(--color-forest-900);
+  --color-forest-800: var(--color-forest-800);
+  --color-forest-700: var(--color-forest-700);
+  --color-forest-600: var(--color-forest-600);
+  --color-forest-500: var(--color-forest-500);
+
+  --color-gold-600: var(--color-gold-600);
+  --color-gold-500: var(--color-gold-500);
+  --color-gold-400: var(--color-gold-400);
+  --color-gold-300: var(--color-gold-300);
+  --color-gold-100: var(--color-gold-100);
+
+  --color-cream-200: var(--color-cream-200);
+  --color-cream-100: var(--color-cream-100);
+  --color-cream-50: var(--color-cream-50);
+
+  --color-ink-900: var(--color-ink-900);
+  --color-ink-600: var(--color-ink-600);
+  --color-ink-400: var(--color-ink-400);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-sarabun);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sarabun), "Sarabun", ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: var(--color-gold-300);
+  color: var(--color-forest-900);
+}
+
+/* Thin gold scrollbar to match the brand */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-cream-100);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-gold-400);
+  border-radius: 999px;
 }

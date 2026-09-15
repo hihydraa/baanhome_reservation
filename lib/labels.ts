@@ -1,0 +1,49 @@
+export const ZONE_LABELS: Record<string, string> = {
+  RESORT: "Resort",
+  POOL_VILLA: "Pool Villa",
+  BANQUET: "ห้องจัดเลี้ยง",
+};
+
+export const SOURCE_LABELS: Record<string, string> = {
+  WALK_IN: "Walk-in",
+  AGODA: "Agoda",
+  PHONE: "โทรศัพท์",
+  OTHER: "อื่น ๆ",
+};
+
+export const ACCOMMODATION_STATUS_LABELS: Record<string, string> = {
+  RESERVED: "มีจอง",
+  CHECKED_IN: "เข้าพักแล้ว",
+  CHECKED_OUT: "เช็คเอาท์แล้ว",
+  CANCELLED: "ยกเลิก",
+};
+
+export const ADDON_TYPE_LABELS: Record<string, string> = {
+  EXTRA_BED: "เตียงเสริม",
+  PET: "สัตว์เลี้ยง",
+  BORROWED_ITEM: "ของยืมเพิ่มเติม",
+};
+
+export const BANQUET_EVENT_TYPE_LABELS: Record<string, string> = {
+  MEETING: "ประชุม",
+  BANQUET: "จัดเลี้ยง",
+  SEMINAR: "สัมมนา",
+  OTHER: "อื่น ๆ",
+};
+
+export const BANQUET_STATUS_LABELS: Record<string, string> = {
+  RESERVED: "จองไว้",
+  CONFIRMED: "ยืนยันแล้ว",
+  CANCELLED: "ยกเลิก",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PAID: "จ่ายแล้ว",
+  DEPOSIT: "มัดจำ",
+  PAY_LATER: "จ่ายทีหลัง",
+};
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  CASH: "เงินสด",
+  TRANSFER: "โอนเงิน",
+};

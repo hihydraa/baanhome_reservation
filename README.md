@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# บ้านโฮม Mini MICE — ระบบจองห้องพักและห้องจัดเลี้ยง
 
-## Getting Started
+ระบบภายในสำหรับทดแทนการจดบันทึกจองห้องพักและห้องจัดเลี้ยงลงกระดาษรายวัน สร้างด้วย Next.js
+พร้อม deploy บน Vercel
 
-First, run the development server:
+## Tech Stack
+
+- **Next.js 16** (App Router, TypeScript)
+- **Tailwind CSS v4** — ธีมสีตามแบรนด์ (เขียวเข้ม/ทอง/ครีม) กำหนดไว้ที่ [app/globals.css](app/globals.css)
+- **Prisma ORM + PostgreSQL** — ออกแบบมาให้ใช้กับ Vercel Postgres (Neon)
+- **Auth.js (NextAuth v5)** — ระบบ login รายบุคคล (username/password, bcrypt)
+- **zod** — validate ข้อมูลทุก API route
+- **date-fns** และ helper ใน [lib/dates.ts](lib/dates.ts) — จัดการวันที่/เวลาแบบ Asia/Bangkok โดยไม่พึ่ง timezone ของเครื่อง server
+
+## โครงสร้างข้อมูล (Database Schema)
+
+ดูรายละเอียดทั้งหมดที่ [prisma/schema.prisma](prisma/schema.prisma) สรุปสั้น ๆ:
+
+- `User` — บัญชีพนักงาน (ADMIN / STAFF)
+- `Resource` — ทรัพยากรที่จองได้ทั้งหมด แยกด้วย `type` (`ACCOMMODATION` / `BANQUET`) และ `zone`
+- `AccommodationBooking` + `AccommodationAddon` — การจองห้องพักรายคืน พร้อมบริการเสริม (เตียงเสริม/สัตว์เลี้ยง/ของยืม)
+- `BanquetBooking` — การจองห้องจัดเลี้ยงรายชั่วโมง เชื่อมโยงกับห้องพักได้ (`linkedAccommodationId`)
+- `Payment` — ผูกกับการจอง 1 รายการเสมอ (accommodation หรือ banquet อย่างใดอย่างหนึ่ง) เก็บยอดรวม/มัดจำ/สถานะ/วิธีชำระ
+
+**การตรวจสอบคิวชนกัน (Conflict Detection)** อยู่ที่ [lib/booking-conflicts.ts](lib/booking-conflicts.ts)
+ใช้ร่วมกันทั้งตอนสร้าง/แก้ไขการจอง และ endpoint `/api/banquet-bookings/check-conflict` ที่หน้าฟอร์มเรียกแบบ real-time
+
+## เริ่มพัฒนาในเครื่อง (Local Development)
+
+### 1. ติดตั้ง dependencies
+
+```bash
+npm install
+```
+
+### 2. เตรียมฐานข้อมูล
+
+ก็อปปี้ `.env.example` เป็น `.env` แล้วใส่ค่า:
+
+```bash
+cp .env.example .env
+```
+
+สำหรับพัฒนาในเครื่องโดยไม่ต้องมี Postgres ของตัวเอง สามารถใช้ Prisma's local dev database ได้ทันที (ไม่ต้องติดตั้ง Docker):
+
+```bash
+npx prisma dev
+```
+
+คำสั่งนี้จะพิมพ์ connection string ออกมา ให้นำไปใส่ใน `DATABASE_URL` และ `DIRECT_URL` ใน `.env`
+
+### 3. Migrate + Seed
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+`db:seed` จะสร้างห้องพักและห้องจัดเลี้ยงทั้งหมดตาม requirement พร้อมบัญชี `admin` — **จดรหัสผ่านชั่วคราวที่พิมพ์ออกมาในเทอร์มินัลไว้** แล้วไปสร้างบัญชีพนักงานคนอื่นต่อในหน้า "จัดการผู้ใช้งาน" หลัง login
+
+### 4. รันเซิร์ฟเวอร์
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+เปิด [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy บน Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Push โค้ดขึ้น Git repository แล้วสร้างโปรเจกต์ใหม่ใน Vercel จาก repo นี้
+2. ไปที่แท็บ **Storage** ของโปรเจกต์ → เพิ่ม **Vercel Postgres (Neon)** — Vercel จะตั้งค่า env vars ที่เกี่ยวข้องให้อัตโนมัติ
+3. ตั้งค่า Environment Variables เพิ่มเติมในโปรเจกต์ Vercel:
+   - `DATABASE_URL` — ใช้ pooled connection string จาก Neon (ควรมี `?pgbouncer=true` ต่อท้ายเพื่อให้ใช้งานร่วมกับ Prisma ได้ถูกต้องเมื่อรันผ่าน connection pooler)
+   - `DIRECT_URL` — ใช้ direct (non-pooled) connection string จาก Neon สำหรับรัน migration
+   - `AUTH_SECRET` — สร้างด้วย `npx auth secret` หรือ `openssl rand -base64 32`
+   - `NEXTAUTH_URL` — URL จริงของเว็บหลัง deploy (เช่น `https://your-app.vercel.app`)
+4. รัน migration กับฐานข้อมูล production ครั้งแรก (รันจากเครื่อง โดยตั้ง `DATABASE_URL`/`DIRECT_URL` ชี้ไปที่ Neon):
+   ```bash
+   npm run db:deploy
+   npm run db:seed
+   ```
+5. Deploy โปรเจกต์ใน Vercel ตามปกติ (`git push` หรือกด Deploy)
+6. Login ด้วยบัญชี `admin` และรหัสผ่านชั่วคราวจาก log ตอน seed แล้วสร้างบัญชีพนักงานจริงทันทีในหน้า "จัดการผู้ใช้งาน"
 
-## Learn More
+## โครงสร้างหน้าเว็บหลัก
 
-To learn more about Next.js, take a look at the following resources:
+- `/dashboard` — ภาพรวมรายวัน (Module 1) ดูสถานะห้องพักทุกห้อง + แถบห้องจัดเลี้ยงของวันนั้น
+- `/accommodation`, `/accommodation/[id]` — รายการ/จอง/แก้ไขห้องพัก (Module 2)
+- `/banquet`, `/banquet/new`, `/banquet/[id]` — จองห้องจัดเลี้ยงแบบรายชั่วโมง + ปฏิทิน 31 วัน พร้อมเช็คคิวชนแบบ real-time (Module 3)
+- `/users` — จัดการบัญชีพนักงาน (เฉพาะ ADMIN)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+การชำระเงิน (Module 4) ฝังอยู่ในฟอร์มจองห้องพัก/ห้องจัดเลี้ยงโดยตรง (`components/payment/PaymentPanel.tsx`) — การจองห้องจัดเลี้ยงบังคับให้มีมัดจำหรือชำระเต็มจำนวนก่อนยืนยันเสมอ
