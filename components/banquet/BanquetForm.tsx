@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
+import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
 
@@ -66,6 +67,7 @@ export function BanquetForm({
   initialOverrides?: Partial<BanquetFormValue>;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [value, setValue] = useState(() => defaultBanquetFormValue(initialOverrides));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +133,7 @@ export function BanquetForm({
     }
 
     const saved = await res.json();
+    showToast(value.id ? "บันทึกการจองห้องจัดเลี้ยงสำเร็จ" : "จองห้องจัดเลี้ยงสำเร็จ");
     router.push(`/banquet/${saved.id}`);
     router.refresh();
   }

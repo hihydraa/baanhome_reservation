@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AddonEditor, type AddonFormValue } from "@/components/accommodation/AddonEditor";
 import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
+import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
 
@@ -64,6 +65,7 @@ export function AccommodationBookingForm({
   onCancel?: () => void;
 }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,7 @@ export function AccommodationBookingForm({
       return;
     }
 
+    showToast(value.id ? "บันทึกการจองห้องพักสำเร็จ" : "จองห้องพักสำเร็จ");
     router.refresh();
     onSaved?.();
   }
