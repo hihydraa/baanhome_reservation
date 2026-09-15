@@ -30,7 +30,7 @@ export default async function DashboardPage({
           checkOut: { gt: date },
           status: { not: "CANCELLED" },
         },
-        include: { addons: true, payment: true },
+        include: { addons: { include: { service: true } }, payment: true },
       }),
       prisma.resource.findMany({
         where: { type: "BANQUET" },
