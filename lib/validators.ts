@@ -71,23 +71,11 @@ export const banquetBookingInputSchema = z
     cancelReason: z.string().optional(),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
-    payment: paymentBaseObject
-      .refine((p) => p.depositAmount <= p.totalAmount, {
-        message: "ยอดมัดจำต้องไม่เกินยอดรวม",
-        path: ["depositAmount"],
-      })
-      .refine((p) => p.status !== "PAY_LATER", {
-        message: "การจองห้องจัดเลี้ยงต้องมีการมัดจำอย่างน้อยส่วนหนึ่งก่อนยืนยัน",
-        path: ["status"],
-      }),
+    payment: paymentInputSchema,
   })
   .refine((b) => b.endTime > b.startTime, {
     message: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม",
     path: ["endTime"],
-  })
-  .refine((b) => b.payment.depositAmount > 0 || b.payment.status === "PAID", {
-    message: "ต้องระบุยอดมัดจำมากกว่า 0 หรือชำระเต็มจำนวน",
-    path: ["payment", "depositAmount"],
   });
 
 export const checkConflictInputSchema = z.object({

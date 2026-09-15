@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireSession, zodErrorResponse } from "@/lib/api-helpers";
 import { paymentInputSchema } from "@/lib/validators";
 
 type Params = { params: Promise<{ id: string }> };
@@ -21,9 +21,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 
   const isBanquet = !!(await prisma.banquetBooking.findUnique({ where: { id } }));
-  if (isBanquet && data.status === "PAY_LATER") {
-    return errorResponse("การจองห้องจัดเลี้ยงต้องมีการมัดจำ ไม่สามารถตั้งเป็น 'จ่ายทีหลัง' ได้", 400);
-  }
 
   const paymentData = {
     totalAmount: data.totalAmount,

@@ -263,11 +263,7 @@ export function BanquetForm({
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}
       <ConflictBanner conflict={activeConflict} />
 
-      <PaymentPanel
-        value={value.payment}
-        onChange={(payment) => setValue({ ...value, payment })}
-        requireDeposit
-      />
+      <PaymentPanel value={value.payment} onChange={(payment) => setValue({ ...value, payment })} />
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

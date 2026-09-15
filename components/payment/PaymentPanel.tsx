@@ -16,11 +16,9 @@ export type PaymentFormValue = {
 export function PaymentPanel({
   value,
   onChange,
-  requireDeposit = false,
 }: {
   value: PaymentFormValue;
   onChange: (next: PaymentFormValue) => void;
-  requireDeposit?: boolean;
 }) {
   const balance = Math.max(0, value.totalAmount - value.depositAmount);
 
@@ -59,9 +57,7 @@ export function PaymentPanel({
           >
             <option value="DEPOSIT">มัดจำ</option>
             <option value="PAID">จ่ายแล้ว</option>
-            <option value="PAY_LATER" disabled={requireDeposit}>
-              จ่ายทีหลัง{requireDeposit ? " (ห้ามสำหรับห้องจัดเลี้ยง)" : ""}
-            </option>
+            <option value="PAY_LATER">จ่ายทีหลัง</option>
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -83,12 +79,6 @@ export function PaymentPanel({
         <span className="text-ink-600">ยอดคงเหลือ</span>
         <span className="font-semibold text-forest-800">{balance.toLocaleString("th-TH")} บาท</span>
       </div>
-
-      {requireDeposit && value.status !== "PAID" && value.depositAmount <= 0 && (
-        <p className="text-xs text-red-600">
-          การจองห้องจัดเลี้ยงต้องระบุยอดมัดจำมากกว่า 0 หรือเลือกสถานะ &quot;จ่ายแล้ว&quot;
-        </p>
-      )}
     </div>
   );
 }
