@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Sparkles } from "lucide-react";
+import { BedDouble, PawPrint, Plus, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ZONE_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -11,6 +11,14 @@ type BookingWithRelations = Prisma.AccommodationBookingGetPayload<{
 type ResourceWithBooking = Resource & {
   booking?: BookingWithRelations;
 };
+
+function getAddonIcon(name: string): LucideIcon {
+  if (name.includes("เตียง")) return BedDouble;
+  if (name.includes("สัตว์เลี้ยง") || name.includes("หมา") || name.includes("แมว") || name.includes("pet")) {
+    return PawPrint;
+  }
+  return Sparkles;
+}
 
 export function DailyGrid({
   resourcesByZone,
@@ -83,15 +91,18 @@ function RoomCard({
 
         {visibleAddons.length > 0 && (
           <div className="flex flex-wrap gap-1 py-0.5">
-            {visibleAddons.map((name, i) => (
-              <span
-                key={i}
-                className="inline-flex max-w-full items-center gap-1 rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800"
-              >
-                <Sparkles className="h-3 w-3 shrink-0" />
-                <span className="truncate">{name}</span>
-              </span>
-            ))}
+            {visibleAddons.map((name, i) => {
+              const Icon = getAddonIcon(name);
+              return (
+                <span
+                  key={i}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800"
+                >
+                  <Icon className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{name}</span>
+                </span>
+              );
+            })}
             {extraAddonCount > 0 && (
               <span className="inline-flex items-center rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800">
                 +{extraAddonCount}
