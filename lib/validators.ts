@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const bookingSourceEnum = z.enum(["WALK_IN", "AGODA", "PHONE", "OTHER"]);
+export const bookingSourceEnum = z.enum(["WALK_IN", "AGODA", "PHONE", "LINE_OA", "OTHER"]);
 export const accommodationStatusEnum = z.enum([
   "RESERVED",
   "CHECKED_IN",

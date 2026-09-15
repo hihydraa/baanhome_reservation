@@ -29,6 +29,7 @@ enum BookingSource {
   WALK_IN
   AGODA
   PHONE
+  LINE_OA
   OTHER
 }
 

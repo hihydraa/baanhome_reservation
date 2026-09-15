@@ -8,6 +8,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   WALK_IN: "Walk-in",
   AGODA: "Agoda",
   PHONE: "โทรศัพท์",
+  LINE_OA: "Line OA",
   OTHER: "อื่น ๆ",
 };
 
