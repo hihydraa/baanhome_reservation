@@ -3,24 +3,30 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ADDON_TYPE_LABELS } from "@/lib/labels";
 
 export type AddonFormValue = {
-  type: "EXTRA_BED" | "PET" | "BORROWED_ITEM";
+  serviceId: string | null;
   description: string;
   quantity: number;
   price: number;
 };
 
-const EMPTY_ADDON: AddonFormValue = { type: "EXTRA_BED", description: "", quantity: 1, price: 0 };
+export type ServiceOption = { id: string; name: string; price: number };
+
+const CUSTOM_VALUE = "__custom__";
+
+const EMPTY_ADDON: AddonFormValue = { serviceId: null, description: "", quantity: 1, price: 0 };
 
 export function AddonEditor({
   value,
   onChange,
+  services,
 }: {
   value: AddonFormValue[];
   onChange: (next: AddonFormValue[]) => void;
+  services: ServiceOption[];
 }) {
   function update(index: number, patch: Partial<AddonFormValue>) {
     onChange(value.map((a, i) => (i === index ? { ...a, ...patch } : a)));
@@ -30,8 +36,21 @@ export function AddonEditor({
     onChange(value.filter((_, i) => i !== index));
   }
 
+  function handleServiceChange(index: number, selected: string) {
+    if (selected === CUSTOM_VALUE) {
+      update(index, { serviceId: null });
+      return;
+    }
+    const service = services.find((s) => s.id === selected);
+    update(index, {
+      serviceId: selected,
+      price: service?.price ?? 0,
+      description: service?.name ?? "",
+    });
+  }
+
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-cream-200 bg-white p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-cream-200 bg-white p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-forest-800">บริการเพิ่มเติม</p>
         <Button
@@ -47,39 +66,70 @@ export function AddonEditor({
 
       {value.length === 0 && <p className="text-xs text-ink-400">ไม่มีบริการเพิ่มเติม</p>}
 
-      {value.map((addon, i) => (
-        <div key={i} className="grid grid-cols-[1fr_1.4fr_70px_90px_32px] items-end gap-2">
-          <Select value={addon.type} onChange={(e) => update(i, { type: e.target.value as AddonFormValue["type"] })}>
-            {Object.entries(ADDON_TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </Select>
-          <Input
-            placeholder="รายละเอียด"
-            value={addon.description}
-            onChange={(e) => update(i, { description: e.target.value })}
-          />
-          <Input
-            type="number"
-            min={1}
-            placeholder="จำนวน"
-            value={addon.quantity}
-            onChange={(e) => update(i, { quantity: Number(e.target.value) })}
-          />
-          <Input
-            type="number"
-            min={0}
-            placeholder="ราคา"
-            value={addon.price}
-            onChange={(e) => update(i, { price: Number(e.target.value) })}
-          />
-          <Button type="button" variant="ghost" size="icon" onClick={() => remove(i)}>
-            <Trash2 className="h-4 w-4 text-red-600" />
-          </Button>
-        </div>
-      ))}
+      {value.map((addon, i) => {
+        const subtotal = addon.quantity * addon.price;
+        return (
+          <div key={i} className="flex flex-col gap-2 rounded-md border border-cream-200 p-3">
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <Label className="text-xs text-ink-400">บริการ</Label>
+                <Select
+                  value={addon.serviceId ?? CUSTOM_VALUE}
+                  onChange={(e) => handleServiceChange(i, e.target.value)}
+                >
+                  {services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} — {s.price.toLocaleString("th-TH")} บาท
+                    </option>
+                  ))}
+                  <option value={CUSTOM_VALUE}>อื่น ๆ (ระบุเอง)</option>
+                </Select>
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="mt-5" onClick={() => remove(i)}>
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </Button>
+            </div>
+
+            {!addon.serviceId && (
+              <div>
+                <Label className="text-xs text-ink-400">รายละเอียด</Label>
+                <Input
+                  placeholder="ระบุรายละเอียดบริการ"
+                  value={addon.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                />
+              </div>
+            )}
+
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <Label className="text-xs text-ink-400">จำนวน</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={addon.quantity}
+                  onChange={(e) => update(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-ink-400">ราคา/หน่วย</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={addon.price}
+                  onChange={(e) => update(i, { price: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-ink-400">รวม</Label>
+                <div className="flex h-10 items-center rounded-md bg-cream-100 px-3 text-sm font-medium text-forest-800">
+                  {subtotal.toLocaleString("th-TH")}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

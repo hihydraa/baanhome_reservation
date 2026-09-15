@@ -14,14 +14,17 @@ import {
   defaultAccommodationFormValue,
   type AccommodationBookingFormValue,
 } from "@/components/accommodation/BookingForm";
+import type { ServiceOption } from "@/components/accommodation/AddonEditor";
 
 export function BookingFormDialog({
   resources,
+  services,
   open,
   onOpenChange,
   initialOverrides,
 }: {
   resources: { id: string; name: string; zone: string }[];
+  services: ServiceOption[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   initialOverrides?: Partial<AccommodationBookingFormValue>;
@@ -40,6 +43,7 @@ export function BookingFormDialog({
         </DialogHeader>
         <AccommodationBookingForm
           resources={resources}
+          services={services}
           initial={defaultAccommodationFormValue(initialOverrides)}
           onSaved={() => onOpenChange?.(false)}
         />

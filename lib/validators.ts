@@ -7,7 +7,6 @@ export const accommodationStatusEnum = z.enum([
   "CHECKED_OUT",
   "CANCELLED",
 ]);
-export const addonTypeEnum = z.enum(["EXTRA_BED", "PET", "BORROWED_ITEM"]);
 export const banquetEventTypeEnum = z.enum(["MEETING", "BANQUET", "SEMINAR", "OTHER"]);
 export const banquetStatusEnum = z.enum(["RESERVED", "CONFIRMED", "CANCELLED"]);
 export const paymentStatusEnum = z.enum(["PAID", "DEPOSIT", "PAY_LATER"]);
@@ -17,10 +16,15 @@ const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "รูปแบบว�
 const timeOnly = z.string().regex(/^\d{2}:\d{2}$/, "รูปแบบเวลาไม่ถูกต้อง");
 
 export const addonInputSchema = z.object({
-  type: addonTypeEnum,
+  serviceId: z.string().optional().nullable(),
   description: z.string().optional(),
   quantity: z.coerce.number().int().min(1).default(1),
   price: z.coerce.number().min(0).default(0),
+});
+
+export const specialServiceInputSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อบริการ"),
+  price: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
 });
 
 const paymentBaseObject = z.object({

@@ -19,12 +19,6 @@ export const ACCOMMODATION_STATUS_LABELS: Record<string, string> = {
   CANCELLED: "ยกเลิก",
 };
 
-export const ADDON_TYPE_LABELS: Record<string, string> = {
-  EXTRA_BED: "เตียงเสริม",
-  PET: "สัตว์เลี้ยง",
-  BORROWED_ITEM: "ของยืมเพิ่มเติม",
-};
-
 export const BANQUET_EVENT_TYPE_LABELS: Record<string, string> = {
   MEETING: "ประชุม",
   BANQUET: "จัดเลี้ยง",

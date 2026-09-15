@@ -53,6 +53,11 @@ const banquetResources = [
   { id: "banquet-vip-yai", name: "VIP ใหญ่", capacity: 50 },
 ];
 
+const specialServices = [
+  { name: "เตียงเสริม", price: 200 },
+  { name: "สัตว์เลี้ยง", price: 300 },
+];
+
 async function main() {
   for (const [index, r] of accommodationResources.entries()) {
     await prisma.resource.upsert({
@@ -80,6 +85,14 @@ async function main() {
         capacity: r.capacity,
         sortOrder: index,
       },
+    });
+  }
+
+  for (const s of specialServices) {
+    await prisma.specialService.upsert({
+      where: { name: s.name },
+      update: {},
+      create: { name: s.name, price: s.price },
     });
   }
 

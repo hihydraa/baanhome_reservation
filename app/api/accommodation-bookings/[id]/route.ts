@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         notes: data.notes,
         addons: {
           create: data.addons.map((a) => ({
-            type: a.type,
+            serviceId: a.serviceId || null,
             description: a.description,
             quantity: a.quantity,
             price: a.price,

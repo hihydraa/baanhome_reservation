@@ -13,12 +13,13 @@ export default async function AccommodationDetailPage({
 }) {
   const { id } = await params;
 
-  const [booking, resources] = await Promise.all([
+  const [booking, resources, services] = await Promise.all([
     prisma.accommodationBooking.findUnique({
       where: { id },
       include: { resource: true, addons: true, payment: true, createdBy: true },
     }),
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
+    prisma.specialService.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   if (!booking) notFound();
@@ -36,7 +37,7 @@ export default async function AccommodationDetailPage({
     notes: booking.notes ?? "",
     cancelReason: "",
     addons: booking.addons.map((a) => ({
-      type: a.type,
+      serviceId: a.serviceId,
       description: a.description ?? "",
       quantity: a.quantity,
       price: Number(a.price),
@@ -72,7 +73,11 @@ export default async function AccommodationDetailPage({
       </div>
 
       <div className="max-w-2xl">
-        <AccommodationBookingForm resources={resources} initial={initial} />
+        <AccommodationBookingForm
+          resources={resources}
+          services={services.map((s) => ({ ...s, price: Number(s.price) }))}
+          initial={initial}
+        />
       </div>
     </div>
   );

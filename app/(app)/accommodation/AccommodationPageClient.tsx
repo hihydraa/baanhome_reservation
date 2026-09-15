@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookingFormDialog } from "@/components/accommodation/BookingFormDialog";
+import type { ServiceOption } from "@/components/accommodation/AddonEditor";
 
 export function AccommodationPageClient({
   resources,
+  services,
 }: {
   resources: { id: string; name: string; zone: string }[];
+  services: ServiceOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -27,6 +30,7 @@ export function AccommodationPageClient({
   return (
     <BookingFormDialog
       resources={resources}
+      services={services}
       open={open}
       onOpenChange={handleOpenChange}
       initialOverrides={{

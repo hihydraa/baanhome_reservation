@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AddonEditor, type AddonFormValue } from "@/components/accommodation/AddonEditor";
+import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
 import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
@@ -55,11 +55,13 @@ export function defaultAccommodationFormValue(
 
 export function AccommodationBookingForm({
   resources,
+  services,
   initial,
   onSaved,
   onCancel,
 }: {
   resources: ResourceOption[];
+  services: ServiceOption[];
   initial: AccommodationBookingFormValue;
   onSaved?: () => void;
   onCancel?: () => void;
@@ -205,7 +207,7 @@ export function AccommodationBookingForm({
         )}
       </div>
 
-      <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} />
+      <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
 
       <PaymentPanel value={value.payment} onChange={(payment) => setValue({ ...value, payment })} />
 

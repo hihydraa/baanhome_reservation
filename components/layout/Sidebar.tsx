@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -50,18 +50,32 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
         })}
 
         {isAdmin && (
-          <Link
-            href="/users"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-              pathname.startsWith("/users")
-                ? "bg-gold-500 text-forest-900"
-                : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
-            )}
-          >
-            <Users className="h-4 w-4" />
-            จัดการผู้ใช้งาน
-          </Link>
+          <>
+            <Link
+              href="/special-services"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/special-services")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <Sparkles className="h-4 w-4" />
+              บริการพิเศษ
+            </Link>
+            <Link
+              href="/users"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/users")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <Users className="h-4 w-4" />
+              จัดการผู้ใช้งาน
+            </Link>
+          </>
         )}
       </nav>
 

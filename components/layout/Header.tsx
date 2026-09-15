@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -70,16 +70,28 @@ export function Header({
             );
           })}
           {isAdmin && (
-            <Link
-              href="/users"
-              className={cn(
-                "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
-                pathname.startsWith("/users") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
-              )}
-            >
-              <Users className="h-3.5 w-3.5" />
-              ผู้ใช้งาน
-            </Link>
+            <>
+              <Link
+                href="/special-services"
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+                  pathname.startsWith("/special-services") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                บริการพิเศษ
+              </Link>
+              <Link
+                href="/users"
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+                  pathname.startsWith("/users") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+                )}
+              >
+                <Users className="h-3.5 w-3.5" />
+                ผู้ใช้งาน
+              </Link>
+            </>
           )}
         </nav>
       )}

@@ -40,12 +40,6 @@ enum AccommodationStatus {
   CANCELLED
 }
 
-enum AddonType {
-  EXTRA_BED
-  PET
-  BORROWED_ITEM
-}
-
 enum BanquetEventType {
   MEETING
   BANQUET
@@ -126,11 +120,22 @@ model AccommodationBooking {
   @@index([resourceId, checkIn, checkOut])
 }
 
+model SpecialService {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addons AccommodationAddon[]
+}
+
 model AccommodationAddon {
   id          String               @id @default(cuid())
   bookingId   String
   booking     AccommodationBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  type        AddonType
+  serviceId   String?
+  service     SpecialService?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   description String?
   quantity    Int                  @default(1)
   price       Decimal              @default(0) @db.Decimal(10, 2)
