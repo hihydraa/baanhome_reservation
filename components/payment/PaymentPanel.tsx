@@ -47,7 +47,6 @@ export function PaymentPanel({
           <Label>มัดจำ (บาท)</Label>
           <Input
             type="number"
-            required
             min={0}
             step="0.01"
             value={value.depositAmount === 0 ? "" : value.depositAmount}
@@ -58,7 +57,6 @@ export function PaymentPanel({
           <Label>จ่ายแล้ว (บาท)</Label>
           <Input
             type="number"
-            required
             min={0}
             step="0.01"
             value={value.totalAmount === 0 ? "" : value.totalAmount}
