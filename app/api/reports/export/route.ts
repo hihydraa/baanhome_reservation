@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, errorResponse } from "@/lib/api-helpers";
+import { requireStaffAccess, errorResponse } from "@/lib/api-helpers";
 import { parseDateOnly, formatTime, toDateOnlyString } from "@/lib/dates";
 import {
   SOURCE_LABELS,
@@ -23,7 +23,7 @@ function csvRow(fields: (string | number)[]): string {
 }
 
 export async function GET(req: NextRequest) {
-  const { response } = await requireAdmin();
+  const { response } = await requireStaffAccess();
   if (response) return response;
 
   const fromParam = req.nextUrl.searchParams.get("from");

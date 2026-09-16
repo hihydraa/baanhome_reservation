@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, Sparkles } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, Sparkles, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -13,6 +13,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/accommodation", label: "ห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "ห้องจัดเลี้ยง", icon: CalendarClock },
   { href: "/cancellations", label: "ประวัติยกเลิก", icon: History },
+  { href: "/reports", label: "รายงาน", icon: BarChart3 },
 ];
 
 export function Header({

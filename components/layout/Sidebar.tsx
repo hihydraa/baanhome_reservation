@@ -49,6 +49,21 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
           );
         })}
 
+        {!isHousekeeper && (
+          <Link
+            href="/reports"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/reports")
+                ? "bg-gold-500 text-forest-900"
+                : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+            )}
+          >
+            <BarChart3 className="h-4 w-4" />
+            รายงาน
+          </Link>
+        )}
+
         {isAdmin && (
           <>
             <Link
@@ -62,18 +77,6 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
             >
               <Sparkles className="h-4 w-4" />
               บริการพิเศษ
-            </Link>
-            <Link
-              href="/reports"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/reports")
-                  ? "bg-gold-500 text-forest-900"
-                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
-              )}
-            >
-              <BarChart3 className="h-4 w-4" />
-              รายงาน
             </Link>
             <Link
               href="/users"
