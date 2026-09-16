@@ -75,7 +75,7 @@ export default async function AccommodationDetailPage({
 
       <div className="max-w-2xl">
         <AccommodationBookingForm
-          resources={resources}
+          resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
           services={services.map((s) => ({ ...s, price: Number(s.price) }))}
           initial={initial}
         />

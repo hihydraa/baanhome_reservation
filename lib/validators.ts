@@ -99,6 +99,16 @@ export const banquetBookingInputSchema = z
     path: ["endTime"],
   });
 
+export const resourcePricingInputSchema = z.object({
+  price: z.coerce.number().min(0).optional().nullable(),
+  hourlyPrice: z.coerce.number().min(0).optional().nullable(),
+  dailyPrice: z.coerce.number().min(0).optional().nullable(),
+  capacity: z.coerce.number().int().min(0).optional().nullable(),
+  roomType: z.string().optional().nullable(),
+  priceCondition: z.string().optional().nullable(),
+  equipment: z.string().optional().nullable(),
+});
+
 export const checkConflictInputSchema = z.object({
   resourceId: z.string().min(1),
   eventDate: dateOnly,

@@ -9,7 +9,7 @@ export function AccommodationPageClient({
   resources,
   services,
 }: {
-  resources: { id: string; name: string; zone: string }[];
+  resources: { id: string; name: string; zone: string; price: number | null }[];
   services: ServiceOption[];
 }) {
   const router = useRouter();

@@ -1,6 +1,8 @@
 /**
- * Reference price list for accommodation rooms and banquet rooms.
- * Sourced from the resort's official rate sheet; update here when rates change.
+ * Seed defaults for accommodation and banquet room pricing, sourced from the resort's
+ * official rate sheet. Only used to bootstrap `Resource.price`/`hourlyPrice`/etc. on first
+ * seed (see prisma/seed.ts) — the live, editable numbers live in the database from then on
+ * (edited via the "ราคาห้องพัก / ห้องจัดเลี้ยง" page), not here.
  */
 
 export type AccommodationPriceRow = {
@@ -8,11 +10,6 @@ export type AccommodationPriceRow = {
   name: string;
   price: number;
 };
-
-/** Standard rate for a room by name, or null if the room isn't on the rate sheet. */
-export function getAccommodationPrice(roomName: string): number | null {
-  return ACCOMMODATION_PRICE_LIST.find((r) => r.name === roomName)?.price ?? null;
-}
 
 export const ACCOMMODATION_PRICE_LIST: AccommodationPriceRow[] = [
   { zone: "RESORT", name: "ห้อง 1 เล็ก", price: 590 },
@@ -92,19 +89,3 @@ export const BANQUET_PRICE_LIST: BanquetPriceRow[] = [
   },
 ];
 
-export type AdditionalChargeRow = {
-  name: string;
-  price: string;
-  unit: string;
-};
-
-export const ADDITIONAL_CHARGE_LIST: AdditionalChargeRow[] = [
-  { name: "สัตว์เลี้ยง", price: "200", unit: "ตัว" },
-  { name: "เตียงเสริม", price: "200", unit: "เตียง" },
-  { name: "ค่าบริการซักผ้า", price: "ระบุเอง", unit: "งาน" },
-  { name: "หมอนเพิ่ม", price: "20", unit: "ใบ" },
-  { name: "ค่าต่อชั่วโมงห้องพักรีสอร์ท", price: "100", unit: "บาท" },
-  { name: "ค่าต่อชั่วโมงห้องพักพูลวิลล่า", price: "100", unit: "บาท" },
-  { name: "ค่าปรับ", price: "ระบุเอง", unit: "บาท" },
-  { name: "ผ้าห่มเพิ่ม", price: "50", unit: "บาท" },
-];

@@ -1,15 +1,13 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { AccommodationPriceTable } from "@/components/pricing/AccommodationPriceTable";
+import { BanquetPriceManager } from "@/components/pricing/BanquetPriceManager";
+import { SpecialServiceManager } from "@/components/special-services/SpecialServiceManager";
 import { ZONE_LABELS } from "@/lib/labels";
-import {
-  ACCOMMODATION_PRICE_LIST,
-  ACCOMMODATION_SALE_PRICES,
-  BANQUET_PRICE_LIST,
-  ADDITIONAL_CHARGE_LIST,
-} from "@/lib/pricing";
+import { ACCOMMODATION_SALE_PRICES } from "@/lib/pricing";
 
 export default async function PricingPage() {
   const session = await auth();
@@ -17,13 +15,27 @@ export default async function PricingPage() {
     redirect("/dashboard");
   }
 
+  const [accommodationResources, banquetResources, services] = await Promise.all([
+    prisma.resource.findMany({
+      where: { type: "ACCOMMODATION" },
+      orderBy: [{ zone: "asc" }, { sortOrder: "asc" }],
+    }),
+    prisma.resource.findMany({
+      where: { type: "BANQUET" },
+      orderBy: [{ sortOrder: "asc" }],
+    }),
+    prisma.specialService.findMany({ orderBy: { name: "asc" } }),
+  ]);
+
   const zones = ["RESORT", "POOL_VILLA"] as const;
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold text-forest-800">ราคาห้องพัก / ห้องจัดเลี้ยง</h1>
-        <p className="text-sm text-ink-600">อัตราค่าห้องพักและห้องจัดเลี้ยงมาตรฐาน สำหรับใช้อ้างอิงเมื่อแจ้งราคาลูกค้า</p>
+        <p className="text-sm text-ink-600">
+          แก้ไขราคาได้โดยตรง สำหรับใช้อ้างอิงและคำนวณเมื่อจองห้อง
+        </p>
       </div>
 
       <Tabs defaultValue="accommodation">
@@ -35,29 +47,14 @@ export default async function PricingPage() {
 
         <TabsContent value="accommodation" className="flex flex-col gap-6">
           {zones.map((zone) => {
-            const rows = ACCOMMODATION_PRICE_LIST.filter((r) => r.zone === zone);
+            const rows = accommodationResources
+              .filter((r) => r.zone === zone)
+              .map((r) => ({ id: r.id, name: r.name, price: r.price != null ? Number(r.price) : null }));
             if (rows.length === 0) return null;
             return (
               <div key={zone} className="flex flex-col gap-2">
                 <h2 className="text-sm font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h2>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ห้อง</TableHead>
-                      <TableHead>ราคาห้องพัก (บาท/คืน)</TableHead>
-                      <TableHead>Agoda</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r) => (
-                      <TableRow key={r.name}>
-                        <TableCell className="font-medium">{r.name}</TableCell>
-                        <TableCell>{r.price.toLocaleString("th-TH")}</TableCell>
-                        <TableCell className="text-ink-400">ระบุเอง</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <AccommodationPriceTable rows={rows} />
               </div>
             );
           })}
@@ -88,55 +85,25 @@ export default async function PricingPage() {
         </TabsContent>
 
         <TabsContent value="banquet">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>ห้อง</TableHead>
-                <TableHead>ประเภท</TableHead>
-                <TableHead>รองรับสูงสุด</TableHead>
-                <TableHead>ราคา/ชั่วโมง</TableHead>
-                <TableHead>ราคาเหมาทั้งวัน</TableHead>
-                <TableHead>เงื่อนไขพิเศษ</TableHead>
-                <TableHead>อุปกรณ์หลัก</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {BANQUET_PRICE_LIST.map((r) => (
-                <TableRow key={r.name}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{r.type}</Badge>
-                  </TableCell>
-                  <TableCell>{r.maxCapacity} คน</TableCell>
-                  <TableCell>{r.hourlyPrice.toLocaleString("th-TH")} บาท</TableCell>
-                  <TableCell>{r.dailyPrice.toLocaleString("th-TH")} บาท</TableCell>
-                  <TableCell className="max-w-xs text-sm text-ink-600">{r.condition || "-"}</TableCell>
-                  <TableCell className="max-w-xs text-sm text-ink-600">{r.equipment}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <BanquetPriceManager
+            rows={banquetResources.map((r) => ({
+              id: r.id,
+              name: r.name,
+              roomType: r.roomType,
+              capacity: r.capacity,
+              hourlyPrice: r.hourlyPrice != null ? Number(r.hourlyPrice) : null,
+              dailyPrice: r.dailyPrice != null ? Number(r.dailyPrice) : null,
+              priceCondition: r.priceCondition,
+              equipment: r.equipment,
+            }))}
+          />
         </TabsContent>
 
-        <TabsContent value="extra">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>รายการ</TableHead>
-                <TableHead>ราคา</TableHead>
-                <TableHead>หน่วย</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ADDITIONAL_CHARGE_LIST.map((r) => (
-                <TableRow key={r.name}>
-                  <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{r.price === "ระบุเอง" ? r.price : `${r.price} บาท`}</TableCell>
-                  <TableCell className="text-ink-600">{r.unit}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <TabsContent value="extra" className="flex flex-col gap-4">
+          <p className="text-sm text-ink-600">
+            กำหนดชื่อและราคาบริการเสริม เมื่อจองห้องพักแล้วเลือกบริการนี้ ราคาจะถูกดึงมาให้อัตโนมัติ
+          </p>
+          <SpecialServiceManager services={services.map((s) => ({ ...s, price: Number(s.price) }))} />
         </TabsContent>
       </Tabs>
     </div>

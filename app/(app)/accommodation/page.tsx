@@ -23,7 +23,7 @@ export default async function AccommodationPage() {
         <h1 className="text-xl font-semibold text-forest-800">จองห้องพัก</h1>
         <Suspense>
           <AccommodationPageClient
-            resources={resources}
+            resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
             services={services.map((s) => ({ ...s, price: Number(s.price) }))}
           />
         </Suspense>

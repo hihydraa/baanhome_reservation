@@ -25,7 +25,7 @@ export function BookingFormDialog({
   onOpenChange,
   initialOverrides,
 }: {
-  resources: { id: string; name: string; zone: string }[];
+  resources: { id: string; name: string; zone: string; price: number | null }[];
   services: ServiceOption[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;

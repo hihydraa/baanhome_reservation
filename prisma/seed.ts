@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import { ACCOMMODATION_PRICE_LIST, BANQUET_PRICE_LIST } from "../lib/pricing";
 
 const prisma = new PrismaClient();
 
@@ -53,13 +54,30 @@ const banquetResources = [
   { id: "banquet-vip-yai", name: "VIP ใหญ่", capacity: 50 },
 ];
 
+function accommodationPriceFor(name: string): number | undefined {
+  return ACCOMMODATION_PRICE_LIST.find((r) => r.name === name)?.price;
+}
+
+function banquetPriceFor(name: string) {
+  return BANQUET_PRICE_LIST.find((r) => r.name === name);
+}
+
+// Merged "ค่าบริการเพิ่มเติม" / "บริการพิเศษ" catalog — editable afterwards from the pricing page.
+// Existing rows are never overwritten (see the upsert below), so an admin's edited price sticks.
 const specialServices = [
   { name: "เตียงเสริม", price: 200 },
   { name: "สัตว์เลี้ยง", price: 300 },
+  { name: "ค่าบริการซักผ้า", price: 0 },
+  { name: "หมอนเพิ่ม", price: 20 },
+  { name: "ค่าต่อชั่วโมงห้องพักรีสอร์ท", price: 100 },
+  { name: "ค่าต่อชั่วโมงห้องพักพูลวิลล่า", price: 100 },
+  { name: "ค่าปรับ", price: 0 },
+  { name: "ผ้าห่มเพิ่ม", price: 50 },
 ];
 
 async function main() {
   for (const [index, r] of accommodationResources.entries()) {
+    const price = accommodationPriceFor(r.name);
     await prisma.resource.upsert({
       where: { id: r.id },
       update: { name: r.name, zone: r.zone, sortOrder: index },
@@ -69,11 +87,17 @@ async function main() {
         zone: r.zone,
         type: "ACCOMMODATION",
         sortOrder: index,
+        price,
       },
     });
+    // Backfill the rate-sheet price only if it has never been set — never overwrite an admin's edit.
+    if (price != null) {
+      await prisma.resource.updateMany({ where: { id: r.id, price: null }, data: { price } });
+    }
   }
 
   for (const [index, r] of banquetResources.entries()) {
+    const priceInfo = banquetPriceFor(r.name);
     await prisma.resource.upsert({
       where: { id: r.id },
       update: { name: r.name, capacity: r.capacity, sortOrder: index },
@@ -84,8 +108,26 @@ async function main() {
         type: "BANQUET",
         capacity: r.capacity,
         sortOrder: index,
+        hourlyPrice: priceInfo?.hourlyPrice,
+        dailyPrice: priceInfo?.dailyPrice,
+        roomType: priceInfo?.type,
+        priceCondition: priceInfo?.condition,
+        equipment: priceInfo?.equipment,
       },
     });
+    // Backfill the rate-sheet pricing only if it has never been set — never overwrite an admin's edit.
+    if (priceInfo) {
+      await prisma.resource.updateMany({
+        where: { id: r.id, hourlyPrice: null },
+        data: {
+          hourlyPrice: priceInfo.hourlyPrice,
+          dailyPrice: priceInfo.dailyPrice,
+          roomType: priceInfo.type,
+          priceCondition: priceInfo.condition,
+          equipment: priceInfo.equipment,
+        },
+      });
+    }
   }
 
   for (const s of specialServices) {

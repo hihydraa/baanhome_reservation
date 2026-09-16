@@ -90,6 +90,18 @@ model Resource {
   capacity  Int?
   sortOrder Int          @default(0)
 
+  /** Accommodation: standard nightly rate. */
+  price Decimal? @db.Decimal(10, 2)
+
+  /** Banquet: rate per hour and full-day charter rate. */
+  hourlyPrice Decimal? @db.Decimal(10, 2)
+  dailyPrice  Decimal? @db.Decimal(10, 2)
+
+  /** Banquet: display category (e.g. "VIP เล็ก"), special pricing condition, and main equipment. */
+  roomType       String?
+  priceCondition String?
+  equipment      String?
+
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
 

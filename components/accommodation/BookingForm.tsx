@@ -13,9 +13,8 @@ import { PaymentPanel, type PaymentFormValue } from "@/components/payment/Paymen
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
-import { getAccommodationPrice } from "@/lib/pricing";
 
-type ResourceOption = { id: string; name: string; zone: string };
+type ResourceOption = { id: string; name: string; zone: string; price: number | null };
 
 export type AccommodationBookingFormValue = {
   id?: string;
@@ -73,8 +72,7 @@ export function AccommodationBookingForm({
   const { showToast } = useToast();
 
   function priceForResource(resourceId: string): number | null {
-    const resource = resources.find((r) => r.id === resourceId);
-    return resource ? getAccommodationPrice(resource.name) : null;
+    return resources.find((r) => r.id === resourceId)?.price ?? null;
   }
 
   const [value, setValue] = useState(() => {
