@@ -13,6 +13,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/accommodation", label: "ห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "ห้องจัดเลี้ยง", icon: CalendarClock },
   { href: "/cancellations", label: "ประวัติยกเลิก", icon: History },
+  { href: "/special-services", label: "บริการพิเศษ", icon: Sparkles },
   { href: "/reports", label: "รายงาน", icon: BarChart3 },
 ];
 
@@ -71,28 +72,16 @@ export function Header({
             );
           })}
           {isAdmin && (
-            <>
-              <Link
-                href="/special-services"
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
-                  pathname.startsWith("/special-services") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
-                )}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                บริการพิเศษ
-              </Link>
-              <Link
-                href="/users"
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
-                  pathname.startsWith("/users") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
-                )}
-              >
-                <Users className="h-3.5 w-3.5" />
-                ผู้ใช้งาน
-              </Link>
-            </>
+            <Link
+              href="/users"
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+                pathname.startsWith("/users") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+              )}
+            >
+              <Users className="h-3.5 w-3.5" />
+              ผู้ใช้งาน
+            </Link>
           )}
         </nav>
       )}

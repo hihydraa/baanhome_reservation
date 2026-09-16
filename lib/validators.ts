@@ -56,6 +56,26 @@ export const accommodationBookingInputSchema = z
     path: ["checkOut"],
   });
 
+export const accommodationChargeScopeEnum = z.enum(["RESORT", "POOL_VILLA", "ALL"]);
+
+export const accommodationBulkBookingInputSchema = z
+  .object({
+    scope: accommodationChargeScopeEnum,
+    customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
+    phone: z.string().min(1, "กรุณากรอกเบอร์โทรศัพท์"),
+    source: bookingSourceEnum.default("WALK_IN"),
+    checkIn: dateOnly,
+    checkOut: dateOnly,
+    guestCount: z.coerce.number().int().min(1).default(1),
+    status: accommodationStatusEnum.default("RESERVED"),
+    notes: z.string().optional(),
+    payment: paymentInputSchema,
+  })
+  .refine((b) => b.checkOut > b.checkIn, {
+    message: "วันที่เช็คเอาท์ต้องอยู่หลังวันที่เช็คอิน",
+    path: ["checkOut"],
+  });
+
 export const banquetBookingInputSchema = z
   .object({
     resourceId: z.string().min(1, "กรุณาเลือกห้อง"),

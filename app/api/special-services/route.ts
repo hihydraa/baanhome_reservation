@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireAdmin, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { specialServiceInputSchema } from "@/lib/validators";
 
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { response } = await requireAdmin();
+  const { response } = await requireWriteAccess();
   if (response) return response;
 
   const body = await req.json();

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { specialServiceInputSchema } from "@/lib/validators";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { response } = await requireAdmin();
+  const { response } = await requireWriteAccess();
   if (response) return response;
 
   const { id } = await params;
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { response } = await requireAdmin();
+  const { response } = await requireWriteAccess();
   if (response) return response;
 
   const { id } = await params;

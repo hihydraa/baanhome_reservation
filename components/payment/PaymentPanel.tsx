@@ -33,8 +33,8 @@ export function PaymentPanel({
             required
             min={0}
             step="0.01"
-            value={value.depositAmount}
-            onChange={(e) => onChange({ ...value, depositAmount: Number(e.target.value) })}
+            value={value.depositAmount === 0 ? "" : value.depositAmount}
+            onChange={(e) => onChange({ ...value, depositAmount: e.target.value === "" ? 0 : Number(e.target.value) })}
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -44,8 +44,8 @@ export function PaymentPanel({
             required
             min={0}
             step="0.01"
-            value={value.totalAmount}
-            onChange={(e) => onChange({ ...value, totalAmount: Number(e.target.value) })}
+            value={value.totalAmount === 0 ? "" : value.totalAmount}
+            onChange={(e) => onChange({ ...value, totalAmount: e.target.value === "" ? 0 : Number(e.target.value) })}
           />
         </div>
       </div>
