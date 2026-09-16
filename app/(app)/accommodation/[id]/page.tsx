@@ -33,6 +33,7 @@ export default async function AccommodationDetailPage({
     checkIn: toDateOnlyString(booking.checkIn),
     checkOut: toDateOnlyString(booking.checkOut),
     guestCount: booking.guestCount,
+    roomPrice: booking.roomPrice != null ? Number(booking.roomPrice) : 0,
     status: booking.status,
     notes: booking.notes ?? "",
     cancelReason: "",

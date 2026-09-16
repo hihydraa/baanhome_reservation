@@ -106,6 +106,7 @@ model AccommodationBooking {
   checkIn      DateTime
   checkOut     DateTime
   guestCount   Int                 @default(1)
+  roomPrice    Decimal?            @db.Decimal(10, 2)
   status       AccommodationStatus @default(RESERVED)
   notes        String?
   createdById  String?

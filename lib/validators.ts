@@ -45,6 +45,7 @@ export const accommodationBookingInputSchema = z
     checkIn: dateOnly,
     checkOut: dateOnly,
     guestCount: z.coerce.number().int().min(1).default(1),
+    roomPrice: z.coerce.number().min(0).optional().nullable(),
     status: accommodationStatusEnum.default("RESERVED"),
     notes: z.string().optional(),
     cancelReason: z.string().optional(),

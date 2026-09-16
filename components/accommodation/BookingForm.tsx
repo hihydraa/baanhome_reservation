@@ -13,6 +13,7 @@ import { PaymentPanel, type PaymentFormValue } from "@/components/payment/Paymen
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
+import { getAccommodationPrice } from "@/lib/pricing";
 
 type ResourceOption = { id: string; name: string; zone: string };
 
@@ -25,6 +26,7 @@ export type AccommodationBookingFormValue = {
   checkIn: string;
   checkOut: string;
   guestCount: number;
+  roomPrice: number;
   status: string;
   notes: string;
   cancelReason: string;
@@ -44,6 +46,7 @@ export function defaultAccommodationFormValue(
     checkIn: today,
     checkOut: today,
     guestCount: 1,
+    roomPrice: 0,
     status: "RESERVED",
     notes: "",
     cancelReason: "",
@@ -68,9 +71,41 @@ export function AccommodationBookingForm({
 }) {
   const router = useRouter();
   const { showToast } = useToast();
-  const [value, setValue] = useState(initial);
+
+  function priceForResource(resourceId: string): number | null {
+    const resource = resources.find((r) => r.id === resourceId);
+    return resource ? getAccommodationPrice(resource.name) : null;
+  }
+
+  const [value, setValue] = useState(() => {
+    // Only guess a starting price for a brand-new booking pre-filled with a room (e.g. from the
+    // dashboard's "จองห้องนี้" link) — never overwrite an existing booking's saved price on load.
+    if (!initial.id && initial.resourceId && !initial.roomPrice && initial.source !== "AGODA") {
+      const price = priceForResource(initial.resourceId);
+      if (price != null) return { ...initial, roomPrice: price };
+    }
+    return initial;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function handleResourceChange(resourceId: string) {
+    if (value.source === "AGODA") {
+      setValue({ ...value, resourceId });
+      return;
+    }
+    const price = priceForResource(resourceId);
+    setValue({ ...value, resourceId, roomPrice: price ?? value.roomPrice });
+  }
+
+  function handleSourceChange(source: string) {
+    if (source === "AGODA") {
+      setValue({ ...value, source, roomPrice: 0 });
+      return;
+    }
+    const price = priceForResource(value.resourceId);
+    setValue({ ...value, source, roomPrice: price ?? value.roomPrice });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,11 +139,7 @@ export function AccommodationBookingForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 flex flex-col gap-1.5">
           <Label>ห้องพัก</Label>
-          <Select
-            required
-            value={value.resourceId}
-            onChange={(e) => setValue({ ...value, resourceId: e.target.value })}
-          >
+          <Select required value={value.resourceId} onChange={(e) => handleResourceChange(e.target.value)}>
             <option value="">เลือกห้อง</option>
             {resources.map((r) => (
               <option key={r.id} value={r.id}>
@@ -116,6 +147,17 @@ export function AccommodationBookingForm({
               </option>
             ))}
           </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>ราคาห้องพัก (บาท/คืน){value.source === "AGODA" && <span className="text-ink-400"> — กรอกเอง</span>}</Label>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={value.roomPrice === 0 ? "" : value.roomPrice}
+            onChange={(e) => setValue({ ...value, roomPrice: e.target.value === "" ? 0 : Number(e.target.value) })}
+          />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -137,7 +179,7 @@ export function AccommodationBookingForm({
 
         <div className="flex flex-col gap-1.5">
           <Label>ช่องทางการจอง</Label>
-          <Select value={value.source} onChange={(e) => setValue({ ...value, source: e.target.value })}>
+          <Select value={value.source} onChange={(e) => handleSourceChange(e.target.value)}>
             {Object.entries(SOURCE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}

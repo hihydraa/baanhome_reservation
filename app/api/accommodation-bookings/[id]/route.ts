@@ -70,6 +70,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         checkIn,
         checkOut,
         guestCount: data.guestCount,
+        roomPrice: data.roomPrice ?? null,
         status: data.status,
         notes: data.notes,
         addons: {

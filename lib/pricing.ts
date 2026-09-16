@@ -9,6 +9,11 @@ export type AccommodationPriceRow = {
   price: number;
 };
 
+/** Standard rate for a room by name, or null if the room isn't on the rate sheet. */
+export function getAccommodationPrice(roomName: string): number | null {
+  return ACCOMMODATION_PRICE_LIST.find((r) => r.name === roomName)?.price ?? null;
+}
+
 export const ACCOMMODATION_PRICE_LIST: AccommodationPriceRow[] = [
   { zone: "RESORT", name: "ห้อง 1 เล็ก", price: 590 },
   { zone: "RESORT", name: "ห้อง 2 เล็ก", price: 590 },

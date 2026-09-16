@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
       checkIn,
       checkOut,
       guestCount: data.guestCount,
+      roomPrice: data.roomPrice ?? null,
       status: data.status,
       notes: data.notes,
       createdById: session!.user.id,
