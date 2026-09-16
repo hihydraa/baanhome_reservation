@@ -76,7 +76,15 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <div className="max-w-2xl">
-        <BanquetForm resources={resources} accommodationOptions={accommodationOptions} initialOverrides={initial} />
+        <BanquetForm
+          resources={resources.map((r) => ({
+            ...r,
+            hourlyPrice: r.hourlyPrice != null ? Number(r.hourlyPrice) : null,
+            dailyPrice: r.dailyPrice != null ? Number(r.dailyPrice) : null,
+          }))}
+          accommodationOptions={accommodationOptions}
+          initialOverrides={initial}
+        />
       </div>
     </div>
   );

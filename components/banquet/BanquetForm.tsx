@@ -14,7 +14,7 @@ import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
 
-type ResourceOption = { id: string; name: string };
+type ResourceOption = { id: string; name: string; hourlyPrice: number | null; dailyPrice: number | null };
 type AccommodationOption = { id: string; label: string };
 
 export type BanquetFormValue = {
@@ -108,6 +108,7 @@ export function BanquetForm({
   }, [hasAllFields, value.resourceId, value.eventDate, value.startTime, value.endTime, value.id]);
 
   const activeConflict = hasAllFields ? conflict : null;
+  const selectedResource = resources.find((r) => r.id === value.resourceId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -285,7 +286,24 @@ export function BanquetForm({
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}
       <ConflictBanner conflict={activeConflict} />
 
-      <PaymentPanel value={value.payment} onChange={(payment) => setValue({ ...value, payment })} />
+      <PaymentPanel
+        value={value.payment}
+        onChange={(payment) => setValue({ ...value, payment })}
+        referenceItems={
+          selectedResource
+            ? [
+                {
+                  label: "ราคา/ชั่วโมง",
+                  value: selectedResource.hourlyPrice != null ? `${selectedResource.hourlyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ",
+                },
+                {
+                  label: "ราคาเหมาทั้งวัน",
+                  value: selectedResource.dailyPrice != null ? `${selectedResource.dailyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ",
+                },
+              ]
+            : undefined
+        }
+      />
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

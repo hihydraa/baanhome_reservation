@@ -249,7 +249,16 @@ export function AccommodationBookingForm({
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
 
-      <PaymentPanel value={value.payment} onChange={(payment) => setValue({ ...value, payment })} />
+      <PaymentPanel
+        value={value.payment}
+        onChange={(payment) => setValue({ ...value, payment })}
+        referenceItems={[
+          {
+            label: "ราคาห้องพัก (บาท/คืน)",
+            value: value.roomPrice > 0 ? value.roomPrice.toLocaleString("th-TH") : "ยังไม่ระบุ",
+          },
+        ]}
+      />
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

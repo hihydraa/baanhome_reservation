@@ -13,18 +13,35 @@ export type PaymentFormValue = {
   notes: string;
 };
 
+export type PaymentReferenceItem = { label: string; value: string };
+
 export function PaymentPanel({
   value,
   onChange,
+  referenceItems,
 }: {
   value: PaymentFormValue;
   onChange: (next: PaymentFormValue) => void;
+  /** Reference prices pulled from elsewhere (e.g. the room rate sheet) — shown read-only for staff to check against. */
+  referenceItems?: PaymentReferenceItem[];
 }) {
   const netTotal = value.depositAmount + value.totalAmount;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-cream-200 bg-white p-4">
       <p className="text-sm font-semibold text-forest-800">การชำระเงิน</p>
+
+      {referenceItems && referenceItems.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-gold-100 px-3 py-2 text-sm">
+          {referenceItems.map((item) => (
+            <span key={item.label}>
+              <span className="text-ink-600">{item.label}: </span>
+              <span className="font-semibold text-forest-800">{item.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label>มัดจำ (บาท)</Label>

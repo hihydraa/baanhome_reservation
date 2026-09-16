@@ -36,7 +36,11 @@ export default async function NewBanquetBookingPage({
       <h1 className="text-xl font-semibold text-forest-800">จองห้องจัดเลี้ยงใหม่</h1>
 
       <BanquetForm
-        resources={resources}
+        resources={resources.map((r) => ({
+          ...r,
+          hourlyPrice: r.hourlyPrice != null ? Number(r.hourlyPrice) : null,
+          dailyPrice: r.dailyPrice != null ? Number(r.dailyPrice) : null,
+        }))}
         accommodationOptions={accommodationOptions}
         initialOverrides={{
           ...(resourceId ? { resourceId } : {}),
