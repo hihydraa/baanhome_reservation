@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import type { PaymentStatus } from "@prisma/client";
 
 export function monthRange(monthStr: string): { start: Date; end: Date; days: number } {
   const [y, m] = monthStr.split("-").map(Number);
@@ -61,11 +60,10 @@ export async function getOccupancySummary(monthStr: string): Promise<ZoneOccupan
   });
 }
 
-function collectedAmount(payment: { status: PaymentStatus; totalAmount: unknown; depositAmount: unknown } | null) {
+/** Net amount actually paid for a booking: มัดจำ + จ่ายแล้ว. */
+function netPaidAmount(payment: { totalAmount: unknown; depositAmount: unknown } | null) {
   if (!payment) return 0;
-  if (payment.status === "PAID") return Number(payment.totalAmount);
-  if (payment.status === "DEPOSIT") return Number(payment.depositAmount);
-  return 0;
+  return Number(payment.depositAmount) + Number(payment.totalAmount);
 }
 
 export type MonthlySummary = {
@@ -81,7 +79,6 @@ export type MonthlySummary = {
   };
   revenue: {
     collected: number;
-    outstanding: number;
   };
 };
 
@@ -100,7 +97,6 @@ export async function getMonthlySummary(monthStr: string): Promise<MonthlySummar
   ]);
 
   let collected = 0;
-  let outstanding = 0;
   const bySourceMap = new Map<string, number>();
   let accCancelled = 0;
 
@@ -110,10 +106,7 @@ export async function getMonthlySummary(monthStr: string): Promise<MonthlySummar
       continue;
     }
     bySourceMap.set(b.source, (bySourceMap.get(b.source) ?? 0) + 1);
-    const total = Number(b.payment?.totalAmount ?? 0);
-    const got = collectedAmount(b.payment);
-    collected += got;
-    outstanding += Math.max(0, total - got);
+    collected += netPaidAmount(b.payment);
   }
 
   let banquetCancelled = 0;
@@ -124,10 +117,7 @@ export async function getMonthlySummary(monthStr: string): Promise<MonthlySummar
       continue;
     }
     bookedHours += (b.endTime.getTime() - b.startTime.getTime()) / 3_600_000;
-    const total = Number(b.payment?.totalAmount ?? 0);
-    const got = collectedAmount(b.payment);
-    collected += got;
-    outstanding += Math.max(0, total - got);
+    collected += netPaidAmount(b.payment);
   }
 
   return {
@@ -141,7 +131,7 @@ export async function getMonthlySummary(monthStr: string): Promise<MonthlySummar
       cancelled: banquetCancelled,
       bookedHours,
     },
-    revenue: { collected, outstanding },
+    revenue: { collected },
   };
 }
 

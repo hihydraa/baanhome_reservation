@@ -20,16 +20,17 @@ export function PaymentPanel({
   value: PaymentFormValue;
   onChange: (next: PaymentFormValue) => void;
 }) {
-  const balance = Math.max(0, value.totalAmount - value.depositAmount);
+  const netTotal = value.depositAmount + value.totalAmount;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-cream-200 bg-white p-4">
       <p className="text-sm font-semibold text-forest-800">การชำระเงิน</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label>ยอดมัดจำ (บาท)</Label>
+          <Label>มัดจำ (บาท)</Label>
           <Input
             type="number"
+            required
             min={0}
             step="0.01"
             value={value.depositAmount}
@@ -37,9 +38,10 @@ export function PaymentPanel({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label>ยอดรวมทั้งหมด (บาท)</Label>
+          <Label>จ่ายแล้ว (บาท)</Label>
           <Input
             type="number"
+            required
             min={0}
             step="0.01"
             value={value.totalAmount}
@@ -52,11 +54,11 @@ export function PaymentPanel({
         <span className="text-ink-600">มัดจำ</span>
         <span className="font-semibold text-forest-800">{value.depositAmount.toLocaleString("th-TH")}</span>
         <span className="text-ink-400">+</span>
-        <span className="text-ink-600">จ่ายเพิ่ม</span>
-        <span className="font-semibold text-forest-800">{balance.toLocaleString("th-TH")}</span>
-        <span className="text-ink-400">=</span>
-        <span className="text-ink-600">จ่ายรวม</span>
+        <span className="text-ink-600">จ่ายแล้ว</span>
         <span className="font-semibold text-forest-800">{value.totalAmount.toLocaleString("th-TH")}</span>
+        <span className="text-ink-400">=</span>
+        <span className="text-ink-600">รวมจ่ายสุทธิ</span>
+        <span className="font-semibold text-forest-800">{netTotal.toLocaleString("th-TH")}</span>
         <span className="text-ink-600">บาท</span>
       </div>
 

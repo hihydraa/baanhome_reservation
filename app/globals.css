@@ -67,6 +67,17 @@ body {
   color: var(--color-forest-900);
 }
 
+/* Hide number input spin buttons across the app (staff type values directly) */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
 /* Thin gold scrollbar to match the brand */
 ::-webkit-scrollbar {
   width: 10px;

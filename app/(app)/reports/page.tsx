@@ -62,24 +62,14 @@ export default async function ReportsPage({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">รายรับที่เก็บแล้ว</CardTitle>
+                <CardTitle className="text-base">รายรับสุทธิที่เก็บแล้ว</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-2xl font-bold text-forest-800">
                   {summary.revenue.collected.toLocaleString("th-TH")} บาท
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">ยอดค้างชำระ</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-red-600">
-                  {summary.revenue.outstanding.toLocaleString("th-TH")} บาท
                 </p>
               </CardContent>
             </Card>

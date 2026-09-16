@@ -27,17 +27,13 @@ export const specialServiceInputSchema = z.object({
   price: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
 });
 
-const paymentBaseObject = z.object({
+/** `totalAmount` holds the "จ่ายแล้ว" (paid beyond deposit) amount; the net total is depositAmount + totalAmount. */
+export const paymentInputSchema = z.object({
   totalAmount: z.coerce.number().min(0).default(0),
   depositAmount: z.coerce.number().min(0).default(0),
   status: paymentStatusEnum,
   method: paymentMethodEnum,
   notes: z.string().optional(),
-});
-
-export const paymentInputSchema = paymentBaseObject.refine((p) => p.depositAmount <= p.totalAmount, {
-  message: "ยอดมัดจำต้องไม่เกินยอดรวม",
-  path: ["depositAmount"],
 });
 
 export const accommodationBookingInputSchema = z

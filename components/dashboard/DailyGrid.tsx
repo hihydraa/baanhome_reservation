@@ -57,7 +57,9 @@ function RoomCard({
   readOnly: boolean;
 }) {
   const b = resource.booking;
-  const total = b?.payment?.totalAmount != null ? Number(b.payment.totalAmount) : null;
+  const total = b?.payment
+    ? Number(b.payment.depositAmount) + Number(b.payment.totalAmount)
+    : null;
   const addonNames = b?.addons.map((a) => a.service?.name ?? a.description).filter(Boolean) as
     | string[]
     | undefined;

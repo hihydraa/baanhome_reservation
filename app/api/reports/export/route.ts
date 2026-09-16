@@ -58,9 +58,9 @@ export async function GET(req: NextRequest) {
     "สิ้นสุด",
     "ช่องทาง/ประเภทงาน",
     "สถานะการจอง",
-    "ยอดรวม",
     "มัดจำ",
-    "คงเหลือ",
+    "จ่ายแล้ว",
+    "รวมจ่ายสุทธิ",
     "สถานะการชำระเงิน",
     "หมายเหตุ",
   ];
@@ -68,8 +68,8 @@ export async function GET(req: NextRequest) {
   let csv = "﻿" + csvRow(header);
 
   for (const b of accBookings) {
-    const total = Number(b.payment?.totalAmount ?? 0);
     const deposit = Number(b.payment?.depositAmount ?? 0);
+    const paid = Number(b.payment?.totalAmount ?? 0);
     csv += csvRow([
       "ห้องพัก",
       b.resource.name,
@@ -79,17 +79,17 @@ export async function GET(req: NextRequest) {
       toDateOnlyString(b.checkOut),
       SOURCE_LABELS[b.source] ?? b.source,
       ACCOMMODATION_STATUS_LABELS[b.status] ?? b.status,
-      total,
       deposit,
-      Math.max(0, total - deposit),
+      paid,
+      deposit + paid,
       b.payment ? PAYMENT_STATUS_LABELS[b.payment.status] ?? b.payment.status : "-",
       b.notes ?? "",
     ]);
   }
 
   for (const b of banquetBookings) {
-    const total = Number(b.payment?.totalAmount ?? 0);
     const deposit = Number(b.payment?.depositAmount ?? 0);
+    const paid = Number(b.payment?.totalAmount ?? 0);
     csv += csvRow([
       "ห้องจัดเลี้ยง",
       b.resource.name,
@@ -99,9 +99,9 @@ export async function GET(req: NextRequest) {
       `${toDateOnlyString(b.eventDate)} ${formatTime(b.endTime)}`,
       BANQUET_EVENT_TYPE_LABELS[b.eventType] ?? b.eventType,
       BANQUET_STATUS_LABELS[b.status] ?? b.status,
-      total,
       deposit,
-      Math.max(0, total - deposit),
+      paid,
+      deposit + paid,
       b.payment ? PAYMENT_STATUS_LABELS[b.payment.status] ?? b.payment.status : "-",
       b.notes ?? "",
     ]);
