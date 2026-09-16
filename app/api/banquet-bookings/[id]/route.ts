@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
   const booking = await prisma.banquetBooking.findUnique({
     where: { id },
-    include: { resource: true, payment: true, linkedAccommodation: true, createdBy: true },
+    include: { resource: true, payment: true, linkedAccommodations: true, createdBy: true },
   });
   if (!booking) return errorResponse("ไม่พบการจอง", 404);
 
@@ -72,11 +72,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       eventType: data.eventType,
       headcount: data.headcount,
       foodService: data.foodService,
-      linkedAccommodationId: data.linkedAccommodationId || null,
+      linkedAccommodations: { set: data.linkedAccommodationIds.map((linkId) => ({ id: linkId })) },
       status: data.status,
       notes: data.notes,
     },
-    include: { resource: true, payment: true, linkedAccommodation: true },
+    include: { resource: true, payment: true, linkedAccommodations: true },
   });
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {

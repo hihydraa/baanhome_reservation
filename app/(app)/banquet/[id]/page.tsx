@@ -12,7 +12,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
   const [booking, resources, accommodationBookings] = await Promise.all([
     prisma.banquetBooking.findUnique({
       where: { id },
-      include: { resource: true, payment: true, linkedAccommodation: { include: { resource: true } }, createdBy: true },
+      include: { resource: true, payment: true, linkedAccommodations: { include: { resource: true } }, createdBy: true },
     }),
     prisma.resource.findMany({ where: { type: "BANQUET" }, orderBy: [{ sortOrder: "asc" }] }),
     prisma.accommodationBooking.findMany({
@@ -41,7 +41,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     eventType: booking.eventType,
     headcount: booking.headcount,
     foodService: booking.foodService ?? "",
-    linkedAccommodationId: booking.linkedAccommodationId ?? "",
+    linkedAccommodationIds: booking.linkedAccommodations.map((a) => a.id),
     status: booking.status,
     notes: booking.notes ?? "",
     cancelReason: "",

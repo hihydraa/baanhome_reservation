@@ -13,7 +13,7 @@ export const SOURCE_LABELS: Record<string, string> = {
 };
 
 export const ACCOMMODATION_STATUS_LABELS: Record<string, string> = {
-  RESERVED: "มีจอง",
+  RESERVED: "จอง",
   CHECKED_IN: "เข้าพักแล้ว",
   CHECKED_OUT: "เช็คเอาท์แล้ว",
   CANCELLED: "ยกเลิก",

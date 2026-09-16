@@ -69,7 +69,7 @@ export const banquetBookingInputSchema = z
     eventType: banquetEventTypeEnum.default("MEETING"),
     headcount: z.coerce.number().int().min(1).default(1),
     foodService: z.string().optional(),
-    linkedAccommodationId: z.string().optional().nullable(),
+    linkedAccommodationIds: z.array(z.string()).default([]),
     status: banquetStatusEnum.default("RESERVED"),
     notes: z.string().optional(),
     cancelReason: z.string().optional(),

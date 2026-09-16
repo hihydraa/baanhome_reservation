@@ -48,6 +48,12 @@ const THAI_MONTHS = [
 
 const THAI_WEEKDAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
+export function formatThaiMonthYear(d: Date, opts?: { buddhist?: boolean }) {
+  const month = THAI_MONTHS[d.getUTCMonth()];
+  const year = opts?.buddhist === false ? d.getUTCFullYear() : d.getUTCFullYear() + 543;
+  return `${month} ${year}`;
+}
+
 export function formatThaiDate(d: Date, opts?: { withWeekday?: boolean; buddhist?: boolean }) {
   const day = d.getUTCDate();
   const month = THAI_MONTHS[d.getUTCMonth()];

@@ -153,8 +153,7 @@ model BanquetBooking {
   eventType             BanquetEventType      @default(MEETING)
   headcount             Int                   @default(1)
   foodService           String?
-  linkedAccommodationId String?
-  linkedAccommodation   AccommodationBooking? @relation("LinkedAccommodation", fields: [linkedAccommodationId], references: [id])
+  linkedAccommodations  AccommodationBooking[] @relation("LinkedAccommodation")
   status                BanquetStatus         @default(RESERVED)
   notes                 String?
   createdById           String?

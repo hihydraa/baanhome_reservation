@@ -19,7 +19,7 @@
 - `User` — บัญชีพนักงาน (`ADMIN` / `STAFF` / `HOUSEKEEPER` — แม่บ้านดูข้อมูลได้อย่างเดียว เห็นเฉพาะหน้าภาพรวมรายวัน แก้ไข/ลบ/เพิ่มการจองไม่ได้)
 - `Resource` — ทรัพยากรที่จองได้ทั้งหมด แยกด้วย `type` (`ACCOMMODATION` / `BANQUET`) และ `zone`
 - `AccommodationBooking` + `AccommodationAddon` — การจองห้องพักรายคืน พร้อมบริการเสริม (เตียงเสริม/สัตว์เลี้ยง/ของยืม)
-- `BanquetBooking` — การจองห้องจัดเลี้ยงรายชั่วโมง เชื่อมโยงกับห้องพักได้ (`linkedAccommodationId`)
+- `BanquetBooking` — การจองห้องจัดเลี้ยงรายชั่วโมง เชื่อมโยงกับห้องพักได้หลายห้อง (`linkedAccommodations`)
 - `Payment` — ผูกกับการจอง 1 รายการเสมอ (accommodation หรือ banquet อย่างใดอย่างหนึ่ง) เก็บยอดรวม/มัดจำ/สถานะ/วิธีชำระ
 
 **การตรวจสอบคิวชนกัน (Conflict Detection)** อยู่ที่ [lib/booking-conflicts.ts](lib/booking-conflicts.ts)

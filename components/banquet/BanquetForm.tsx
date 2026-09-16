@@ -28,7 +28,7 @@ export type BanquetFormValue = {
   eventType: string;
   headcount: number;
   foodService: string;
-  linkedAccommodationId: string;
+  linkedAccommodationIds: string[];
   status: string;
   notes: string;
   cancelReason: string;
@@ -46,7 +46,7 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     eventType: "MEETING",
     headcount: 1,
     foodService: "",
-    linkedAccommodationId: "",
+    linkedAccommodationIds: [],
     status: "RESERVED",
     notes: "",
     cancelReason: "",
@@ -231,18 +231,37 @@ export function BanquetForm({
         </div>
 
         <div className="col-span-2 flex flex-col gap-1.5">
-          <Label>ลิงก์ห้องพัก (ถ้าลูกค้าค้างคืนด้วย)</Label>
-          <Select
-            value={value.linkedAccommodationId}
-            onChange={(e) => setValue({ ...value, linkedAccommodationId: e.target.value })}
-          >
-            <option value="">ไม่เชื่อมโยงห้องพัก</option>
-            {accommodationOptions.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </Select>
+          <Label>ลิงก์ห้องพัก (ถ้าลูกค้าค้างคืนด้วย เลือกได้หลายห้อง)</Label>
+          {accommodationOptions.length === 0 ? (
+            <p className="text-sm text-ink-400">ไม่มีรายการห้องพักให้เลือกในขณะนี้</p>
+          ) : (
+            <div className="flex max-h-48 flex-col gap-1 overflow-y-auto rounded-md border border-cream-200 p-2">
+              {accommodationOptions.map((a) => {
+                const checked = value.linkedAccommodationIds.includes(a.id);
+                return (
+                  <label
+                    key={a.id}
+                    className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-cream-100"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-forest-700"
+                      checked={checked}
+                      onChange={(e) =>
+                        setValue({
+                          ...value,
+                          linkedAccommodationIds: e.target.checked
+                            ? [...value.linkedAccommodationIds, a.id]
+                            : value.linkedAccommodationIds.filter((id) => id !== a.id),
+                        })
+                      }
+                    />
+                    <span className="text-ink-900">{a.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="col-span-2 flex flex-col gap-1.5">

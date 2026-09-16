@@ -3,7 +3,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { PAYMENT_METHOD_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/labels";
 
 export type PaymentFormValue = {
   totalAmount: number;
@@ -27,16 +27,6 @@ export function PaymentPanel({
       <p className="text-sm font-semibold text-forest-800">การชำระเงิน</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label>ยอดรวม (บาท)</Label>
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            value={value.totalAmount}
-            onChange={(e) => onChange({ ...value, totalAmount: Number(e.target.value) })}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
           <Label>ยอดมัดจำ (บาท)</Label>
           <Input
             type="number"
@@ -46,6 +36,28 @@ export function PaymentPanel({
             onChange={(e) => onChange({ ...value, depositAmount: Number(e.target.value) })}
           />
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>ยอดรวมทั้งหมด (บาท)</Label>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={value.totalAmount}
+            onChange={(e) => onChange({ ...value, totalAmount: Number(e.target.value) })}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5 rounded-md bg-cream-100 px-3 py-2.5 text-sm">
+        <span className="text-ink-600">มัดจำ</span>
+        <span className="font-semibold text-forest-800">{value.depositAmount.toLocaleString("th-TH")}</span>
+        <span className="text-ink-400">+</span>
+        <span className="text-ink-600">จ่ายเพิ่ม</span>
+        <span className="font-semibold text-forest-800">{balance.toLocaleString("th-TH")}</span>
+        <span className="text-ink-400">=</span>
+        <span className="text-ink-600">จ่ายรวม</span>
+        <span className="font-semibold text-forest-800">{value.totalAmount.toLocaleString("th-TH")}</span>
+        <span className="text-ink-600">บาท</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -55,9 +67,11 @@ export function PaymentPanel({
             value={value.status}
             onChange={(e) => onChange({ ...value, status: e.target.value as PaymentFormValue["status"] })}
           >
-            <option value="DEPOSIT">มัดจำ</option>
-            <option value="PAID">จ่ายแล้ว</option>
-            <option value="PAY_LATER">จ่ายทีหลัง</option>
+            {Object.entries(PAYMENT_STATUS_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -73,11 +87,6 @@ export function PaymentPanel({
             ))}
           </Select>
         </div>
-      </div>
-
-      <div className="flex items-center justify-between rounded-md bg-cream-100 px-3 py-2 text-sm">
-        <span className="text-ink-600">ยอดคงเหลือ</span>
-        <span className="font-semibold text-forest-800">{balance.toLocaleString("th-TH")} บาท</span>
       </div>
     </div>
   );
