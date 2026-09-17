@@ -4,6 +4,7 @@ import { parseDateOnly, todayDateOnly } from "@/lib/dates";
 import { DateNav } from "@/components/dashboard/DateNav";
 import { DailyGrid } from "@/components/dashboard/DailyGrid";
 import { BanquetStrip } from "@/components/dashboard/BanquetStrip";
+import { DailySummaryCards } from "@/components/dashboard/DailySummaryCards";
 import { ZONE_LABELS } from "@/lib/labels";
 
 export default async function DashboardPage({
@@ -28,7 +29,6 @@ export default async function DashboardPage({
         where: {
           checkIn: { lt: nextDay },
           checkOut: { gt: date },
-          status: { not: "CANCELLED" },
         },
         include: { addons: { include: { service: true } }, payment: { include: { entries: true } } },
       }),
@@ -43,7 +43,13 @@ export default async function DashboardPage({
       }),
     ]);
 
-  const bookingByResourceId = new Map(accommodationBookings.map((b) => [b.resourceId, b]));
+  const activeBookings = accommodationBookings.filter((b) => b.status !== "CANCELLED");
+  const bookingByResourceId = new Map(activeBookings.map((b) => [b.resourceId, b]));
+
+  const statusCounts = { RESERVED: 0, CHECKED_IN: 0, CHECKED_OUT: 0, CANCELLED: 0 };
+  for (const b of accommodationBookings) {
+    statusCounts[b.status]++;
+  }
 
   const resourcesByZone: Record<string, (typeof accommodationResources[number] & { booking?: (typeof accommodationBookings)[number] })[]> = {};
   for (const zone of Object.keys(ZONE_LABELS)) {
@@ -63,6 +69,14 @@ export default async function DashboardPage({
         <h1 className="text-xl font-semibold text-forest-800">ภาพรวมรายวัน</h1>
         <DateNav date={date} />
       </div>
+
+      <DailySummaryCards
+        total={accommodationResources.length}
+        checkedIn={statusCounts.CHECKED_IN}
+        reserved={statusCounts.RESERVED}
+        checkedOut={statusCounts.CHECKED_OUT}
+        cancelled={statusCounts.CANCELLED}
+      />
 
       <BanquetStrip resources={banquetWithBookings} date={date} readOnly={readOnly} />
 
