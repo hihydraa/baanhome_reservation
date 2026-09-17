@@ -29,11 +29,13 @@ const STATUS_TAG_LABELS: Record<string, string> = {
   CANCELLED: "ยกเลิก",
 };
 
+/** Solid, saturated colors on purpose — the card header itself is gold, so a subtle badge
+ *  (like the shared Badge component's light variants) disappears into it. */
 const STATUS_TAG_CLASSES: Record<string, string> = {
-  RESERVED: "bg-gold-200 text-gold-800",
-  CHECKED_IN: "bg-emerald-100 text-emerald-700",
-  CHECKED_OUT: "bg-cream-200 text-ink-600",
-  CANCELLED: "bg-red-100 text-red-700",
+  RESERVED: "bg-amber-600 text-white",
+  CHECKED_IN: "bg-emerald-600 text-white",
+  CHECKED_OUT: "bg-ink-600 text-white",
+  CANCELLED: "bg-red-600 text-white",
 };
 
 export function DailyGrid({
@@ -101,7 +103,7 @@ function RoomCard({
       <div className={cn("flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 px-2 py-2", b ? "bg-gold-300" : "bg-cream-200")}>
         <span className="truncate text-base font-semibold text-forest-900">{resource.name}</span>
         {b && (
-          <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", STATUS_TAG_CLASSES[b.status])}>
+          <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-semibold shadow-sm", STATUS_TAG_CLASSES[b.status])}>
             {STATUS_TAG_LABELS[b.status]}
           </span>
         )}
