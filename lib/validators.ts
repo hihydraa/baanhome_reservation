@@ -33,13 +33,16 @@ export const initialPaymentInputSchema = z.object({
   notes: z.string().optional(),
 });
 
-/** A single entry recorded in a booking's payment ledger (one "receipt"). */
+/** A single entry recorded in a booking's payment ledger (one "receipt").
+ *  `receiptNumber` is auto-generated when omitted; staff can still override it
+ *  (e.g. to match a physical receipt already issued, or fix a migrated one). */
 export const paymentEntryInputSchema = z.object({
   amount: z.coerce.number().positive("จำนวนเงินต้องมากกว่า 0"),
   method: paymentMethodEnum,
   paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "รูปแบบวันที่ไม่ถูกต้อง"),
   receivedById: z.string().optional().nullable(),
   notes: z.string().optional(),
+  receiptNumber: z.string().trim().min(1).optional(),
 });
 
 export const accommodationBookingInputSchema = z

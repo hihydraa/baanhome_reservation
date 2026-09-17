@@ -21,8 +21,32 @@ export async function POST(req: NextRequest, { params }: Params) {
   const data = parsed.data;
 
   const paidAt = combineDateWithNowTime(data.paidAt);
+  const isReceiptCollision = (err: unknown) =>
+    typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002";
 
-  // Receipt numbers are a per-day sequence; retry once if a concurrent submission raced us to it.
+  // A staff-provided receipt number is used as-is; a collision is a real duplicate, not raced.
+  if (data.receiptNumber) {
+    try {
+      const entry = await prisma.paymentEntry.create({
+        data: {
+          paymentId,
+          amount: data.amount,
+          method: data.method,
+          paidAt,
+          receivedById: data.receivedById || null,
+          notes: data.notes,
+          receiptNumber: data.receiptNumber,
+        },
+        include: { receivedBy: true },
+      });
+      return NextResponse.json(entry, { status: 201 });
+    } catch (err) {
+      if (isReceiptCollision(err)) return errorResponse("เลขที่ใบเสร็จนี้ถูกใช้ไปแล้ว กรุณาระบุเลขอื่น", 409);
+      throw err;
+    }
+  }
+
+  // Otherwise auto-generate the per-day sequence; retry once if a concurrent submission raced us to it.
   for (let attempt = 0; attempt < 2; attempt++) {
     const receiptNumber = await generateReceiptNumber(prisma, paidAt);
     try {
@@ -40,9 +64,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
       return NextResponse.json(entry, { status: 201 });
     } catch (err) {
-      const isReceiptCollision =
-        typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002";
-      if (isReceiptCollision && attempt === 0) continue;
+      if (isReceiptCollision(err) && attempt === 0) continue;
       throw err;
     }
   }

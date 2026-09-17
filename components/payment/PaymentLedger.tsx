@@ -36,7 +36,14 @@ export type PaymentEntryValue = {
 
 export type StaffOption = { id: string; name: string };
 
-type FormState = { amount: string; method: PaymentMethodValue; paidAt: string; receivedById: string; notes: string };
+type FormState = {
+  amount: string;
+  method: PaymentMethodValue;
+  paidAt: string;
+  receivedById: string;
+  notes: string;
+  receiptNumber: string;
+};
 
 function entryToFormState(entry: PaymentEntryValue): FormState {
   return {
@@ -45,11 +52,19 @@ function entryToFormState(entry: PaymentEntryValue): FormState {
     paidAt: toDateOnlyString(new Date(entry.paidAt)),
     receivedById: entry.receivedBy?.id ?? "",
     notes: entry.notes ?? "",
+    receiptNumber: entry.receiptNumber,
   };
 }
 
 function emptyFormState(defaultReceivedById: string): FormState {
-  return { amount: "", method: "CASH", paidAt: toDateOnlyString(new Date()), receivedById: defaultReceivedById, notes: "" };
+  return {
+    amount: "",
+    method: "CASH",
+    paidAt: toDateOnlyString(new Date()),
+    receivedById: defaultReceivedById,
+    notes: "",
+    receiptNumber: "",
+  };
 }
 
 export function PaymentLedger({
@@ -111,6 +126,7 @@ export function PaymentLedger({
         paidAt: form.paidAt,
         receivedById: form.receivedById || null,
         notes: form.notes,
+        receiptNumber: form.receiptNumber.trim() || undefined,
       }),
     });
 
@@ -314,6 +330,14 @@ export function PaymentLedger({
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div className="col-span-2 flex flex-col gap-1.5">
+                <Label>เลขที่ใบเสร็จ{!editingEntry && <span className="text-ink-400"> — เว้นว่างไว้เพื่อออกเลขอัตโนมัติ</span>}</Label>
+                <Input
+                  placeholder="เว้นว่างไว้เพื่อออกเลขอัตโนมัติ"
+                  value={form.receiptNumber}
+                  onChange={(e) => setForm({ ...form, receiptNumber: e.target.value })}
+                />
               </div>
               <div className="col-span-2 flex flex-col gap-1.5">
                 <Label>หมายเหตุ (ถ้ามี)</Label>

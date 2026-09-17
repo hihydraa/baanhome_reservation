@@ -19,19 +19,26 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (!parsed.success) return zodErrorResponse(parsed.error);
   const data = parsed.data;
 
-  const entry = await prisma.paymentEntry.update({
-    where: { id: entryId },
-    data: {
-      amount: data.amount,
-      method: data.method,
-      paidAt: withDatePart(existing.paidAt, data.paidAt),
-      receivedById: data.receivedById || null,
-      notes: data.notes,
-    },
-    include: { receivedBy: true },
-  });
-
-  return NextResponse.json(entry);
+  try {
+    const entry = await prisma.paymentEntry.update({
+      where: { id: entryId },
+      data: {
+        amount: data.amount,
+        method: data.method,
+        paidAt: withDatePart(existing.paidAt, data.paidAt),
+        receivedById: data.receivedById || null,
+        notes: data.notes,
+        receiptNumber: data.receiptNumber || existing.receiptNumber,
+      },
+      include: { receivedBy: true },
+    });
+    return NextResponse.json(entry);
+  } catch (err) {
+    const isReceiptCollision =
+      typeof err === "object" && err !== null && "code" in err && (err as { code: string }).code === "P2002";
+    if (isReceiptCollision) return errorResponse("เลขที่ใบเสร็จนี้ถูกใช้ไปแล้ว กรุณาระบุเลขอื่น", 409);
+    throw err;
+  }
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
