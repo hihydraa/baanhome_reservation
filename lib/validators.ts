@@ -21,9 +21,12 @@ export const addonInputSchema = z.object({
   price: z.coerce.number().min(0).default(0),
 });
 
+export const specialServiceScopeEnum = z.enum(["ACCOMMODATION", "BANQUET"]);
+
 export const specialServiceInputSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อบริการ"),
   price: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
+  scope: specialServiceScopeEnum.default("ACCOMMODATION"),
 });
 
 /** Optional first deposit recorded at the moment a booking is created. */
@@ -101,6 +104,7 @@ export const banquetBookingInputSchema = z
     cancelReason: z.string().optional(),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
+    addons: z.array(addonInputSchema).default([]),
     initialPayment: initialPaymentInputSchema.optional(),
   })
   .refine((b) => b.endTime > b.startTime, {

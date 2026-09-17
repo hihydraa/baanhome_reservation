@@ -75,6 +75,15 @@ const specialServices = [
   { name: "ผ้าห่มเพิ่ม", price: 50 },
 ];
 
+// Banquet-scoped services — price is always blank (0) since it varies per booking/headcount;
+// staff fill it in when they add it to a booking.
+const banquetSpecialServices = [
+  { name: "อาหารว่าง" },
+  { name: "อาหารกลางวันคณะ" },
+  { name: "อาหารบุฟเฟต์สำหรับคณะ" },
+  { name: "เมนู Signature บ้านโฮม" },
+];
+
 async function main() {
   for (const [index, r] of accommodationResources.entries()) {
     const price = accommodationPriceFor(r.name);
@@ -134,7 +143,15 @@ async function main() {
     await prisma.specialService.upsert({
       where: { name: s.name },
       update: {},
-      create: { name: s.name, price: s.price },
+      create: { name: s.name, price: s.price, scope: "ACCOMMODATION" },
+    });
+  }
+
+  for (const s of banquetSpecialServices) {
+    await prisma.specialService.upsert({
+      where: { name: s.name },
+      update: {},
+      create: { name: s.name, price: 0, scope: "BANQUET" },
     });
   }
 

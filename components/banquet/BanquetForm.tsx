@@ -14,13 +14,21 @@ import {
   type InitialDepositValue,
 } from "@/components/payment/InitialDepositInput";
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
+import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
 import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 
 type ResourceOption = { id: string; name: string; hourlyPrice: number | null; dailyPrice: number | null };
 type AccommodationOption = { id: string; label: string };
+
+const TIME_SLOT_PRESETS = [
+  { label: "ครึ่งวันเช้า (09:00-12:00)", startTime: "09:00", endTime: "12:00" },
+  { label: "ครึ่งวันบ่าย (13:00-22:00)", startTime: "13:00", endTime: "22:00" },
+  { label: "ทั้งวัน (09:00-22:00)", startTime: "09:00", endTime: "22:00" },
+];
 
 export type BanquetFormValue = {
   id?: string;
@@ -37,6 +45,7 @@ export type BanquetFormValue = {
   status: string;
   notes: string;
   cancelReason: string;
+  addons: AddonFormValue[];
 };
 
 export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): BanquetFormValue {
@@ -54,6 +63,7 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     status: "RESERVED",
     notes: "",
     cancelReason: "",
+    addons: [],
     ...overrides,
   };
 }
@@ -72,11 +82,13 @@ export type BanquetPaymentLedgerProps = {
 export function BanquetForm({
   resources,
   accommodationOptions,
+  services,
   initialOverrides,
   ledger,
 }: {
   resources: ResourceOption[];
   accommodationOptions: AccommodationOption[];
+  services: ServiceOption[];
   initialOverrides?: Partial<BanquetFormValue>;
   /** Only present when editing an already-saved booking — a new booking has nowhere to attach entries to yet. */
   ledger?: BanquetPaymentLedgerProps;
@@ -199,6 +211,30 @@ export function BanquetForm({
           </Select>
         </div>
 
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <Label>ช่วงเวลาแบบด่วน</Label>
+          <div className="grid grid-cols-3 gap-2">
+            {TIME_SLOT_PRESETS.map((preset) => {
+              const active = value.startTime === preset.startTime && value.endTime === preset.endTime;
+              return (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setValue({ ...value, startTime: preset.startTime, endTime: preset.endTime })}
+                  className={cn(
+                    "rounded-md border px-2 py-2 text-xs font-medium transition-colors",
+                    active
+                      ? "border-gold-500 bg-gold-500 text-forest-900"
+                      : "border-cream-200 text-ink-600 hover:bg-cream-100"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <Label>เวลาเริ่ม</Label>
           <Input
@@ -298,6 +334,8 @@ export function BanquetForm({
           </div>
         )}
       </div>
+
+      <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
 
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}
       <ConflictBanner conflict={activeConflict} />

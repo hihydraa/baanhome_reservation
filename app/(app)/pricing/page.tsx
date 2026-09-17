@@ -15,7 +15,7 @@ export default async function PricingPage() {
     redirect("/dashboard");
   }
 
-  const [accommodationResources, banquetResources, services] = await Promise.all([
+  const [accommodationResources, banquetResources, services, banquetServices] = await Promise.all([
     prisma.resource.findMany({
       where: { type: "ACCOMMODATION" },
       orderBy: [{ zone: "asc" }, { sortOrder: "asc" }],
@@ -24,7 +24,8 @@ export default async function PricingPage() {
       where: { type: "BANQUET" },
       orderBy: [{ sortOrder: "asc" }],
     }),
-    prisma.specialService.findMany({ orderBy: { name: "asc" } }),
+    prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, orderBy: { name: "asc" } }),
+    prisma.specialService.findMany({ where: { scope: "BANQUET" }, orderBy: { name: "asc" } }),
   ]);
 
   const zones = ["RESORT", "POOL_VILLA"] as const;
@@ -84,7 +85,7 @@ export default async function PricingPage() {
           </p>
         </TabsContent>
 
-        <TabsContent value="banquet">
+        <TabsContent value="banquet" className="flex flex-col gap-6">
           <BanquetPriceManager
             rows={banquetResources.map((r) => ({
               id: r.id,
@@ -97,13 +98,21 @@ export default async function PricingPage() {
               equipment: r.equipment,
             }))}
           />
+
+          <div className="flex flex-col gap-2">
+            <h2 className="text-sm font-semibold text-forest-800">บริการเพิ่มเติมสำหรับห้องจัดเลี้ยง</h2>
+            <p className="text-sm text-ink-600">
+              รายการที่เลือกได้เมื่อจองห้องจัดเลี้ยง ราคาปล่อยว่างไว้ตามค่าเริ่มต้น เพราะขึ้นอยู่กับแต่ละงาน — พนักงานกรอกเองตอนจอง
+            </p>
+            <SpecialServiceManager scope="BANQUET" services={banquetServices.map((s) => ({ ...s, price: Number(s.price) }))} />
+          </div>
         </TabsContent>
 
         <TabsContent value="extra" className="flex flex-col gap-4">
           <p className="text-sm text-ink-600">
             กำหนดชื่อและราคาบริการเสริม เมื่อจองห้องพักแล้วเลือกบริการนี้ ราคาจะถูกดึงมาให้อัตโนมัติ
           </p>
-          <SpecialServiceManager services={services.map((s) => ({ ...s, price: Number(s.price) }))} />
+          <SpecialServiceManager scope="ACCOMMODATION" services={services.map((s) => ({ ...s, price: Number(s.price) }))} />
         </TabsContent>
       </Tabs>
     </div>

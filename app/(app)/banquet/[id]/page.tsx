@@ -11,11 +11,16 @@ import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [session, booking, resources, accommodationBookings, staff] = await Promise.all([
+  const [session, booking, resources, accommodationBookings, staff, services] = await Promise.all([
     auth(),
     prisma.banquetBooking.findUnique({
       where: { id },
-      include: { resource: true, linkedAccommodations: { include: { resource: true } }, createdBy: true },
+      include: {
+        resource: true,
+        addons: { include: { service: true } },
+        linkedAccommodations: { include: { resource: true } },
+        createdBy: true,
+      },
     }),
     prisma.resource.findMany({ where: { type: "BANQUET" }, orderBy: [{ sortOrder: "asc" }] }),
     prisma.accommodationBooking.findMany({
@@ -25,6 +30,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
       take: 50,
     }),
     prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.specialService.findMany({ where: { scope: "BANQUET" }, orderBy: { name: "asc" } }),
   ]);
 
   if (!booking) notFound();
@@ -56,14 +62,23 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     status: booking.status,
     notes: booking.notes ?? "",
     cancelReason: "",
+    addons: booking.addons.map((a) => ({
+      serviceId: a.serviceId,
+      description: a.description ?? "",
+      quantity: a.quantity,
+      price: Number(a.price),
+    })),
   };
 
-  const { expectedTotal } = banquetExpectedTotal(booking, booking.resource);
+  const { roomTotal, addonsTotal, expectedTotal } = banquetExpectedTotal(booking, booking.resource, booking.addons);
 
   const ledger: BanquetPaymentLedgerProps = {
     paymentId: payment.id,
     expectedTotal,
-    breakdown: [{ label: "ค่าห้องจัดเลี้ยง", value: expectedTotal }],
+    breakdown: [
+      { label: "ค่าห้องจัดเลี้ยง", value: roomTotal },
+      ...(addonsTotal > 0 ? [{ label: "ค่าบริการเพิ่มเติม", value: addonsTotal }] : []),
+    ],
     entries: payment.entries.map((e) => ({
       id: e.id,
       amount: Number(e.amount),
@@ -104,6 +119,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
             dailyPrice: r.dailyPrice != null ? Number(r.dailyPrice) : null,
           }))}
           accommodationOptions={accommodationOptions}
+          services={services.map((s) => ({ ...s, price: Number(s.price) }))}
           initialOverrides={initial}
           ledger={ledger}
         />

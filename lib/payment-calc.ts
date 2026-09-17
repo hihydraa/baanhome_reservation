@@ -33,6 +33,8 @@ export function accommodationExpectedTotal(
 
 export type BanquetTotalBreakdown = {
   hours: number;
+  roomTotal: number;
+  addonsTotal: number;
   expectedTotal: number;
 };
 
@@ -42,18 +44,21 @@ export type BanquetTotalBreakdown = {
  *  whatever amount was actually agreed. */
 export function banquetExpectedTotal(
   booking: { startTime: Date; endTime: Date },
-  resource: { hourlyPrice: Money; dailyPrice: Money }
+  resource: { hourlyPrice: Money; dailyPrice: Money },
+  addons: { price: Money; quantity: number }[] = []
 ): BanquetTotalBreakdown {
   const hours = Math.max(0, (booking.endTime.getTime() - booking.startTime.getTime()) / 3_600_000);
   const daily = resource.dailyPrice != null ? Number(resource.dailyPrice) : null;
   const hourly = resource.hourlyPrice != null ? Number(resource.hourlyPrice) : null;
 
-  let expectedTotal = 0;
-  if (hours >= 8 && daily != null) expectedTotal = daily;
-  else if (hourly != null) expectedTotal = hourly * hours;
-  else if (daily != null) expectedTotal = daily;
+  let roomTotal = 0;
+  if (hours >= 8 && daily != null) roomTotal = daily;
+  else if (hourly != null) roomTotal = hourly * hours;
+  else if (daily != null) roomTotal = daily;
 
-  return { hours, expectedTotal };
+  const addonsTotal = addons.reduce((sum, a) => sum + toNumber(a.price) * a.quantity, 0);
+
+  return { hours, roomTotal, addonsTotal, expectedTotal: roomTotal + addonsTotal };
 }
 
 export type PaymentBadgeInfo = {

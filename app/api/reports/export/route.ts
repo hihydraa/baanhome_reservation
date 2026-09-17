@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.banquetBooking.findMany({
       where: { eventDate: { gte: from, lt: toExclusive } },
-      include: { resource: true, payment: { include: { entries: true } } },
+      include: { resource: true, addons: true, payment: { include: { entries: true } } },
       orderBy: { eventDate: "asc" },
     }),
   ]);
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
   }
 
   for (const b of banquetBookings) {
-    const { expectedTotal } = banquetExpectedTotal(b, b.resource);
+    const { expectedTotal } = banquetExpectedTotal(b, b.resource, b.addons);
     const paid = sumPaid(b.payment?.entries ?? []);
     csv += csvRow([
       "ห้องจัดเลี้ยง",

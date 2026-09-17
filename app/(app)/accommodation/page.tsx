@@ -14,7 +14,7 @@ export default async function AccommodationPage() {
       orderBy: { checkIn: "desc" },
       take: 100,
     }),
-    prisma.specialService.findMany({ orderBy: { name: "asc" } }),
+    prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, orderBy: { name: "asc" } }),
   ]);
 
   return (

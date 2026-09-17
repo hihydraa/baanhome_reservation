@@ -22,7 +22,7 @@ export default async function AccommodationDetailPage({
       include: { resource: true, addons: true, createdBy: true },
     }),
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
-    prisma.specialService.findMany({ orderBy: { name: "asc" } }),
+    prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, orderBy: { name: "asc" } }),
     prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 

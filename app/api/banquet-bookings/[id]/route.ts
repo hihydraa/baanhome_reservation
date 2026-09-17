@@ -17,6 +17,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     where: { id },
     include: {
       resource: true,
+      addons: true,
       payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
       linkedAccommodations: true,
       createdBy: true,
@@ -65,27 +66,39 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
-  const booking = await prisma.banquetBooking.update({
-    where: { id },
-    data: {
-      resourceId: data.resourceId,
-      customerName: data.customerName,
-      phone: data.phone,
-      eventDate,
-      startTime,
-      endTime,
-      eventType: data.eventType,
-      headcount: data.headcount,
-      foodService: data.foodService,
-      linkedAccommodations: { set: data.linkedAccommodationIds.map((linkId) => ({ id: linkId })) },
-      status: data.status,
-      notes: data.notes,
-    },
-    include: {
-      resource: true,
-      payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
-      linkedAccommodations: true,
-    },
+  const booking = await prisma.$transaction(async (tx) => {
+    await tx.banquetAddon.deleteMany({ where: { bookingId: id } });
+    return tx.banquetBooking.update({
+      where: { id },
+      data: {
+        resourceId: data.resourceId,
+        customerName: data.customerName,
+        phone: data.phone,
+        eventDate,
+        startTime,
+        endTime,
+        eventType: data.eventType,
+        headcount: data.headcount,
+        foodService: data.foodService,
+        linkedAccommodations: { set: data.linkedAccommodationIds.map((linkId) => ({ id: linkId })) },
+        status: data.status,
+        notes: data.notes,
+        addons: {
+          create: data.addons.map((a) => ({
+            serviceId: a.serviceId || null,
+            description: a.description,
+            quantity: a.quantity,
+            price: a.price,
+          })),
+        },
+      },
+      include: {
+        resource: true,
+        addons: true,
+        payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
+        linkedAccommodations: true,
+      },
+    });
   });
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {

@@ -22,8 +22,9 @@ import {
 } from "@/components/ui/dialog";
 
 type ServiceRow = { id: string; name: string; price: number };
+type Scope = "ACCOMMODATION" | "BANQUET";
 
-export function SpecialServiceManager({ services }: { services: ServiceRow[] }) {
+export function SpecialServiceManager({ services, scope }: { services: ServiceRow[]; scope: Scope }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
@@ -59,7 +60,7 @@ export function SpecialServiceManager({ services }: { services: ServiceRow[] }) 
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, price: Number(price) }),
+      body: JSON.stringify({ name, price: Number(price), scope }),
     });
 
     setSaving(false);

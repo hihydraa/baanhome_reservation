@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const bookings = await prisma.banquetBooking.findMany({
     where,
-    include: { resource: true, payment: { include: { entries: true } }, linkedAccommodations: true },
+    include: { resource: true, addons: true, payment: { include: { entries: true } }, linkedAccommodations: true },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
 
@@ -77,6 +77,14 @@ export async function POST(req: NextRequest) {
       status: data.status,
       notes: data.notes,
       createdById: session!.user.id,
+      addons: {
+        create: data.addons.map((a) => ({
+          serviceId: a.serviceId || null,
+          description: a.description,
+          quantity: a.quantity,
+          price: a.price,
+        })),
+      },
       payment: {
         create: {
           entries: hasInitialDeposit
@@ -94,7 +102,7 @@ export async function POST(req: NextRequest) {
         },
       },
     },
-    include: { resource: true, payment: { include: { entries: true } }, linkedAccommodations: true },
+    include: { resource: true, addons: true, payment: { include: { entries: true } }, linkedAccommodations: true },
   });
 
   return NextResponse.json(booking, { status: 201 });
