@@ -10,7 +10,7 @@ export default async function AccommodationPage() {
       orderBy: [{ zone: "asc" }, { sortOrder: "asc" }],
     }),
     prisma.accommodationBooking.findMany({
-      include: { resource: true, payment: true },
+      include: { resource: true, addons: true, payment: { include: { entries: true } } },
       orderBy: { checkIn: "desc" },
       take: 100,
     }),

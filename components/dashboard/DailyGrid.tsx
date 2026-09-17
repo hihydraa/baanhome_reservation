@@ -3,10 +3,12 @@ import { BedDouble, PawPrint, Plus, Sparkles, type LucideIcon } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { ZONE_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
+import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
+import { PaymentStatusPill } from "@/components/payment/PaymentStatusPill";
 import type { Prisma, Resource } from "@prisma/client";
 
 type BookingWithRelations = Prisma.AccommodationBookingGetPayload<{
-  include: { addons: { include: { service: true } }; payment: true };
+  include: { addons: { include: { service: true } }; payment: { include: { entries: true } } };
 }>;
 type ResourceWithBooking = Resource & {
   booking?: BookingWithRelations;
@@ -57,9 +59,8 @@ function RoomCard({
   readOnly: boolean;
 }) {
   const b = resource.booking;
-  const total = b?.payment
-    ? Number(b.payment.depositAmount) + Number(b.payment.totalAmount)
-    : null;
+  const { expectedTotal } = b ? accommodationExpectedTotal(b, b.addons) : { expectedTotal: 0 };
+  const paid = b ? sumPaid(b.payment?.entries ?? []) : 0;
   const addonNames = b?.addons.map((a) => a.service?.name ?? a.description).filter(Boolean) as
     | string[]
     | undefined;
@@ -114,10 +115,7 @@ function RoomCard({
         )}
 
         <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1.5">
-          <span className="text-ink-400">Total</span>
-          <span className="text-base font-semibold text-ink-900">
-            {total != null ? total.toLocaleString("th-TH") : "—"}
-          </span>
+          {b ? <PaymentStatusPill paid={paid} expectedTotal={expectedTotal} /> : <span className="text-ink-400">—</span>}
         </div>
         {!b && !readOnly && (
           <div className="flex items-center gap-1 pt-0.5 text-gold-600">

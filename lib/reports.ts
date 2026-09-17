@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { sumPaid } from "@/lib/payment-calc";
+import type { Prisma } from "@prisma/client";
 
 export function monthRange(monthStr: string): { start: Date; end: Date; days: number } {
   const [y, m] = monthStr.split("-").map(Number);
@@ -60,10 +62,10 @@ export async function getOccupancySummary(monthStr: string): Promise<ZoneOccupan
   });
 }
 
-/** Net amount actually paid for a booking: มัดจำ + จ่ายแล้ว. */
-function netPaidAmount(payment: { totalAmount: unknown; depositAmount: unknown } | null) {
+/** Net amount actually paid for a booking, summed across every recorded payment entry. */
+function netPaidAmount(payment: { entries: { amount: Prisma.Decimal }[] } | null) {
   if (!payment) return 0;
-  return Number(payment.depositAmount) + Number(payment.totalAmount);
+  return sumPaid(payment.entries);
 }
 
 export type MonthlySummary = {
@@ -88,11 +90,11 @@ export async function getMonthlySummary(monthStr: string): Promise<MonthlySummar
   const [accBookings, banquetBookings] = await Promise.all([
     prisma.accommodationBooking.findMany({
       where: { checkIn: { lt: end }, checkOut: { gt: start } },
-      include: { payment: true },
+      include: { payment: { include: { entries: true } } },
     }),
     prisma.banquetBooking.findMany({
       where: { eventDate: { gte: start, lt: end } },
-      include: { payment: true },
+      include: { payment: { include: { entries: true } } },
     }),
   ]);
 

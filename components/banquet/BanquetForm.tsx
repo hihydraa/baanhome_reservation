@@ -8,7 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
+import {
+  InitialDepositInput,
+  DEFAULT_INITIAL_DEPOSIT,
+  type InitialDepositValue,
+} from "@/components/payment/InitialDepositInput";
+import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
 import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
@@ -32,7 +37,6 @@ export type BanquetFormValue = {
   status: string;
   notes: string;
   cancelReason: string;
-  payment: PaymentFormValue;
 };
 
 export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): BanquetFormValue {
@@ -50,25 +54,37 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     status: "RESERVED",
     notes: "",
     cancelReason: "",
-    payment: { totalAmount: 0, depositAmount: 0, status: "DEPOSIT", method: "CASH", notes: "" },
     ...overrides,
   };
 }
 
 type ConflictInfo = { customerName: string; resourceName: string; timeRange: string; date: string } | null;
 
+export type BanquetPaymentLedgerProps = {
+  paymentId: string;
+  breakdown: { label: string; value: number }[];
+  expectedTotal: number;
+  entries: PaymentEntryValue[];
+  staffOptions: StaffOption[];
+  currentUserId: string;
+};
+
 export function BanquetForm({
   resources,
   accommodationOptions,
   initialOverrides,
+  ledger,
 }: {
   resources: ResourceOption[];
   accommodationOptions: AccommodationOption[];
   initialOverrides?: Partial<BanquetFormValue>;
+  /** Only present when editing an already-saved booking — a new booking has nowhere to attach entries to yet. */
+  ledger?: BanquetPaymentLedgerProps;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [value, setValue] = useState(() => defaultBanquetFormValue(initialOverrides));
+  const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo>(null);
@@ -122,7 +138,7 @@ export function BanquetForm({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(value),
+      body: JSON.stringify(value.id ? value : { ...value, initialPayment: initialDeposit }),
     });
 
     setSaving(false);
@@ -286,24 +302,24 @@ export function BanquetForm({
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}
       <ConflictBanner conflict={activeConflict} />
 
-      <PaymentPanel
-        value={value.payment}
-        onChange={(payment) => setValue({ ...value, payment })}
-        referenceItems={
-          selectedResource
-            ? [
-                {
-                  label: "ราคา/ชั่วโมง",
-                  value: selectedResource.hourlyPrice != null ? `${selectedResource.hourlyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ",
-                },
-                {
-                  label: "ราคาเหมาทั้งวัน",
-                  value: selectedResource.dailyPrice != null ? `${selectedResource.dailyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ",
-                },
-              ]
-            : undefined
-        }
-      />
+      {selectedResource && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1 rounded-md bg-gold-100 px-3 py-2 text-sm">
+          <span>
+            <span className="text-ink-600">ราคา/ชั่วโมง: </span>
+            <span className="font-semibold text-forest-800">
+              {selectedResource.hourlyPrice != null ? `${selectedResource.hourlyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ"}
+            </span>
+          </span>
+          <span>
+            <span className="text-ink-600">ราคาเหมาทั้งวัน: </span>
+            <span className="font-semibold text-forest-800">
+              {selectedResource.dailyPrice != null ? `${selectedResource.dailyPrice.toLocaleString("th-TH")} บาท` : "ยังไม่ระบุ"}
+            </span>
+          </span>
+        </div>
+      )}
+
+      {!value.id && <InitialDepositInput value={initialDeposit} onChange={setInitialDeposit} />}
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -313,6 +329,17 @@ export function BanquetForm({
           บันทึกการจอง
         </Button>
       </div>
+
+      {ledger && (
+        <PaymentLedger
+          paymentId={ledger.paymentId}
+          breakdown={ledger.breakdown}
+          expectedTotal={ledger.expectedTotal}
+          entries={ledger.entries}
+          staffOptions={ledger.staffOptions}
+          currentUserId={ledger.currentUserId}
+        />
+      )}
     </form>
   );
 }

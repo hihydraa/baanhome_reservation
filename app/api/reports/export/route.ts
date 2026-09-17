@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireStaffAccess, errorResponse } from "@/lib/api-helpers";
 import { parseDateOnly, formatTime, toDateOnlyString } from "@/lib/dates";
+import { accommodationExpectedTotal, banquetExpectedTotal, sumPaid, paymentBadgeInfo } from "@/lib/payment-calc";
 import {
   SOURCE_LABELS,
   ACCOMMODATION_STATUS_LABELS,
   BANQUET_EVENT_TYPE_LABELS,
   BANQUET_STATUS_LABELS,
-  PAYMENT_STATUS_LABELS,
 } from "@/lib/labels";
 
 function csvField(value: string | number): string {
@@ -39,12 +39,12 @@ export async function GET(req: NextRequest) {
   const [accBookings, banquetBookings] = await Promise.all([
     prisma.accommodationBooking.findMany({
       where: { checkIn: { lt: toExclusive }, checkOut: { gt: from } },
-      include: { resource: true, payment: true },
+      include: { resource: true, addons: true, payment: { include: { entries: true } } },
       orderBy: { checkIn: "asc" },
     }),
     prisma.banquetBooking.findMany({
       where: { eventDate: { gte: from, lt: toExclusive } },
-      include: { resource: true, payment: true },
+      include: { resource: true, payment: { include: { entries: true } } },
       orderBy: { eventDate: "asc" },
     }),
   ]);
@@ -58,9 +58,9 @@ export async function GET(req: NextRequest) {
     "สิ้นสุด",
     "ช่องทาง/ประเภทงาน",
     "สถานะการจอง",
-    "มัดจำ",
-    "จ่ายแล้ว",
-    "รวมจ่ายสุทธิ",
+    "ยอดรวมสุทธิ",
+    "ชำระแล้ว",
+    "คงเหลือ",
     "สถานะการชำระเงิน",
     "หมายเหตุ",
   ];
@@ -68,8 +68,8 @@ export async function GET(req: NextRequest) {
   let csv = "﻿" + csvRow(header);
 
   for (const b of accBookings) {
-    const deposit = Number(b.payment?.depositAmount ?? 0);
-    const paid = Number(b.payment?.totalAmount ?? 0);
+    const { expectedTotal } = accommodationExpectedTotal(b, b.addons);
+    const paid = sumPaid(b.payment?.entries ?? []);
     csv += csvRow([
       "ห้องพัก",
       b.resource.name,
@@ -79,17 +79,17 @@ export async function GET(req: NextRequest) {
       toDateOnlyString(b.checkOut),
       SOURCE_LABELS[b.source] ?? b.source,
       ACCOMMODATION_STATUS_LABELS[b.status] ?? b.status,
-      deposit,
+      expectedTotal,
       paid,
-      deposit + paid,
-      b.payment ? PAYMENT_STATUS_LABELS[b.payment.status] ?? b.payment.status : "-",
+      Math.max(0, expectedTotal - paid),
+      paymentBadgeInfo(paid, expectedTotal).label,
       b.notes ?? "",
     ]);
   }
 
   for (const b of banquetBookings) {
-    const deposit = Number(b.payment?.depositAmount ?? 0);
-    const paid = Number(b.payment?.totalAmount ?? 0);
+    const { expectedTotal } = banquetExpectedTotal(b, b.resource);
+    const paid = sumPaid(b.payment?.entries ?? []);
     csv += csvRow([
       "ห้องจัดเลี้ยง",
       b.resource.name,
@@ -99,10 +99,10 @@ export async function GET(req: NextRequest) {
       `${toDateOnlyString(b.eventDate)} ${formatTime(b.endTime)}`,
       BANQUET_EVENT_TYPE_LABELS[b.eventType] ?? b.eventType,
       BANQUET_STATUS_LABELS[b.status] ?? b.status,
-      deposit,
+      expectedTotal,
       paid,
-      deposit + paid,
-      b.payment ? PAYMENT_STATUS_LABELS[b.payment.status] ?? b.payment.status : "-",
+      Math.max(0, expectedTotal - paid),
+      paymentBadgeInfo(paid, expectedTotal).label,
       b.notes ?? "",
     ]);
   }

@@ -30,7 +30,7 @@ export default async function DashboardPage({
           checkOut: { gt: date },
           status: { not: "CANCELLED" },
         },
-        include: { addons: { include: { service: true } }, payment: true },
+        include: { addons: { include: { service: true } }, payment: { include: { entries: true } } },
       }),
       prisma.resource.findMany({
         where: { type: "BANQUET" },
@@ -38,7 +38,7 @@ export default async function DashboardPage({
       }),
       prisma.banquetBooking.findMany({
         where: { eventDate: { gte: date, lt: nextDay }, status: { not: "CANCELLED" } },
-        include: { payment: true },
+        include: { payment: { include: { entries: true } } },
         orderBy: { startTime: "asc" },
       }),
     ]);

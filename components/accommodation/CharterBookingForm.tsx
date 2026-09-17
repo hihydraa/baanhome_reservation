@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
+import {
+  InitialDepositInput,
+  DEFAULT_INITIAL_DEPOSIT,
+  type InitialDepositValue,
+} from "@/components/payment/InitialDepositInput";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -44,13 +48,7 @@ export function CharterBookingForm({
   const [guestCount, setGuestCount] = useState(1);
   const [status, setStatus] = useState("RESERVED");
   const [notes, setNotes] = useState("");
-  const [payment, setPayment] = useState<PaymentFormValue>({
-    totalAmount: 0,
-    depositAmount: 0,
-    status: "PAY_LATER",
-    method: "CASH",
-    notes: "",
-  });
+  const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +70,7 @@ export function CharterBookingForm({
         guestCount,
         status,
         notes,
-        payment,
+        initialPayment: initialDeposit,
       }),
     });
 
@@ -172,7 +170,7 @@ export function CharterBookingForm({
       <p className="text-xs text-ink-400">
         ยอดชำระด้านล่างจะถูกบันทึกไว้ที่ห้องแรกของกลุ่มเท่านั้น ห้องอื่นในกลุ่มเดียวกันจะไม่มียอดซ้ำ
       </p>
-      <PaymentPanel value={payment} onChange={setPayment} />
+      <InitialDepositInput value={initialDeposit} onChange={setInitialDeposit} />
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

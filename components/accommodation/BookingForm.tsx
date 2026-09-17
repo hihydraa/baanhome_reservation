@@ -9,7 +9,12 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
-import { PaymentPanel, type PaymentFormValue } from "@/components/payment/PaymentPanel";
+import {
+  InitialDepositInput,
+  DEFAULT_INITIAL_DEPOSIT,
+  type InitialDepositValue,
+} from "@/components/payment/InitialDepositInput";
+import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -30,7 +35,6 @@ export type AccommodationBookingFormValue = {
   notes: string;
   cancelReason: string;
   addons: AddonFormValue[];
-  payment: PaymentFormValue;
 };
 
 export function defaultAccommodationFormValue(
@@ -50,21 +54,32 @@ export function defaultAccommodationFormValue(
     notes: "",
     cancelReason: "",
     addons: [],
-    payment: { totalAmount: 0, depositAmount: 0, status: "PAY_LATER", method: "CASH", notes: "" },
     ...overrides,
   };
 }
+
+export type AccommodationPaymentLedgerProps = {
+  paymentId: string;
+  breakdown: { label: string; value: number }[];
+  expectedTotal: number;
+  entries: PaymentEntryValue[];
+  staffOptions: StaffOption[];
+  currentUserId: string;
+};
 
 export function AccommodationBookingForm({
   resources,
   services,
   initial,
+  ledger,
   onSaved,
   onCancel,
 }: {
   resources: ResourceOption[];
   services: ServiceOption[];
   initial: AccommodationBookingFormValue;
+  /** Only present when editing an already-saved booking — a new booking has nowhere to attach entries to yet. */
+  ledger?: AccommodationPaymentLedgerProps;
   onSaved?: () => void;
   onCancel?: () => void;
 }) {
@@ -84,6 +99,7 @@ export function AccommodationBookingForm({
     }
     return initial;
   });
+  const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,7 +132,7 @@ export function AccommodationBookingForm({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(value),
+      body: JSON.stringify(value.id ? value : { ...value, initialPayment: initialDeposit }),
     });
 
     setSaving(false);
@@ -249,16 +265,7 @@ export function AccommodationBookingForm({
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
 
-      <PaymentPanel
-        value={value.payment}
-        onChange={(payment) => setValue({ ...value, payment })}
-        referenceItems={[
-          {
-            label: "ราคาห้องพัก (บาท/คืน)",
-            value: value.roomPrice > 0 ? value.roomPrice.toLocaleString("th-TH") : "ยังไม่ระบุ",
-          },
-        ]}
-      />
+      {!value.id && <InitialDepositInput value={initialDeposit} onChange={setInitialDeposit} />}
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -273,6 +280,17 @@ export function AccommodationBookingForm({
           บันทึกการจอง
         </Button>
       </div>
+
+      {ledger && (
+        <PaymentLedger
+          paymentId={ledger.paymentId}
+          breakdown={ledger.breakdown}
+          expectedTotal={ledger.expectedTotal}
+          entries={ledger.entries}
+          staffOptions={ledger.staffOptions}
+          currentUserId={ledger.currentUserId}
+        />
+      )}
     </form>
   );
 }

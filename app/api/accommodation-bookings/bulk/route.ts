@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { accommodationBulkBookingInputSchema } from "@/lib/validators";
-import { parseDateOnly } from "@/lib/dates";
+import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
+import { generateReceiptNumber } from "@/lib/receipt";
 
 const CHARTER_SCOPE_LABELS: Record<string, string> = {
   RESORT: "เหมารีสอร์ต",
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
   const scopeLabel = CHARTER_SCOPE_LABELS[data.scope] ?? data.scope;
   const anchorRoomName = resources[0].name;
 
+  const hasInitialDeposit = !!data.initialPayment && data.initialPayment.amount > 0;
+  const paidAt = nowBangkok();
+  const receiptNumber = hasInitialDeposit ? await generateReceiptNumber(prisma, paidAt) : null;
+
   const bookings = await prisma.$transaction(
     resources.map((r, index) =>
       prisma.accommodationBooking.create({
@@ -70,17 +75,21 @@ export async function POST(req: NextRequest) {
               : [data.notes, `(${scopeLabel} — ดูยอดชำระที่ห้อง ${anchorRoomName})`].filter(Boolean).join(" "),
           createdById: session!.user.id,
           payment: {
-            create:
-              index === 0
-                ? {
-                    totalAmount: data.payment.totalAmount,
-                    depositAmount: data.payment.depositAmount,
-                    status: data.payment.status,
-                    method: data.payment.method,
-                    notes: data.payment.notes,
-                    paidAt: data.payment.status === "PAID" ? new Date() : null,
-                  }
-                : { totalAmount: 0, depositAmount: 0, status: "PAY_LATER", method: data.payment.method },
+            create: {
+              entries:
+                index === 0 && hasInitialDeposit
+                  ? {
+                      create: {
+                        amount: data.initialPayment!.amount,
+                        method: data.initialPayment!.method,
+                        paidAt,
+                        receivedById: session!.user.id,
+                        notes: data.initialPayment!.notes || "มัดจำแรกเข้า",
+                        receiptNumber: receiptNumber!,
+                      },
+                    }
+                  : undefined,
+            },
           },
         },
       })

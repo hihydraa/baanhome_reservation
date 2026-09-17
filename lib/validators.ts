@@ -9,8 +9,7 @@ export const accommodationStatusEnum = z.enum([
 ]);
 export const banquetEventTypeEnum = z.enum(["MEETING", "BANQUET", "SEMINAR", "OTHER"]);
 export const banquetStatusEnum = z.enum(["RESERVED", "CONFIRMED", "CANCELLED"]);
-export const paymentStatusEnum = z.enum(["PAID", "DEPOSIT", "PAY_LATER"]);
-export const paymentMethodEnum = z.enum(["CASH", "TRANSFER"]);
+export const paymentMethodEnum = z.enum(["CASH", "TRANSFER", "CREDIT_CARD"]);
 
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "รูปแบบวันที่ไม่ถูกต้อง");
 const timeOnly = z.string().regex(/^\d{2}:\d{2}$/, "รูปแบบเวลาไม่ถูกต้อง");
@@ -27,12 +26,19 @@ export const specialServiceInputSchema = z.object({
   price: z.coerce.number().min(0, "ราคาต้องไม่ติดลบ"),
 });
 
-/** `totalAmount` holds the "จ่ายแล้ว" (paid beyond deposit) amount; the net total is depositAmount + totalAmount. */
-export const paymentInputSchema = z.object({
-  totalAmount: z.coerce.number().min(0).default(0),
-  depositAmount: z.coerce.number().min(0).default(0),
-  status: paymentStatusEnum,
+/** Optional first deposit recorded at the moment a booking is created. */
+export const initialPaymentInputSchema = z.object({
+  amount: z.coerce.number().min(0).default(0),
+  method: paymentMethodEnum.default("CASH"),
+  notes: z.string().optional(),
+});
+
+/** A single entry recorded in a booking's payment ledger (one "receipt"). */
+export const paymentEntryInputSchema = z.object({
+  amount: z.coerce.number().positive("จำนวนเงินต้องมากกว่า 0"),
   method: paymentMethodEnum,
+  paidAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "รูปแบบวันที่ไม่ถูกต้อง"),
+  receivedById: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
 
@@ -50,7 +56,7 @@ export const accommodationBookingInputSchema = z
     notes: z.string().optional(),
     cancelReason: z.string().optional(),
     addons: z.array(addonInputSchema).default([]),
-    payment: paymentInputSchema.optional(),
+    initialPayment: initialPaymentInputSchema.optional(),
   })
   .refine((b) => b.checkOut > b.checkIn, {
     message: "วันที่เช็คเอาท์ต้องอยู่หลังวันที่เช็คอิน",
@@ -70,7 +76,7 @@ export const accommodationBulkBookingInputSchema = z
     guestCount: z.coerce.number().int().min(1).default(1),
     status: accommodationStatusEnum.default("RESERVED"),
     notes: z.string().optional(),
-    payment: paymentInputSchema,
+    initialPayment: initialPaymentInputSchema.optional(),
   })
   .refine((b) => b.checkOut > b.checkIn, {
     message: "วันที่เช็คเอาท์ต้องอยู่หลังวันที่เช็คอิน",
@@ -92,7 +98,7 @@ export const banquetBookingInputSchema = z
     cancelReason: z.string().optional(),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
-    payment: paymentInputSchema,
+    initialPayment: initialPaymentInputSchema.optional(),
   })
   .refine((b) => b.endTime > b.startTime, {
     message: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม",

@@ -33,14 +33,15 @@ export const BANQUET_STATUS_LABELS: Record<string, string> = {
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  PAID: "จ่ายแล้ว",
-  DEPOSIT: "มัดจำ",
-  PAY_LATER: "จ่ายทีหลัง",
+  PAID: "ชำระครบแล้ว",
+  DEPOSIT: "ค้างชำระ",
+  PAY_LATER: "รอชำระทั้งหมด",
 };
 
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: "เงินสด",
   TRANSFER: "โอนเงิน",
+  CREDIT_CARD: "บัตรเครดิต",
 };
 
 export const BOOKING_TYPE_LABELS: Record<string, string> = {

@@ -75,6 +75,30 @@ export function todayDateOnly(): Date {
   );
 }
 
+/** The current moment, stored as a naive UTC value equal to the Bangkok wall clock. */
+export function nowBangkok(): Date {
+  return new Date(Date.now() + BANGKOK_OFFSET_MS);
+}
+
+/** Combines a date-only string with the current Bangkok time-of-day — used when staff pick
+ *  the date a payment was received but the time is just "now". */
+export function combineDateWithNowTime(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const bangkokNow = new Date(Date.now() + BANGKOK_OFFSET_MS);
+  return new Date(
+    Date.UTC(y, m - 1, d, bangkokNow.getUTCHours(), bangkokNow.getUTCMinutes(), bangkokNow.getUTCSeconds())
+  );
+}
+
+/** Replaces just the date part of `original`, keeping its original time-of-day — used when
+ *  editing a payment entry's date without disturbing when it was actually recorded. */
+export function withDatePart(original: Date, dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(
+    Date.UTC(y, m - 1, d, original.getUTCHours(), original.getUTCMinutes(), original.getUTCSeconds())
+  );
+}
+
 export function shiftDate(d: Date, days: number): Date {
   const copy = new Date(d);
   copy.setUTCDate(copy.getUTCDate() + days);

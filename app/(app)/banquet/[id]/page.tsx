@@ -2,17 +2,20 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { formatThaiDate, formatTime } from "@/lib/dates";
-import { BanquetForm } from "@/components/banquet/BanquetForm";
+import { banquetExpectedTotal } from "@/lib/payment-calc";
+import { BanquetForm, type BanquetPaymentLedgerProps } from "@/components/banquet/BanquetForm";
 import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
 
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [booking, resources, accommodationBookings] = await Promise.all([
+  const [session, booking, resources, accommodationBookings, staff] = await Promise.all([
+    auth(),
     prisma.banquetBooking.findUnique({
       where: { id },
-      include: { resource: true, payment: true, linkedAccommodations: { include: { resource: true } }, createdBy: true },
+      include: { resource: true, linkedAccommodations: { include: { resource: true } }, createdBy: true },
     }),
     prisma.resource.findMany({ where: { type: "BANQUET" }, orderBy: [{ sortOrder: "asc" }] }),
     prisma.accommodationBooking.findMany({
@@ -21,9 +24,17 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
       orderBy: { checkIn: "desc" },
       take: 50,
     }),
+    prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   if (!booking) notFound();
+
+  const payment = await prisma.payment.upsert({
+    where: { banquetBookingId: booking.id },
+    create: { banquetBookingId: booking.id },
+    update: {},
+    include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } },
+  });
 
   const accommodationOptions = accommodationBookings.map((b) => ({
     id: b.id,
@@ -45,15 +56,25 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     status: booking.status,
     notes: booking.notes ?? "",
     cancelReason: "",
-    payment: booking.payment
-      ? {
-          totalAmount: Number(booking.payment.totalAmount),
-          depositAmount: Number(booking.payment.depositAmount),
-          status: booking.payment.status,
-          method: booking.payment.method,
-          notes: booking.payment.notes ?? "",
-        }
-      : { totalAmount: 0, depositAmount: 0, status: "DEPOSIT" as const, method: "CASH" as const, notes: "" },
+  };
+
+  const { expectedTotal } = banquetExpectedTotal(booking, booking.resource);
+
+  const ledger: BanquetPaymentLedgerProps = {
+    paymentId: payment.id,
+    expectedTotal,
+    breakdown: [{ label: "ค่าห้องจัดเลี้ยง", value: expectedTotal }],
+    entries: payment.entries.map((e) => ({
+      id: e.id,
+      amount: Number(e.amount),
+      method: e.method,
+      paidAt: e.paidAt.toISOString(),
+      receivedBy: e.receivedBy ? { id: e.receivedBy.id, name: e.receivedBy.name } : null,
+      notes: e.notes,
+      receiptNumber: e.receiptNumber,
+    })),
+    staffOptions: staff,
+    currentUserId: session!.user.id,
   };
 
   return (
@@ -84,6 +105,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           }))}
           accommodationOptions={accommodationOptions}
           initialOverrides={initial}
+          ledger={ledger}
         />
       </div>
     </div>

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { accommodationBookingInputSchema } from "@/lib/validators";
-import { parseDateOnly } from "@/lib/dates";
+import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
+import { generateReceiptNumber } from "@/lib/receipt";
 
 export async function GET(req: NextRequest) {
   const { response } = await requireSession();
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const bookings = await prisma.accommodationBooking.findMany({
     where,
-    include: { resource: true, addons: true, payment: true },
+    include: { resource: true, addons: true, payment: { include: { entries: true } } },
     orderBy: [{ checkIn: "asc" }],
   });
 
@@ -51,6 +52,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const hasInitialDeposit = !!data.initialPayment && data.initialPayment.amount > 0;
+  const paidAt = nowBangkok();
+  const receiptNumber = hasInitialDeposit ? await generateReceiptNumber(prisma, paidAt) : null;
+
   const booking = await prisma.accommodationBooking.create({
     data: {
       resourceId: data.resourceId,
@@ -72,22 +77,24 @@ export async function POST(req: NextRequest) {
           price: a.price,
         })),
       },
-      ...(data.payment
-        ? {
-            payment: {
-              create: {
-                totalAmount: data.payment.totalAmount,
-                depositAmount: data.payment.depositAmount,
-                status: data.payment.status,
-                method: data.payment.method,
-                notes: data.payment.notes,
-                paidAt: data.payment.status === "PAID" ? new Date() : null,
-              },
-            },
-          }
-        : {}),
+      payment: {
+        create: {
+          entries: hasInitialDeposit
+            ? {
+                create: {
+                  amount: data.initialPayment!.amount,
+                  method: data.initialPayment!.method,
+                  paidAt,
+                  receivedById: session!.user.id,
+                  notes: data.initialPayment!.notes || "มัดจำแรกเข้า",
+                  receiptNumber: receiptNumber!,
+                },
+              }
+            : undefined,
+        },
+      },
     },
-    include: { resource: true, addons: true, payment: true },
+    include: { resource: true, addons: true, payment: { include: { entries: true } } },
   });
 
   return NextResponse.json(booking, { status: 201 });

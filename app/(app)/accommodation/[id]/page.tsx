@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { toDateOnlyString } from "@/lib/dates";
-import { AccommodationBookingForm } from "@/components/accommodation/BookingForm";
+import { accommodationExpectedTotal } from "@/lib/payment-calc";
+import { AccommodationBookingForm, type AccommodationPaymentLedgerProps } from "@/components/accommodation/BookingForm";
 import { DeleteBookingButton } from "@/components/accommodation/DeleteBookingButton";
 
 export default async function AccommodationDetailPage({
@@ -13,16 +15,25 @@ export default async function AccommodationDetailPage({
 }) {
   const { id } = await params;
 
-  const [booking, resources, services] = await Promise.all([
+  const [session, booking, resources, services, staff] = await Promise.all([
+    auth(),
     prisma.accommodationBooking.findUnique({
       where: { id },
-      include: { resource: true, addons: true, payment: true, createdBy: true },
+      include: { resource: true, addons: true, createdBy: true },
     }),
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
     prisma.specialService.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   if (!booking) notFound();
+
+  const payment = await prisma.payment.upsert({
+    where: { accommodationBookingId: booking.id },
+    create: { accommodationBookingId: booking.id },
+    update: {},
+    include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } },
+  });
 
   const initial = {
     id: booking.id,
@@ -43,15 +54,28 @@ export default async function AccommodationDetailPage({
       quantity: a.quantity,
       price: Number(a.price),
     })),
-    payment: booking.payment
-      ? {
-          totalAmount: Number(booking.payment.totalAmount),
-          depositAmount: Number(booking.payment.depositAmount),
-          status: booking.payment.status,
-          method: booking.payment.method,
-          notes: booking.payment.notes ?? "",
-        }
-      : { totalAmount: 0, depositAmount: 0, status: "PAY_LATER" as const, method: "CASH" as const, notes: "" },
+  };
+
+  const { nights, roomTotal, addonsTotal, expectedTotal } = accommodationExpectedTotal(booking, booking.addons);
+
+  const ledger: AccommodationPaymentLedgerProps = {
+    paymentId: payment.id,
+    expectedTotal,
+    breakdown: [
+      { label: `ค่าห้องพัก (${nights} คืน)`, value: roomTotal },
+      ...(addonsTotal > 0 ? [{ label: "ค่าบริการเสริม", value: addonsTotal }] : []),
+    ],
+    entries: payment.entries.map((e) => ({
+      id: e.id,
+      amount: Number(e.amount),
+      method: e.method,
+      paidAt: e.paidAt.toISOString(),
+      receivedBy: e.receivedBy ? { id: e.receivedBy.id, name: e.receivedBy.name } : null,
+      notes: e.notes,
+      receiptNumber: e.receiptNumber,
+    })),
+    staffOptions: staff,
+    currentUserId: session!.user.id,
   };
 
   return (
@@ -78,6 +102,7 @@ export default async function AccommodationDetailPage({
           resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
           services={services.map((s) => ({ ...s, price: Number(s.price) }))}
           initial={initial}
+          ledger={ledger}
         />
       </div>
     </div>

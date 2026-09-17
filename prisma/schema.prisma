@@ -53,15 +53,10 @@ enum BanquetStatus {
   CANCELLED
 }
 
-enum PaymentStatus {
-  PAID
-  DEPOSIT
-  PAY_LATER
-}
-
 enum PaymentMethod {
   CASH
   TRANSFER
+  CREDIT_CARD
 }
 
 enum BookingType {
@@ -80,6 +75,7 @@ model User {
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
   cancellationLogs      CancellationLog[]
+  paymentEntries        PaymentEntry[]
 }
 
 model Resource {
@@ -201,12 +197,25 @@ model Payment {
   accommodationBooking   AccommodationBooking? @relation(fields: [accommodationBookingId], references: [id], onDelete: Cascade)
   banquetBookingId       String?               @unique
   banquetBooking         BanquetBooking?       @relation(fields: [banquetBookingId], references: [id], onDelete: Cascade)
-  totalAmount            Decimal               @default(0) @db.Decimal(10, 2)
-  depositAmount          Decimal               @default(0) @db.Decimal(10, 2)
-  status                 PaymentStatus         @default(PAY_LATER)
-  method                 PaymentMethod         @default(CASH)
-  paidAt                 DateTime?
-  notes                  String?
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
+
+  entries PaymentEntry[]
+}
+
+/** One recorded payment (a "receipt") toward a booking's net total; a Payment can have many. */
+model PaymentEntry {
+  id             String        @id @default(cuid())
+  paymentId      String
+  payment        Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod @default(CASH)
+  paidAt         DateTime
+  receivedById   String?
+  receivedBy     User?         @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  notes          String?
+  receiptNumber  String        @unique
+  createdAt      DateTime      @default(now())
+
+  @@index([paymentId])
 }

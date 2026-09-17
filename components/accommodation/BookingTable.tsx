@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { PaymentStatusBadge } from "@/components/payment/PaymentStatusBadge";
+import { PaymentStatusPill } from "@/components/payment/PaymentStatusPill";
+import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { formatThaiDate } from "@/lib/dates";
 import type { Prisma } from "@prisma/client";
 
-type Booking = Prisma.AccommodationBookingGetPayload<{ include: { resource: true; payment: true } }>;
+type Booking = Prisma.AccommodationBookingGetPayload<{
+  include: { resource: true; addons: true; payment: { include: { entries: true } } };
+}>;
 
 const STATUS_VARIANT: Record<string, "success" | "gold" | "muted" | "danger"> = {
   CHECKED_IN: "success",
@@ -33,27 +36,35 @@ export function BookingTable({ bookings }: { bookings: Booking[] }) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {bookings.map((b) => (
-          <TableRow key={b.id}>
-            <TableCell className="font-medium">
-              <Link href={`/accommodation/${b.id}`} className="hover:underline text-forest-700">
-                {b.resource.name}
-              </Link>
-            </TableCell>
-            <TableCell>
-              <div>{b.customerName}</div>
-              <div className="text-xs text-ink-400">{b.phone}</div>
-            </TableCell>
-            <TableCell>{formatThaiDate(b.checkIn)}</TableCell>
-            <TableCell>{formatThaiDate(b.checkOut)}</TableCell>
-            <TableCell>
-              <Badge variant={STATUS_VARIANT[b.status]}>{ACCOMMODATION_STATUS_LABELS[b.status]}</Badge>
-            </TableCell>
-            <TableCell>
-              <PaymentStatusBadge status={b.payment?.status} />
-            </TableCell>
-          </TableRow>
-        ))}
+        {bookings.map((b) => {
+          const { expectedTotal } = accommodationExpectedTotal(b, b.addons);
+          const paid = sumPaid(b.payment?.entries ?? []);
+          return (
+            <TableRow key={b.id}>
+              <TableCell className="font-medium">
+                <Link href={`/accommodation/${b.id}`} className="hover:underline text-forest-700">
+                  {b.resource.name}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <div>{b.customerName}</div>
+                <div className="text-xs text-ink-400">{b.phone}</div>
+              </TableCell>
+              <TableCell>{formatThaiDate(b.checkIn)}</TableCell>
+              <TableCell>{formatThaiDate(b.checkOut)}</TableCell>
+              <TableCell>
+                <Badge variant={STATUS_VARIANT[b.status]}>{ACCOMMODATION_STATUS_LABELS[b.status]}</Badge>
+              </TableCell>
+              <TableCell>
+                {b.status === "CANCELLED" ? (
+                  <span className="text-ink-400">—</span>
+                ) : (
+                  <PaymentStatusPill paid={paid} expectedTotal={expectedTotal} />
+                )}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
