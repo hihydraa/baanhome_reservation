@@ -126,12 +126,22 @@ export const checkConflictInputSchema = z.object({
   excludeBookingId: z.string().optional(),
 });
 
+const usernameField = z
+  .string()
+  .min(3, "อย่างน้อย 3 ตัวอักษร")
+  .regex(/^[a-zA-Z0-9._-]+$/, "ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ -");
+
 export const userInputSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
-  username: z
-    .string()
-    .min(3, "อย่างน้อย 3 ตัวอักษร")
-    .regex(/^[a-zA-Z0-9._-]+$/, "ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ -"),
+  username: usernameField,
   password: z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร"),
   role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]).default("STAFF"),
+});
+
+/** `password` is optional — leaving it blank keeps the user's existing password. */
+export const userUpdateInputSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อ"),
+  username: usernameField,
+  password: z.union([z.literal(""), z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร")]).optional(),
+  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]),
 });
