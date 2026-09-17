@@ -2,7 +2,7 @@ import Link from "next/link";
 import { BedDouble, PawPrint, Plus, Sparkles, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ZONE_LABELS } from "@/lib/labels";
-import { toDateOnlyString } from "@/lib/dates";
+import { toDateOnlyString, formatTime, formatThaiDate, toBangkokWallClock, THAI_MONTHS } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { PaymentStatusPill } from "@/components/payment/PaymentStatusPill";
 import type { Prisma, Resource } from "@prisma/client";
@@ -21,6 +21,20 @@ function getAddonIcon(name: string): LucideIcon {
   }
   return Sparkles;
 }
+
+const STATUS_TAG_LABELS: Record<string, string> = {
+  RESERVED: "จอง",
+  CHECKED_IN: "เข้าพัก",
+  CHECKED_OUT: "เช็คเอาท์แล้ว",
+  CANCELLED: "ยกเลิก",
+};
+
+const STATUS_TAG_CLASSES: Record<string, string> = {
+  RESERVED: "bg-gold-200 text-gold-800",
+  CHECKED_IN: "bg-emerald-100 text-emerald-700",
+  CHECKED_OUT: "bg-cream-200 text-ink-600",
+  CANCELLED: "bg-red-100 text-red-700",
+};
 
 export function DailyGrid({
   resourcesByZone,
@@ -59,38 +73,46 @@ function RoomCard({
   readOnly: boolean;
 }) {
   const b = resource.booking;
-  const { expectedTotal } = b ? accommodationExpectedTotal(b, b.addons) : { expectedTotal: 0 };
+  const isCancelled = b?.status === "CANCELLED";
+  const isCheckedOut = b?.status === "CHECKED_OUT";
+
+  const { expectedTotal, nights } = b ? accommodationExpectedTotal(b, b.addons) : { expectedTotal: 0, nights: 0 };
   const paid = b ? sumPaid(b.payment?.entries ?? []) : 0;
+
   const addonNames = b?.addons.map((a) => a.service?.name ?? a.description).filter(Boolean) as
     | string[]
     | undefined;
   const visibleAddons = addonNames?.slice(0, 2) ?? [];
   const extraAddonCount = (addonNames?.length ?? 0) - visibleAddons.length;
 
+  const dateRangeLabel =
+    b && !isCancelled
+      ? `${nights} คืน (${b.checkIn.getUTCDate()}-${b.checkOut.getUTCDate()} ${THAI_MONTHS[b.checkOut.getUTCMonth()]})`
+      : null;
+
   const cardBody = (
     <div
       className={cn(
         "relative flex h-full flex-col overflow-hidden rounded-md border border-cream-200 bg-white shadow-sm transition-shadow hover:shadow-md",
-        b && "border-gold-400"
+        b && !isCancelled && "border-gold-400",
+        isCancelled && "border-red-200"
       )}
     >
-      <div
-        className={cn(
-          "px-2 py-2 text-center text-base font-semibold text-forest-900",
-          b ? "bg-gold-300" : "bg-cream-200"
+      <div className={cn("flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 px-2 py-2", b ? "bg-gold-300" : "bg-cream-200")}>
+        <span className="truncate text-base font-semibold text-forest-900">{resource.name}</span>
+        {b && (
+          <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium", STATUS_TAG_CLASSES[b.status])}>
+            {STATUS_TAG_LABELS[b.status]}
+          </span>
         )}
-      >
-        {resource.name}
       </div>
-      <div className="flex flex-1 flex-col gap-1.5 p-2.5 text-sm leading-tight">
-        <div className="flex gap-1">
-          <span className="shrink-0 text-ink-400">K.</span>
-          <span className="min-w-0 flex-1 truncate text-ink-900">{b?.customerName || "—"}</span>
-        </div>
-        <div className="flex gap-1">
-          <span className="shrink-0 text-ink-400">T.</span>
-          <span className="min-w-0 flex-1 truncate text-ink-900">{b?.phone || "—"}</span>
-        </div>
+      <div className="flex flex-1 flex-col gap-1 p-2.5 text-sm leading-tight">
+        {!isCancelled && (
+          <>
+            <div className="truncate text-ink-900">{b?.customerName || "—"}</div>
+            <div className="truncate text-xs text-ink-500">{dateRangeLabel ?? "—"}</div>
+          </>
+        )}
 
         {visibleAddons.length > 0 && (
           <div className="flex flex-wrap gap-1 py-0.5">
@@ -114,8 +136,18 @@ function RoomCard({
           </div>
         )}
 
+        {b && !isCancelled && <div className="text-sm font-semibold text-ink-900">{expectedTotal.toLocaleString("th-TH")} บาท</div>}
+
         <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1.5">
-          {b ? <PaymentStatusPill paid={paid} expectedTotal={expectedTotal} /> : <span className="text-ink-400">—</span>}
+          {isCancelled && b ? (
+            <span className="text-xs text-red-600">ยกเลิกเมื่อ {formatThaiDate(toBangkokWallClock(b.updatedAt))}</span>
+          ) : isCheckedOut && b ? (
+            <span className="text-xs text-ink-500">เช็คเอาท์ {formatTime(toBangkokWallClock(b.updatedAt))} น.</span>
+          ) : b ? (
+            <PaymentStatusPill paid={paid} expectedTotal={expectedTotal} showIcon />
+          ) : (
+            <span className="text-ink-400">—</span>
+          )}
         </div>
         {!b && !readOnly && (
           <div className="flex items-center gap-1 pt-0.5 text-gold-600">

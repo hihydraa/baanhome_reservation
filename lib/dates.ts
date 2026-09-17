@@ -31,7 +31,7 @@ export function formatTime(d: Date): string {
   )}`;
 }
 
-const THAI_MONTHS = [
+export const THAI_MONTHS = [
   "ม.ค.",
   "ก.พ.",
   "มี.ค.",
@@ -78,6 +78,12 @@ export function todayDateOnly(): Date {
 /** The current moment, stored as a naive UTC value equal to the Bangkok wall clock. */
 export function nowBangkok(): Date {
   return new Date(Date.now() + BANGKOK_OFFSET_MS);
+}
+
+/** Converts a real timestamp (e.g. Prisma's `@updatedAt`) into the app's naive-UTC-as-Bangkok
+ *  convention, so it can be read with the UTC getters/formatters like every other date here. */
+export function toBangkokWallClock(d: Date): Date {
+  return new Date(d.getTime() + BANGKOK_OFFSET_MS);
 }
 
 /** Combines a date-only string with the current Bangkok time-of-day — used when staff pick

@@ -43,8 +43,17 @@ export default async function DashboardPage({
       }),
     ]);
 
-  const activeBookings = accommodationBookings.filter((b) => b.status !== "CANCELLED");
-  const bookingByResourceId = new Map(activeBookings.map((b) => [b.resourceId, b]));
+  // Prefer an active booking per room; fall back to a cancelled one so staff still see
+  // "cancelled today" context, but a fresh booking over the same slot always wins.
+  const activeByResource = new Map(
+    accommodationBookings.filter((b) => b.status !== "CANCELLED").map((b) => [b.resourceId, b])
+  );
+  const cancelledByResource = new Map(
+    accommodationBookings.filter((b) => b.status === "CANCELLED").map((b) => [b.resourceId, b])
+  );
+  const bookingByResourceId = new Map(
+    accommodationResources.map((r) => [r.id, activeByResource.get(r.id) ?? cancelledByResource.get(r.id)])
+  );
 
   const statusCounts = { RESERVED: 0, CHECKED_IN: 0, CHECKED_OUT: 0, CANCELLED: 0 };
   for (const b of accommodationBookings) {
