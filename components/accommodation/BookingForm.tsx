@@ -15,6 +15,7 @@ import {
   type InitialDepositValue,
 } from "@/components/payment/InitialDepositInput";
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
+import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -70,6 +71,7 @@ export type AccommodationPaymentLedgerProps = {
 export function AccommodationBookingForm({
   resources,
   services,
+  customers,
   initial,
   ledger,
   onSaved,
@@ -77,6 +79,7 @@ export function AccommodationBookingForm({
 }: {
   resources: ResourceOption[];
   services: ServiceOption[];
+  customers: CustomerOption[];
   initial: AccommodationBookingFormValue;
   /** Only present when editing an already-saved booking — a new booking has nowhere to attach entries to yet. */
   ledger?: AccommodationPaymentLedgerProps;
@@ -176,10 +179,12 @@ export function AccommodationBookingForm({
 
         <div className="flex flex-col gap-1.5">
           <Label>ชื่อลูกค้า</Label>
-          <Input
+          <CustomerNameInput
             required
             value={value.customerName}
-            onChange={(e) => setValue({ ...value, customerName: e.target.value })}
+            onChange={(customerName) => setValue({ ...value, customerName })}
+            onSelectCustomer={(c) => setValue({ ...value, customerName: c.name, phone: c.phone || value.phone })}
+            customers={customers}
           />
         </div>
         <div className="flex flex-col gap-1.5">

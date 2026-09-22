@@ -15,7 +15,7 @@ export default async function AccommodationDetailPage({
 }) {
   const { id } = await params;
 
-  const [session, booking, resources, services, staff] = await Promise.all([
+  const [session, booking, resources, services, staff, customers] = await Promise.all([
     auth(),
     prisma.accommodationBooking.findUnique({
       where: { id },
@@ -24,6 +24,7 @@ export default async function AccommodationDetailPage({
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
     prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, orderBy: { name: "asc" } }),
     prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   if (!booking) notFound();
@@ -101,6 +102,7 @@ export default async function AccommodationDetailPage({
         <AccommodationBookingForm
           resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
           services={services.map((s) => ({ ...s, price: Number(s.price) }))}
+          customers={customers}
           initial={initial}
           ledger={ledger}
         />

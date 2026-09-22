@@ -15,6 +15,7 @@ import {
 } from "@/components/payment/InitialDepositInput";
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
+import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
 import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
@@ -81,12 +82,14 @@ export function BanquetForm({
   resources,
   accommodationOptions,
   services,
+  customers,
   initialOverrides,
   ledger,
 }: {
   resources: ResourceOption[];
   accommodationOptions: AccommodationOption[];
   services: ServiceOption[];
+  customers: CustomerOption[];
   initialOverrides?: Partial<BanquetFormValue>;
   /** Only present when editing an already-saved booking — a new booking has nowhere to attach entries to yet. */
   ledger?: BanquetPaymentLedgerProps;
@@ -182,7 +185,13 @@ export function BanquetForm({
 
         <div className="flex flex-col gap-1.5">
           <Label>ชื่อลูกค้า/ผู้ติดต่อ</Label>
-          <Input required value={value.customerName} onChange={(e) => setValue({ ...value, customerName: e.target.value })} />
+          <CustomerNameInput
+            required
+            value={value.customerName}
+            onChange={(customerName) => setValue({ ...value, customerName })}
+            onSelectCustomer={(c) => setValue({ ...value, customerName: c.name, phone: c.phone || value.phone })}
+            customers={customers}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>เบอร์โทรศัพท์</Label>

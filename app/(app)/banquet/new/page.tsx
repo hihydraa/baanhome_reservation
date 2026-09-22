@@ -11,7 +11,7 @@ export default async function NewBanquetBookingPage({
 }) {
   const { resourceId, date } = await searchParams;
 
-  const [resources, accommodationBookings, services] = await Promise.all([
+  const [resources, accommodationBookings, services, customers] = await Promise.all([
     prisma.resource.findMany({ where: { type: "BANQUET" }, orderBy: [{ sortOrder: "asc" }] }),
     prisma.accommodationBooking.findMany({
       where: { status: { not: "CANCELLED" } },
@@ -20,6 +20,7 @@ export default async function NewBanquetBookingPage({
       take: 50,
     }),
     prisma.specialService.findMany({ where: { scope: "BANQUET" }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   const accommodationOptions = accommodationBookings.map((b) => ({
@@ -44,6 +45,7 @@ export default async function NewBanquetBookingPage({
         }))}
         accommodationOptions={accommodationOptions}
         services={services.map((s) => ({ ...s, price: Number(s.price) }))}
+        customers={customers}
         initialOverrides={{
           ...(resourceId ? { resourceId } : {}),
           ...(date ? { eventDate: date } : {}),

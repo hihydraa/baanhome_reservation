@@ -5,6 +5,7 @@ import { accommodationBulkBookingInputSchema } from "@/lib/validators";
 import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
+import { upsertCustomerFromBooking } from "@/lib/customers";
 
 const CHARTER_SCOPE_LABELS: Record<string, string> = {
   RESORT: "เหมารีสอร์ต",
@@ -95,6 +96,8 @@ export async function POST(req: NextRequest) {
       })
     )
   );
+
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
 
   return NextResponse.json({ count: bookings.length, bookings }, { status: 201 });
 }

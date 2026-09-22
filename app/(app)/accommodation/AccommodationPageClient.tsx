@@ -4,13 +4,16 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookingFormDialog } from "@/components/accommodation/BookingFormDialog";
 import type { ServiceOption } from "@/components/accommodation/AddonEditor";
+import type { CustomerOption } from "@/components/customers/CustomerNameInput";
 
 export function AccommodationPageClient({
   resources,
   services,
+  customers,
 }: {
   resources: { id: string; name: string; zone: string; price: number | null }[];
   services: ServiceOption[];
+  customers: CustomerOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,6 +34,7 @@ export function AccommodationPageClient({
     <BookingFormDialog
       resources={resources}
       services={services}
+      customers={customers}
       open={open}
       onOpenChange={handleOpenChange}
       initialOverrides={{

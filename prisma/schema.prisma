@@ -78,6 +78,21 @@ model User {
   paymentEntries        PaymentEntry[]
 }
 
+/** A lightweight, name-searchable customer directory shared across accommodation and banquet
+ *  booking forms. Bookings still store customerName/phone as plain text (never a hard FK) so
+ *  staff can always type a name freely; saving a booking auto-upserts a matching row here so
+ *  the directory grows on its own from real usage, without needing manual data entry. */
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  taxId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
 model Resource {
   id        String       @id @default(cuid())
   name      String

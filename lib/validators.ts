@@ -14,6 +14,12 @@ export const paymentMethodEnum = z.enum(["CASH", "TRANSFER", "CREDIT_CARD"]);
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "รูปแบบวันที่ไม่ถูกต้อง");
 const timeOnly = z.string().regex(/^\d{2}:\d{2}$/, "รูปแบบเวลาไม่ถูกต้อง");
 
+export const customerInputSchema = z.object({
+  name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
+  phone: z.string().optional(),
+  taxId: z.string().optional(),
+});
+
 export const addonInputSchema = z.object({
   serviceId: z.string().optional().nullable(),
   description: z.string().optional(),

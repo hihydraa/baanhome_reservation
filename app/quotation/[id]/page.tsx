@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 import { formatShortThaiDate, formatTime } from "@/lib/dates";
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
+import { PreparedByField } from "@/components/banquet/PreparedByField";
 
 const BUSINESS = {
   name: "สวนอาหารบ้านโฮม (สำนักงานใหญ่)",
@@ -17,11 +19,17 @@ const VAT_RATE = 0.07;
 export default async function QuotationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
+  const session = await auth();
+
   const booking = await prisma.banquetBooking.findUnique({
     where: { id },
     include: { resource: true, addons: { include: { service: true } } },
   });
   if (!booking) notFound();
+
+  // Best-effort: the customer directory isn't a hard FK, so this is a name lookup —
+  // shows the buyer's own tax ID on the quotation when there's a matching record.
+  const customer = await prisma.customer.findFirst({ where: { name: booking.customerName.trim() } });
 
   const lineItems = booking.addons.map((a) => ({
     id: a.id,
@@ -40,10 +48,10 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="min-h-screen bg-cream-100 p-4 print:bg-white print:p-0 md:p-8">
-      <div className="mx-auto flex max-w-3xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-[210mm] flex-col gap-4">
         <QuotationActions backHref={`/banquet/${booking.id}`} />
 
-        <div className="flex flex-col gap-3 rounded-lg border border-ink-900/20 bg-white p-6 text-sm text-ink-900 print:rounded-none print:border-black print:p-8">
+        <div className="mx-auto flex w-[210mm] min-h-[297mm] max-w-full flex-col gap-3 rounded-lg border border-ink-900/20 bg-white p-6 text-sm text-ink-900 shadow-sm print:w-full print:rounded-none print:border-black print:p-8 print:shadow-none">
           {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b border-ink-900/20 pb-3">
             <div className="flex items-center gap-3">
@@ -78,6 +86,14 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
                 <td className="w-20 border border-ink-900/20 px-2 py-1.5 font-medium">เลขที่ / No.</td>
                 <td className="border border-ink-900/20 px-2 py-1.5">{quotationNumber}</td>
               </tr>
+              {customer?.taxId && (
+                <tr>
+                  <td className="border border-ink-900/20 px-2 py-1.5 font-medium">เลขนิติบุคคล</td>
+                  <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
+                    {customer.taxId}
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-medium">Project</td>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-semibold text-red-700" colSpan={3}>
@@ -157,9 +173,9 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
 
           {/* Signatures */}
           <div className="mt-6 grid grid-cols-2 gap-8 text-xs">
-            <div className="flex flex-col items-center gap-8">
-              <div className="w-full border-b border-dotted border-ink-900/40 pt-8" />
-              <div className="-mt-8 text-center">
+            <div className="flex flex-col items-center gap-2">
+              <PreparedByField defaultValue={session?.user.name ?? ""} />
+              <div className="text-center">
                 <p>ผู้จัดทำ / ผู้เสนอราคา</p>
                 <p className="mt-3">วันที่ ..........................................</p>
               </div>

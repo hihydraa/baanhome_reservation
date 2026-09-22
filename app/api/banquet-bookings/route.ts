@@ -5,6 +5,7 @@ import { banquetBookingInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime, nowBangkok } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
+import { upsertCustomerFromBooking } from "@/lib/customers";
 
 export async function GET(req: NextRequest) {
   const { response } = await requireSession();
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
     },
     include: { resource: true, addons: true, payment: { include: { entries: true } }, linkedAccommodations: true },
   });
+
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
 
   return NextResponse.json(booking, { status: 201 });
 }

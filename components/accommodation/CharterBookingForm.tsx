@@ -13,6 +13,7 @@ import {
   DEFAULT_INITIAL_DEPOSIT,
   type InitialDepositValue,
 } from "@/components/payment/InitialDepositInput";
+import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -27,10 +28,12 @@ const SCOPE_OPTIONS: { value: ChargeScope; label: string }[] = [
 ];
 
 export function CharterBookingForm({
+  customers,
   initialCheckIn,
   onSaved,
   onCancel,
 }: {
+  customers: CustomerOption[];
   initialCheckIn?: string;
   onSaved?: () => void;
   onCancel?: () => void;
@@ -114,7 +117,16 @@ export function CharterBookingForm({
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label>ชื่อลูกค้า</Label>
-          <Input required value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+          <CustomerNameInput
+            required
+            value={customerName}
+            onChange={setCustomerName}
+            onSelectCustomer={(c) => {
+              setCustomerName(c.name);
+              if (c.phone) setPhone(c.phone);
+            }}
+            customers={customers}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>เบอร์โทรศัพท์</Label>

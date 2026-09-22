@@ -4,7 +4,7 @@ import { BookingTable } from "@/components/accommodation/BookingTable";
 import { AccommodationPageClient } from "./AccommodationPageClient";
 
 export default async function AccommodationPage() {
-  const [resources, bookings, services] = await Promise.all([
+  const [resources, bookings, services, customers] = await Promise.all([
     prisma.resource.findMany({
       where: { type: "ACCOMMODATION" },
       orderBy: [{ zone: "asc" }, { sortOrder: "asc" }],
@@ -15,6 +15,7 @@ export default async function AccommodationPage() {
       take: 100,
     }),
     prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -25,6 +26,7 @@ export default async function AccommodationPage() {
           <AccommodationPageClient
             resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
             services={services.map((s) => ({ ...s, price: Number(s.price) }))}
+            customers={customers}
           />
         </Suspense>
       </div>

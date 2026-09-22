@@ -5,6 +5,7 @@ import { accommodationBookingInputSchema } from "@/lib/validators";
 import { parseDateOnly } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { logAccommodationCancellation } from "@/lib/cancellation-log";
+import { upsertCustomerFromBooking } from "@/lib/customers";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -108,6 +109,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       cancelledById: session!.user.id,
     });
   }
+
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
 
   return NextResponse.json(booking);
 }

@@ -17,16 +17,19 @@ import {
 } from "@/components/accommodation/BookingForm";
 import { CharterBookingForm } from "@/components/accommodation/CharterBookingForm";
 import type { ServiceOption } from "@/components/accommodation/AddonEditor";
+import type { CustomerOption } from "@/components/customers/CustomerNameInput";
 
 export function BookingFormDialog({
   resources,
   services,
+  customers,
   open,
   onOpenChange,
   initialOverrides,
 }: {
   resources: { id: string; name: string; zone: string; price: number | null }[];
   services: ServiceOption[];
+  customers: CustomerOption[];
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   initialOverrides?: Partial<AccommodationBookingFormValue>;
@@ -52,12 +55,17 @@ export function BookingFormDialog({
             <AccommodationBookingForm
               resources={resources}
               services={services}
+              customers={customers}
               initial={defaultAccommodationFormValue(initialOverrides)}
               onSaved={() => onOpenChange?.(false)}
             />
           </TabsContent>
           <TabsContent value="charter">
-            <CharterBookingForm initialCheckIn={initialOverrides?.checkIn} onSaved={() => onOpenChange?.(false)} />
+            <CharterBookingForm
+              customers={customers}
+              initialCheckIn={initialOverrides?.checkIn}
+              onSaved={() => onOpenChange?.(false)}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

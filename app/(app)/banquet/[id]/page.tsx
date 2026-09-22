@@ -11,7 +11,7 @@ import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const [session, booking, resources, accommodationBookings, staff, services] = await Promise.all([
+  const [session, booking, resources, accommodationBookings, staff, services, customers] = await Promise.all([
     auth(),
     prisma.banquetBooking.findUnique({
       where: { id },
@@ -31,6 +31,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     }),
     prisma.user.findMany({ where: { role: { not: "HOUSEKEEPER" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.specialService.findMany({ where: { scope: "BANQUET" }, orderBy: { name: "asc" } }),
+    prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   if (!booking) notFound();
@@ -119,6 +120,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           }))}
           accommodationOptions={accommodationOptions}
           services={services.map((s) => ({ ...s, price: Number(s.price) }))}
+          customers={customers}
           initialOverrides={initial}
           ledger={ledger}
         />

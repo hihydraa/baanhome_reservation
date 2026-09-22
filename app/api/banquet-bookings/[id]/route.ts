@@ -5,6 +5,7 @@ import { banquetBookingInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { logBanquetCancellation } from "@/lib/cancellation-log";
+import { upsertCustomerFromBooking } from "@/lib/customers";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -113,6 +114,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       cancelledById: session!.user.id,
     });
   }
+
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
 
   return NextResponse.json(booking);
 }
