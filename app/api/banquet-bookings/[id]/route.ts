@@ -79,7 +79,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         endTime,
         eventType: data.eventType,
         headcount: data.headcount,
-        foodService: data.foodService,
         linkedAccommodations: { set: data.linkedAccommodationIds.map((linkId) => ({ id: linkId })) },
         status: data.status,
         notes: data.notes,

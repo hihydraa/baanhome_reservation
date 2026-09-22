@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, FileText } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -40,7 +40,6 @@ export type BanquetFormValue = {
   endTime: string;
   eventType: string;
   headcount: number;
-  foodService: string;
   linkedAccommodationIds: string[];
   status: string;
   notes: string;
@@ -58,7 +57,6 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     endTime: "12:00",
     eventType: "MEETING",
     headcount: 1,
-    foodService: "",
     linkedAccommodationIds: [],
     status: "RESERVED",
     notes: "",
@@ -275,15 +273,6 @@ export function BanquetForm({
         </div>
 
         <div className="col-span-2 flex flex-col gap-1.5">
-          <Label>บริการอาหารและเครื่องดื่ม</Label>
-          <Textarea
-            rows={2}
-            value={value.foodService}
-            onChange={(e) => setValue({ ...value, foodService: e.target.value })}
-          />
-        </div>
-
-        <div className="col-span-2 flex flex-col gap-1.5">
           <Label>ลิงก์ห้องพัก (ถ้าลูกค้าค้างคืนด้วย เลือกได้หลายห้อง)</Label>
           {accommodationOptions.length === 0 ? (
             <p className="text-sm text-ink-400">ไม่มีรายการห้องพักให้เลือกในขณะนี้</p>
@@ -336,6 +325,18 @@ export function BanquetForm({
       </div>
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
+
+      {value.id && (
+        <a
+          href={`/quotation/${value.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-forest-700 hover:underline"
+        >
+          <FileText className="h-4 w-4" />
+          สร้างใบเสนอราคา (พิมพ์ / บันทึก PDF)
+        </a>
+      )}
 
       {checkingConflict && <p className="text-xs text-ink-400">กำลังตรวจสอบคิวว่าง...</p>}
       <ConflictBanner conflict={activeConflict} />

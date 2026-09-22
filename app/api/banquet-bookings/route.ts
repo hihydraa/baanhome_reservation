@@ -72,7 +72,6 @@ export async function POST(req: NextRequest) {
       endTime,
       eventType: data.eventType,
       headcount: data.headcount,
-      foodService: data.foodService,
       linkedAccommodations: { connect: data.linkedAccommodationIds.map((id) => ({ id })) },
       status: data.status,
       notes: data.notes,

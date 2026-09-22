@@ -65,6 +65,14 @@ export function formatThaiDate(d: Date, opts?: { withWeekday?: boolean; buddhist
   return base;
 }
 
+/** Compact D-M-YY (2-digit Buddhist year) style used on printed forms, e.g. "18-9-69". */
+export function formatShortThaiDate(d: Date): string {
+  const day = d.getUTCDate();
+  const month = d.getUTCMonth() + 1;
+  const year = (d.getUTCFullYear() + 543) % 100;
+  return `${day}-${month}-${String(year).padStart(2, "0")}`;
+}
+
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 /** "Today" in Asia/Bangkok, regardless of the server process's own timezone. */

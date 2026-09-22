@@ -57,7 +57,6 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     endTime: formatTime(booking.endTime),
     eventType: booking.eventType,
     headcount: booking.headcount,
-    foodService: booking.foodService ?? "",
     linkedAccommodationIds: booking.linkedAccommodations.map((a) => a.id),
     status: booking.status,
     notes: booking.notes ?? "",
