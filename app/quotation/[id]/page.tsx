@@ -12,6 +12,9 @@ const BUSINESS = {
   facebook: "https://www.facebook.com/atbaanhome",
   phone: "098-342-5545",
   taxId: "3-4099-0001-724-3",
+  bankName: "ธนาคารกรุงไทย จำกัด (มหาชน)",
+  accountName: "นางวนิดา ชาวสามทอง",
+  accountNumber: "662-3-99543-9",
 };
 
 const VAT_RATE = 0.07;
@@ -170,6 +173,15 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
               </tr>
             </tbody>
           </table>
+
+          {/* Payment details */}
+          <div className="rounded-md border border-ink-900/20 px-3 py-2 text-xs">
+            <p className="font-semibold">รายละเอียดการชำระเงิน</p>
+            <p>{BUSINESS.bankName}</p>
+            <p>ชื่อบัญชี: {BUSINESS.accountName}</p>
+            <p>เลขที่บัญชี: {BUSINESS.accountNumber}</p>
+            <p className="mt-1 text-ink-600">กรุณาแจ้งสลิปโอนเงินทุกครั้งหลังชำระเงิน เพื่อยืนยันการทำรายการ</p>
+          </div>
 
           {/* Signatures */}
           <div className="mt-6 grid grid-cols-2 gap-8 text-xs">
