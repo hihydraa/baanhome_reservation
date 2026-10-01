@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useScrollSafeRefresh } from "@/lib/use-scroll-safe-refresh";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -81,6 +82,7 @@ export function RoomCard({
   services: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const refresh = useScrollSafeRefresh();
   const { showToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -125,7 +127,7 @@ export function RoomCard({
     setStatusSaving(false);
     if (res.ok) {
       showToast("อัปเดตสถานะห้องแล้ว");
-      router.refresh();
+      refresh();
     } else {
       const body = await res.json().catch(() => ({}));
       showToast(body.error ?? `อัปเดตสถานะห้องไม่สำเร็จ (${res.status})`);
@@ -139,7 +141,7 @@ export function RoomCard({
     setExtending(false);
     if (res.ok) {
       showToast("บันทึกพักต่อ +1 คืนแล้ว");
-      router.refresh();
+      refresh();
     } else {
       const body = await res.json().catch(() => ({}));
       showToast(body.error ?? "พักต่อไม่สำเร็จ");
@@ -159,7 +161,7 @@ export function RoomCard({
       showToast("เพิ่มบริการเสริมแล้ว");
       setAddServiceId("");
       setAddServiceQty("1");
-      router.refresh();
+      refresh();
     } else {
       const body = await res.json().catch(() => ({}));
       showToast(body.error ?? "เพิ่มบริการเสริมไม่สำเร็จ");

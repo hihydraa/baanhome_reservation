@@ -1,48 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useScrollSafeRefresh } from "@/lib/use-scroll-safe-refresh";
 
-/** Keeps the (server-rendered) dashboard in sync without a manual reload — refreshes
- *  periodically while the tab is visible, and immediately when it regains focus (covers
- *  "I made a change on another page/device and came back here"). Paused in the background
- *  so an idle tab doesn't keep hitting the server. */
+/** Keeps the (server-rendered) dashboard in sync without a manual reload — refreshes on a
+ *  fixed interval regardless of tab visibility (a paused-when-hidden timer left a background
+ *  tab stuck showing stale data even minutes later), plus immediately on refocus so switching
+ *  back to the tab never waits for the next tick. */
 export function AutoRefresh({ intervalMs = 20000 }: { intervalMs?: number }) {
-  const router = useRouter();
+  const refresh = useScrollSafeRefresh();
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | null = null;
+    const timer = setInterval(refresh, intervalMs);
 
-    function start() {
-      if (timer) return;
-      timer = setInterval(() => router.refresh(), intervalMs);
+    function handleFocus() {
+      if (document.visibilityState === "visible") refresh();
     }
-    function stop() {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible") {
-        router.refresh();
-        start();
-      } else {
-        stop();
-      }
-    }
-
-    if (document.visibilityState === "visible") start();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleFocus);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
-      stop();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleVisibilityChange);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleFocus);
+      window.removeEventListener("focus", handleFocus);
     };
-  }, [router, intervalMs]);
+  }, [refresh, intervalMs]);
 
   return null;
 }
