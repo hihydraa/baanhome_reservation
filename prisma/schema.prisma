@@ -26,6 +26,12 @@ enum ResourceType {
   BANQUET
 }
 
+enum HousekeepingStatus {
+  READY
+  NEEDS_CLEANING
+  OUT_OF_SERVICE
+}
+
 enum BookingSource {
   WALK_IN
   AGODA
@@ -80,10 +86,12 @@ model User {
   attachments           Attachment[]
 }
 
-/** A lightweight, name-searchable customer directory shared across accommodation and banquet
- *  booking forms. Bookings still store customerName/phone as plain text (never a hard FK) so
- *  staff can always type a name freely; saving a booking auto-upserts a matching row here so
- *  the directory grows on its own from real usage, without needing manual data entry. */
+/**
+ * A lightweight, name-searchable customer directory shared across accommodation and banquet
+ * booking forms. Bookings still store customerName/phone as plain text (never a hard FK) so
+ * staff can always type a name freely; saving a booking auto-upserts a matching row here so
+ * the directory grows on its own from real usage, without needing manual data entry.
+ */
 model Customer {
   id        String   @id @default(cuid())
   name      String
@@ -103,17 +111,29 @@ model Resource {
   capacity  Int?
   sortOrder Int          @default(0)
 
-  /** Accommodation: standard nightly rate. */
+  /**
+   * Accommodation: standard nightly rate.
+   */
   price Decimal? @db.Decimal(10, 2)
 
-  /** Banquet: rate per hour and full-day charter rate. */
+  /**
+   * Banquet: rate per hour and full-day charter rate.
+   */
   hourlyPrice Decimal? @db.Decimal(10, 2)
   dailyPrice  Decimal? @db.Decimal(10, 2)
 
-  /** Banquet: display category (e.g. "VIP เล็ก"), special pricing condition, and main equipment. */
+  /**
+   * Banquet: display category (e.g. "VIP เล็ก"), special pricing condition, and main equipment.
+   */
   roomType       String?
   priceCondition String?
   equipment      String?
+
+  /**
+   * Accommodation only: the room's current physical readiness, set by housekeeping — a
+   * single live value per room, not tracked historically per day.
+   */
+  housekeepingStatus HousekeepingStatus @default(READY)
 
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
@@ -134,10 +154,20 @@ model AccommodationBooking {
   roomPrice    Decimal?            @db.Decimal(10, 2)
   status       AccommodationStatus @default(RESERVED)
   notes        String?
-  createdById  String?
-  createdBy    User?               @relation(fields: [createdById], references: [id])
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+
+  /**
+   * Housekeeping-facing fields, settable by any staff role from the daily grid card.
+   */
+  needsAdditionalService Boolean @default(false)
+  /**
+   * Number of times "พักต่อ" has pushed checkOut forward by one night.
+   */
+  extensionCount         Int     @default(0)
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   addons                AccommodationAddon[]
   payment               Payment?
@@ -176,35 +206,35 @@ model AccommodationAddon {
 }
 
 model BanquetAddon {
-  id          String         @id @default(cuid())
+  id          String          @id @default(cuid())
   bookingId   String
-  booking     BanquetBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking     BanquetBooking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   serviceId   String?
   service     SpecialService? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
   description String?
-  quantity    Int            @default(1)
-  price       Decimal        @default(0) @db.Decimal(10, 2)
+  quantity    Int             @default(1)
+  price       Decimal         @default(0) @db.Decimal(10, 2)
 }
 
 model BanquetBooking {
-  id                    String                @id @default(cuid())
-  resourceId            String
-  resource              Resource              @relation(fields: [resourceId], references: [id])
-  customerName          String
-  phone                 String?
-  eventDate             DateTime
-  startTime             DateTime
-  endTime               DateTime
-  eventType             BanquetEventType      @default(MEETING)
-  headcount             Int                   @default(1)
-  foodService           String?
-  linkedAccommodations  AccommodationBooking[] @relation("LinkedAccommodation")
-  status                BanquetStatus         @default(RESERVED)
-  notes                 String?
-  createdById           String?
-  createdBy             User?                 @relation(fields: [createdById], references: [id])
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  id                   String                 @id @default(cuid())
+  resourceId           String
+  resource             Resource               @relation(fields: [resourceId], references: [id])
+  customerName         String
+  phone                String?
+  eventDate            DateTime
+  startTime            DateTime
+  endTime              DateTime
+  eventType            BanquetEventType       @default(MEETING)
+  headcount            Int                    @default(1)
+  foodService          String?
+  linkedAccommodations AccommodationBooking[] @relation("LinkedAccommodation")
+  status               BanquetStatus          @default(RESERVED)
+  notes                String?
+  createdById          String?
+  createdBy            User?                  @relation(fields: [createdById], references: [id])
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
 
   addons      BanquetAddon[]
   payment     Payment?
@@ -241,25 +271,29 @@ model Payment {
   entries PaymentEntry[]
 }
 
-/** One recorded payment (a "receipt") toward a booking's net total; a Payment can have many. */
+/**
+ * One recorded payment (a "receipt") toward a booking's net total; a Payment can have many.
+ */
 model PaymentEntry {
-  id             String        @id @default(cuid())
-  paymentId      String
-  payment        Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  amount         Decimal       @db.Decimal(10, 2)
-  method         PaymentMethod @default(CASH)
-  paidAt         DateTime
-  receivedById   String?
-  receivedBy     User?         @relation(fields: [receivedById], references: [id], onDelete: SetNull)
-  notes          String?
-  receiptNumber  String        @unique
-  createdAt      DateTime      @default(now())
+  id            String        @id @default(cuid())
+  paymentId     String
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amount        Decimal       @db.Decimal(10, 2)
+  method        PaymentMethod @default(CASH)
+  paidAt        DateTime
+  receivedById  String?
+  receivedBy    User?         @relation(fields: [receivedById], references: [id], onDelete: SetNull)
+  notes         String?
+  receiptNumber String        @unique
+  createdAt     DateTime      @default(now())
 
   @@index([paymentId])
 }
 
-/** A file (photo/PDF) attached to a booking — stored in Cloudflare R2, with only the
- *  object key and metadata kept here. Belongs to exactly one booking, whichever FK is set. */
+/**
+ * A file (photo/PDF) attached to a booking — stored in Cloudflare R2, with only the
+ * object key and metadata kept here. Belongs to exactly one booking, whichever FK is set.
+ */
 model Attachment {
   id                     String                @id @default(cuid())
   accommodationBookingId String?

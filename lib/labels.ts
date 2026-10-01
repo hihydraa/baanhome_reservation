@@ -54,3 +54,9 @@ export const ROLE_LABELS: Record<string, string> = {
   STAFF: "พนักงาน",
   HOUSEKEEPER: "แม่บ้าน",
 };
+
+export const HOUSEKEEPING_STATUS_LABELS: Record<string, string> = {
+  READY: "พร้อมขาย",
+  NEEDS_CLEANING: "รอทำความสะอาด",
+  OUT_OF_SERVICE: "ไม่พร้อมใช้งาน (ชำรุด)",
+};

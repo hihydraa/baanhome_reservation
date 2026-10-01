@@ -175,3 +175,13 @@ export const attachmentPresignInputSchema = z.object({
 export const attachmentCreateInputSchema = attachmentPresignInputSchema.extend({
   key: z.string().min(1),
 });
+
+export const housekeepingStatusEnum = z.enum(["READY", "NEEDS_CLEANING", "OUT_OF_SERVICE"]);
+
+export const housekeepingStatusInputSchema = z.object({
+  housekeepingStatus: housekeepingStatusEnum,
+});
+
+export const additionalServiceInputSchema = z.object({
+  needsAdditionalService: z.boolean(),
+});
