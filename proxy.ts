@@ -21,8 +21,16 @@ export default auth((req) => {
   }
 
   const isHousekeeper = req.auth?.user?.role === "HOUSEKEEPER";
+  // Mutations housekeeping performs right from the daily grid card's popup.
+  const housekeeperActionPatterns = [
+    /^\/api\/resources\/[^/]+\/housekeeping-status$/,
+    /^\/api\/accommodation-bookings\/[^/]+\/extend$/,
+    /^\/api\/accommodation-bookings\/[^/]+\/addons$/,
+  ];
   const isAllowedForHousekeeper =
-    req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/dashboard");
+    req.nextUrl.pathname === "/" ||
+    req.nextUrl.pathname.startsWith("/dashboard") ||
+    housekeeperActionPatterns.some((re) => re.test(req.nextUrl.pathname));
 
   if (isLoggedIn && isHousekeeper && !isAllowedForHousekeeper) {
     if (isApiRoute) {
