@@ -127,7 +127,8 @@ export function RoomCard({
       showToast("อัปเดตสถานะห้องแล้ว");
       router.refresh();
     } else {
-      showToast("อัปเดตสถานะห้องไม่สำเร็จ");
+      const body = await res.json().catch(() => ({}));
+      showToast(body.error ?? `อัปเดตสถานะห้องไม่สำเร็จ (${res.status})`);
     }
   }
 
