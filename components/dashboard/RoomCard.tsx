@@ -101,9 +101,14 @@ export function RoomCard({
     | undefined;
   const visibleAddons = addonNames?.slice(0, 2) ?? [];
   const extraAddonCount = (addonNames?.length ?? 0) - visibleAddons.length;
-  const addonDetails = b?.addons
-    .map((a) => ({ name: a.service?.name ?? a.description, quantity: a.quantity }))
-    .filter((a): a is { name: string; quantity: number } => Boolean(a.name));
+  // Group by name so re-adding the same service (which now increments in the API, but older
+  // bookings may still have leftover duplicate rows) always reads as one line with a total count.
+  const addonDetails = Array.from(
+    (b?.addons ?? [])
+      .map((a) => ({ name: a.service?.name ?? a.description, quantity: a.quantity }))
+      .filter((a): a is { name: string; quantity: number } => Boolean(a.name))
+      .reduce((map, a) => map.set(a.name, (map.get(a.name) ?? 0) + a.quantity), new Map<string, number>())
+  ).map(([name, quantity]) => ({ name, quantity }));
 
   const dateRangeLabel =
     b && !isCancelled

@@ -22,15 +22,26 @@ export async function POST(req: NextRequest, { params }: Params) {
   const service = await prisma.specialService.findUnique({ where: { id: parsed.data.serviceId } });
   if (!service || service.scope !== "ACCOMMODATION") return errorResponse("ไม่พบบริการนี้", 404);
 
-  const addon = await prisma.accommodationAddon.create({
-    data: {
-      bookingId: id,
-      serviceId: service.id,
-      quantity: parsed.data.quantity,
-      price: service.price,
-    },
-    include: { service: true },
+  // Adding the same service twice should raise its quantity, not create a second line item.
+  const existing = await prisma.accommodationAddon.findFirst({
+    where: { bookingId: id, serviceId: service.id },
   });
+
+  const addon = existing
+    ? await prisma.accommodationAddon.update({
+        where: { id: existing.id },
+        data: { quantity: { increment: parsed.data.quantity } },
+        include: { service: true },
+      })
+    : await prisma.accommodationAddon.create({
+        data: {
+          bookingId: id,
+          serviceId: service.id,
+          quantity: parsed.data.quantity,
+          price: service.price,
+        },
+        include: { service: true },
+      });
 
   return NextResponse.json({ id: addon.id, quantity: addon.quantity, serviceName: addon.service?.name ?? null });
 }
