@@ -1,9 +1,15 @@
+import { neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
+import ws from "ws";
 import { ACCOMMODATION_PRICE_LIST, BANQUET_PRICE_LIST } from "../lib/pricing";
 
-const prisma = new PrismaClient();
+neonConfig.webSocketConstructor = ws;
+
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 type AccommodationSeed = { id: string; name: string; zone: "RESORT" | "POOL_VILLA" };
 
