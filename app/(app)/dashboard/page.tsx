@@ -5,7 +5,12 @@ import { DateNav } from "@/components/dashboard/DateNav";
 import { DailyGrid } from "@/components/dashboard/DailyGrid";
 import { BanquetStrip } from "@/components/dashboard/BanquetStrip";
 import { DailySummaryCards } from "@/components/dashboard/DailySummaryCards";
+import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { ZONE_LABELS } from "@/lib/labels";
+
+// Multiple staff/housekeeping view this at once, so it must never serve a cached snapshot —
+// always re-run the query on each request, on top of the client-side AutoRefresh polling.
+export const dynamic = "force-dynamic";
 
 export default async function DashboardPage({
   searchParams,
@@ -81,6 +86,7 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AutoRefresh />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl font-semibold text-forest-800">ภาพรวมรายวัน</h1>
         <DateNav date={date} />
