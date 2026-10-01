@@ -7,6 +7,8 @@ import { formatThaiDate, formatTime } from "@/lib/dates";
 import { banquetExpectedTotal } from "@/lib/payment-calc";
 import { BanquetForm, type BanquetPaymentLedgerProps } from "@/components/banquet/BanquetForm";
 import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
+import { AttachmentManager } from "@/components/attachments/AttachmentManager";
+import { listAttachments } from "@/lib/attachments";
 
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,6 +37,8 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
   ]);
 
   if (!booking) notFound();
+
+  const attachments = await listAttachments("BANQUET", booking.id);
 
   const payment = await prisma.payment.upsert({
     where: { banquetBookingId: booking.id },
@@ -111,7 +115,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
         </p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="flex max-w-2xl flex-col gap-6">
         <BanquetForm
           resources={resources.map((r) => ({
             ...r,
@@ -124,6 +128,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           initialOverrides={initial}
           ledger={ledger}
         />
+        <AttachmentManager bookingType="BANQUET" bookingId={booking.id} initial={attachments} />
       </div>
     </div>
   );

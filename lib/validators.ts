@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ATTACHMENT_ALLOWED_MIME_TYPES, ATTACHMENT_MAX_SIZE_BYTES } from "@/lib/r2";
 
 export const bookingSourceEnum = z.enum(["WALK_IN", "AGODA", "PHONE", "LINE_OA", "OTHER"]);
 export const accommodationStatusEnum = z.enum([
@@ -153,4 +154,24 @@ export const userUpdateInputSchema = z.object({
   username: usernameField,
   password: z.union([z.literal(""), z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร")]).optional(),
   role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]),
+});
+
+export const attachmentBookingTypeEnum = z.enum(["ACCOMMODATION", "BANQUET"]);
+
+export const attachmentPresignInputSchema = z.object({
+  bookingType: attachmentBookingTypeEnum,
+  bookingId: z.string().min(1),
+  fileName: z.string().min(1, "กรุณาระบุชื่อไฟล์").max(255),
+  mimeType: z.enum(ATTACHMENT_ALLOWED_MIME_TYPES as [string, ...string[]], {
+    message: "รองรับเฉพาะไฟล์รูปภาพ (JPEG, PNG, WEBP) หรือ PDF",
+  }),
+  size: z
+    .number()
+    .int()
+    .positive()
+    .max(ATTACHMENT_MAX_SIZE_BYTES, `ไฟล์ต้องมีขนาดไม่เกิน ${ATTACHMENT_MAX_SIZE_BYTES / 1024 / 1024}MB`),
+});
+
+export const attachmentCreateInputSchema = attachmentPresignInputSchema.extend({
+  key: z.string().min(1),
 });

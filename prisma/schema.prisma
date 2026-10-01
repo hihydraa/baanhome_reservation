@@ -77,6 +77,7 @@ model User {
   banquetBookings       BanquetBooking[]
   cancellationLogs      CancellationLog[]
   paymentEntries        PaymentEntry[]
+  attachments           Attachment[]
 }
 
 /** A lightweight, name-searchable customer directory shared across accommodation and banquet
@@ -141,6 +142,7 @@ model AccommodationBooking {
   addons                AccommodationAddon[]
   payment               Payment?
   linkedBanquetBookings BanquetBooking[]     @relation("LinkedAccommodation")
+  attachments           Attachment[]
 
   @@index([resourceId, checkIn, checkOut])
 }
@@ -204,8 +206,9 @@ model BanquetBooking {
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
 
-  addons  BanquetAddon[]
-  payment Payment?
+  addons      BanquetAddon[]
+  payment     Payment?
+  attachments Attachment[]
 
   @@index([resourceId, eventDate])
 }
@@ -253,4 +256,24 @@ model PaymentEntry {
   createdAt      DateTime      @default(now())
 
   @@index([paymentId])
+}
+
+/** A file (photo/PDF) attached to a booking — stored in Cloudflare R2, with only the
+ *  object key and metadata kept here. Belongs to exactly one booking, whichever FK is set. */
+model Attachment {
+  id                     String                @id @default(cuid())
+  accommodationBookingId String?
+  accommodationBooking   AccommodationBooking? @relation(fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+  banquetBookingId       String?
+  banquetBooking         BanquetBooking?       @relation(fields: [banquetBookingId], references: [id], onDelete: Cascade)
+  key                    String
+  fileName               String
+  mimeType               String
+  size                   Int
+  uploadedById           String?
+  uploadedBy             User?                 @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt              DateTime              @default(now())
+
+  @@index([accommodationBookingId])
+  @@index([banquetBookingId])
 }

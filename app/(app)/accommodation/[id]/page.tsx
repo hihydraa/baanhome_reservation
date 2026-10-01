@@ -7,6 +7,8 @@ import { toDateOnlyString } from "@/lib/dates";
 import { accommodationExpectedTotal } from "@/lib/payment-calc";
 import { AccommodationBookingForm, type AccommodationPaymentLedgerProps } from "@/components/accommodation/BookingForm";
 import { DeleteBookingButton } from "@/components/accommodation/DeleteBookingButton";
+import { AttachmentManager } from "@/components/attachments/AttachmentManager";
+import { listAttachments } from "@/lib/attachments";
 
 export default async function AccommodationDetailPage({
   params,
@@ -28,6 +30,8 @@ export default async function AccommodationDetailPage({
   ]);
 
   if (!booking) notFound();
+
+  const attachments = await listAttachments("ACCOMMODATION", booking.id);
 
   const payment = await prisma.payment.upsert({
     where: { accommodationBookingId: booking.id },
@@ -98,7 +102,7 @@ export default async function AccommodationDetailPage({
         </p>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="flex max-w-2xl flex-col gap-6">
         <AccommodationBookingForm
           resources={resources.map((r) => ({ ...r, price: r.price != null ? Number(r.price) : null }))}
           services={services.map((s) => ({ ...s, price: Number(s.price) }))}
@@ -106,6 +110,7 @@ export default async function AccommodationDetailPage({
           initial={initial}
           ledger={ledger}
         />
+        <AttachmentManager bookingType="ACCOMMODATION" bookingId={booking.id} initial={attachments} />
       </div>
     </div>
   );
