@@ -3,13 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { BedDouble, Loader2, PawPrint, Plus, Sparkles, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  BedDouble,
+  Brush,
+  CheckCircle2,
+  ChevronDown,
+  Loader2,
+  PawPrint,
+  Plus,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
 import { formatTime, formatThaiDate, toBangkokWallClock, THAI_MONTHS } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { PaymentStatusPill } from "@/components/payment/PaymentStatusPill";
-import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,10 +62,10 @@ const STATUS_TAG_CLASSES: Record<string, string> = {
   CANCELLED: "bg-red-600 text-white",
 };
 
-const HOUSEKEEPING_DOT_CLASSES: Record<string, string> = {
-  READY: "bg-emerald-500",
-  NEEDS_CLEANING: "bg-amber-500",
-  OUT_OF_SERVICE: "bg-red-500",
+const HOUSEKEEPING_STYLES: Record<string, { icon: LucideIcon; classes: string }> = {
+  READY: { icon: CheckCircle2, classes: "border-emerald-300 bg-emerald-50 text-emerald-800" },
+  NEEDS_CLEANING: { icon: Brush, classes: "border-amber-300 bg-amber-50 text-amber-800" },
+  OUT_OF_SERVICE: { icon: AlertTriangle, classes: "border-red-300 bg-red-50 text-red-800" },
 };
 
 export function RoomCard({
@@ -232,20 +242,28 @@ export function RoomCard({
             </div>
           )}
 
-          <div className="mt-1 flex items-center gap-1.5 border-t border-cream-100 pt-1.5" onClick={(e) => e.stopPropagation()}>
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", HOUSEKEEPING_DOT_CLASSES[resource.housekeepingStatus])} />
-            <Select
-              className="h-7 py-0 text-xs"
-              value={resource.housekeepingStatus}
-              disabled={statusSaving}
-              onChange={(e) => handleStatusChange(e.target.value)}
-            >
-              {Object.entries(HOUSEKEEPING_STATUS_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </Select>
+          <div className="mt-1 border-t border-cream-100 pt-1.5" onClick={(e) => e.stopPropagation()}>
+            {(() => {
+              const { icon: StatusIcon, classes } = HOUSEKEEPING_STYLES[resource.housekeepingStatus];
+              return (
+                <div className={cn("relative flex items-center rounded-md border", classes)}>
+                  <StatusIcon className="pointer-events-none absolute left-2 h-4 w-4 shrink-0" />
+                  <select
+                    className="h-8 w-full appearance-none bg-transparent pl-7 pr-7 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={resource.housekeepingStatus}
+                    disabled={statusSaving}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                  >
+                    {Object.entries(HOUSEKEEPING_STATUS_LABELS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 shrink-0 opacity-60" />
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
