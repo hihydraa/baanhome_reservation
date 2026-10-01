@@ -156,13 +156,10 @@ model AccommodationBooking {
   notes        String?
 
   /**
-   * Housekeeping-facing fields, settable by any staff role from the daily grid card.
+   * Number of times "พักต่อ" (from the daily grid card) has pushed checkOut forward by one
+   * night — settable by any staff role.
    */
-  needsAdditionalService Boolean @default(false)
-  /**
-   * Number of times "พักต่อ" has pushed checkOut forward by one night.
-   */
-  extensionCount         Int     @default(0)
+  extensionCount Int @default(0)
 
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id])

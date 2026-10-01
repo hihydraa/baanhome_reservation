@@ -19,7 +19,7 @@ export default async function DashboardPage({
   const nextDay = new Date(date);
   nextDay.setUTCDate(nextDay.getUTCDate() + 1);
 
-  const [accommodationResources, accommodationBookings, banquetResources, banquetBookings] =
+  const [accommodationResources, accommodationBookings, banquetResources, banquetBookings, accommodationServices] =
     await Promise.all([
       prisma.resource.findMany({
         where: { type: "ACCOMMODATION" },
@@ -40,6 +40,13 @@ export default async function DashboardPage({
         where: { eventDate: { gte: date, lt: nextDay }, status: { not: "CANCELLED" } },
         include: { payment: { include: { entries: true } } },
         orderBy: { startTime: "asc" },
+      }),
+      // id + name only — housekeeping can add a service from the daily grid card without
+      // ever seeing its price.
+      prisma.specialService.findMany({
+        where: { scope: "ACCOMMODATION" },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
       }),
     ]);
 
@@ -89,7 +96,7 @@ export default async function DashboardPage({
 
       <BanquetStrip resources={banquetWithBookings} date={date} readOnly={readOnly} />
 
-      <DailyGrid resourcesByZone={resourcesByZone} date={date} readOnly={readOnly} />
+      <DailyGrid resourcesByZone={resourcesByZone} date={date} readOnly={readOnly} services={accommodationServices} />
     </div>
   );
 }

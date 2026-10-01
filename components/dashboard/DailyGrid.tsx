@@ -14,10 +14,12 @@ export function DailyGrid({
   resourcesByZone,
   date,
   readOnly = false,
+  services,
 }: {
   resourcesByZone: Record<string, ResourceWithBooking[]>;
   date: Date;
   readOnly?: boolean;
+  services: { id: string; name: string }[];
 }) {
   const dateStr = toDateOnlyString(date);
 
@@ -28,7 +30,7 @@ export function DailyGrid({
           <h3 className="text-sm font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h3>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
             {resources.map((r) => (
-              <RoomCard key={r.id} resource={r} dateStr={dateStr} readOnly={readOnly} />
+              <RoomCard key={r.id} resource={r} dateStr={dateStr} readOnly={readOnly} services={services} />
             ))}
           </div>
         </div>

@@ -21,6 +21,7 @@ import { formatTime, formatThaiDate, toBangkokWallClock, THAI_MONTHS } from "@/l
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { PaymentStatusPill } from "@/components/payment/PaymentStatusPill";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -72,17 +73,21 @@ export function RoomCard({
   resource,
   dateStr,
   readOnly,
+  services,
 }: {
   resource: ResourceWithBooking;
   dateStr: string;
   readOnly: boolean;
+  services: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [extending, setExtending] = useState(false);
-  const [togglingService, setTogglingService] = useState(false);
+  const [addServiceId, setAddServiceId] = useState("");
+  const [addServiceQty, setAddServiceQty] = useState("1");
+  const [addingService, setAddingService] = useState(false);
 
   const b = resource.booking;
   const isCancelled = b?.status === "CANCELLED";
@@ -96,6 +101,9 @@ export function RoomCard({
     | undefined;
   const visibleAddons = addonNames?.slice(0, 2) ?? [];
   const extraAddonCount = (addonNames?.length ?? 0) - visibleAddons.length;
+  const addonDetails = b?.addons
+    .map((a) => ({ name: a.service?.name ?? a.description, quantity: a.quantity }))
+    .filter((a): a is { name: string; quantity: number } => Boolean(a.name));
 
   const dateRangeLabel =
     b && !isCancelled
@@ -132,20 +140,23 @@ export function RoomCard({
     }
   }
 
-  async function handleToggleService() {
-    if (!b) return;
-    setTogglingService(true);
-    const res = await fetch(`/api/accommodation-bookings/${b.id}/additional-service`, {
-      method: "PATCH",
+  async function handleAddService() {
+    if (!b || !addServiceId) return;
+    setAddingService(true);
+    const res = await fetch(`/api/accommodation-bookings/${b.id}/addons`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ needsAdditionalService: !b.needsAdditionalService }),
+      body: JSON.stringify({ serviceId: addServiceId, quantity: Number(addServiceQty) || 1 }),
     });
-    setTogglingService(false);
+    setAddingService(false);
     if (res.ok) {
-      showToast("บันทึกแล้ว");
+      showToast("เพิ่มบริการเสริมแล้ว");
+      setAddServiceId("");
+      setAddServiceQty("1");
       router.refresh();
     } else {
-      showToast("บันทึกไม่สำเร็จ");
+      const body = await res.json().catch(() => ({}));
+      showToast(body.error ?? "เพิ่มบริการเสริมไม่สำเร็จ");
     }
   }
 
@@ -214,12 +225,6 @@ export function RoomCard({
                 </span>
               )}
             </div>
-          )}
-
-          {b && b.needsAdditionalService && !isCancelled && (
-            <span className="inline-flex w-fit items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-              มีบริการเพิ่มเติม
-            </span>
           )}
 
           {b && !isCancelled && <div className="text-sm font-semibold text-ink-900">{expectedTotal.toLocaleString("th-TH")} บาท</div>}
@@ -305,10 +310,18 @@ export function RoomCard({
                   <span className="font-medium text-ink-900">{b.extensionCount} คืน</span>
                 </div>
               )}
-              {addonNames && addonNames.length > 0 && (
-                <div className="flex items-start justify-between gap-2">
-                  <span className="shrink-0 text-ink-500">บริการเสริม</span>
-                  <span className="text-right font-medium text-ink-900">{addonNames.join(", ")}</span>
+              {addonDetails && addonDetails.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-ink-500">บริการเสริมที่มีอยู่</span>
+                  <ul className="flex flex-col gap-0.5">
+                    {addonDetails.map((a, i) => (
+                      <li key={i} className="flex items-center gap-1.5 font-medium text-ink-900">
+                        <span className="h-1 w-1 shrink-0 rounded-full bg-forest-600" />
+                        {a.name}
+                        {a.quantity > 1 && <span className="text-ink-500"> × {a.quantity}</span>}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {b.notes && (
@@ -320,23 +333,45 @@ export function RoomCard({
             </div>
 
             {!isCancelled && !isCheckedOut && (
-              <div className="flex flex-col gap-2 rounded-md bg-cream-100 p-3">
+              <div className="flex flex-col gap-3 rounded-md bg-cream-100 p-3">
                 <p className="text-xs font-semibold text-forest-800">งานแม่บ้าน</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={handleExtend} disabled={extending}>
-                    {extending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    พักต่อ +1 คืน
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={b.needsAdditionalService ? "gold" : "outline"}
-                    onClick={handleToggleService}
-                    disabled={togglingService}
-                  >
-                    {togglingService && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    {b.needsAdditionalService ? "มีบริการเพิ่มเติม ✓" : "ทำเครื่องหมายมีบริการเพิ่มเติม"}
-                  </Button>
+                <Button type="button" size="sm" variant="outline" className="self-start" onClick={handleExtend} disabled={extending}>
+                  {extending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  พักต่อ +1 คืน
+                </Button>
+
+                <div className="flex flex-col gap-1.5 border-t border-cream-200 pt-2.5">
+                  <p className="text-xs font-medium text-ink-600">เพิ่มบริการเสริม</p>
+                  <div className="flex items-center gap-1.5">
+                    <Select
+                      className="h-9 flex-1 text-sm"
+                      value={addServiceId}
+                      onChange={(e) => setAddServiceId(e.target.value)}
+                    >
+                      <option value="">เลือกบริการ…</option>
+                      {services.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <input
+                      type="number"
+                      min={1}
+                      value={addServiceQty}
+                      onChange={(e) => setAddServiceQty(e.target.value)}
+                      className="h-9 w-14 rounded-md border border-cream-200 bg-white px-2 text-center text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="gold"
+                      onClick={handleAddService}
+                      disabled={addingService || !addServiceId}
+                    >
+                      {addingService ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "เพิ่ม"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}

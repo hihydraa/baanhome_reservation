@@ -182,6 +182,7 @@ export const housekeepingStatusInputSchema = z.object({
   housekeepingStatus: housekeepingStatusEnum,
 });
 
-export const additionalServiceInputSchema = z.object({
-  needsAdditionalService: z.boolean(),
+export const quickAddonInputSchema = z.object({
+  serviceId: z.string().min(1, "กรุณาเลือกบริการ"),
+  quantity: z.coerce.number().int().min(1).default(1),
 });
