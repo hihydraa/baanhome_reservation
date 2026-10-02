@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -86,6 +86,18 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
             >
               <BookUser className="h-4 w-4" />
               ฐานข้อมูลลูกค้า
+            </Link>
+            <Link
+              href="/sales-dashboard"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/sales-dashboard")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <TrendingUp className="h-4 w-4" />
+              ยอดขายร้านอาหาร
             </Link>
           </>
         )}

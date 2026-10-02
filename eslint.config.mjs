@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored static assets served as-is — not app source, not ours to lint.
+    "public/**",
   ]),
 ]);
 
