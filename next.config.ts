@@ -10,6 +10,13 @@ const unusedPrismaEdgeBundles = [
   "./node_modules/@prisma/client/runtime/react-native.*",
   "./node_modules/.prisma/client/wasm-edge-light-loader.mjs",
   "./node_modules/.prisma/client/wasm-worker-loader.mjs",
+  "./node_modules/.prisma/client/edge.js",
+  // schema.prisma's engineType = "client" means every query goes through the WASM query
+  // compiler — the native-binary-engine runtime code is loaded by none of our code paths.
+  // Verified: PrismaClient still constructs and `npm run build` still succeeds with these
+  // files physically removed from node_modules.
+  "./node_modules/@prisma/client/runtime/binary.js",
+  "./node_modules/@prisma/client/runtime/binary.mjs",
 ];
 
 const nextConfig: NextConfig = {
