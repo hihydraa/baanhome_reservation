@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
   const hasInitialDeposit = !!data.initialPayment && data.initialPayment.amount > 0;
   const paidAt = nowBangkok();
   const receiptNumber = hasInitialDeposit ? await generateReceiptNumber(prisma, paidAt) : null;
+  const charterGroupId = crypto.randomUUID();
 
   const bookings = await prisma.$transaction(
     resources.map((r, index) =>
@@ -74,6 +76,7 @@ export async function POST(req: NextRequest) {
             index === 0
               ? data.notes || null
               : [data.notes, `(${scopeLabel} — ดูยอดชำระที่ห้อง ${anchorRoomName})`].filter(Boolean).join(" "),
+          charterGroupId,
           createdById: session!.user.id,
           payment: {
             create: {

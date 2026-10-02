@@ -36,8 +36,10 @@ import type { Prisma, Resource } from "@prisma/client";
 type BookingWithRelations = Prisma.AccommodationBookingGetPayload<{
   include: { addons: { include: { service: true } }; payment: { include: { entries: true } } };
 }>;
+type CharterGroupTotals = { roomCount: number; totalExpected: number; totalPaid: number };
 type ResourceWithBooking = Resource & {
   booking?: BookingWithRelations;
+  charterGroup?: CharterGroupTotals;
 };
 
 function getAddonIcon(name: string): LucideIcon {
@@ -95,8 +97,16 @@ export function RoomCard({
   const isCancelled = b?.status === "CANCELLED";
   const isCheckedOut = b?.status === "CHECKED_OUT";
 
-  const { expectedTotal, nights } = b ? accommodationExpectedTotal(b, b.addons) : { expectedTotal: 0, nights: 0 };
-  const paid = b ? sumPaid(b.payment?.entries ?? []) : 0;
+  const { expectedTotal: ownExpectedTotal, nights } = b
+    ? accommodationExpectedTotal(b, b.addons)
+    : { expectedTotal: 0, nights: 0 };
+  const ownPaid = b ? sumPaid(b.payment?.entries ?? []) : 0;
+
+  // Charter bookings are one row per room but one shared payment — show every room in the
+  // group the same combined figure instead of each room's own (mostly-zero) numbers.
+  const isCharter = !!resource.charterGroup;
+  const expectedTotal = resource.charterGroup?.totalExpected ?? ownExpectedTotal;
+  const paid = resource.charterGroup?.totalPaid ?? ownPaid;
 
   const addonNames = b?.addons.map((a) => a.service?.name ?? a.description).filter(Boolean) as
     | string[]
@@ -207,6 +217,12 @@ export function RoomCard({
             </>
           )}
 
+          {isCharter && !isCancelled && (
+            <span className="inline-flex w-fit items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">
+              เหมา {resource.charterGroup!.roomCount} ห้อง — ยอดรวม
+            </span>
+          )}
+
           {b && b.extensionCount > 0 && !isCancelled && (
             <span className="inline-flex w-fit items-center rounded-full bg-forest-700/10 px-2 py-0.5 text-xs font-medium text-forest-800">
               พักต่อมาแล้ว {b.extensionCount} คืน
@@ -290,6 +306,12 @@ export function RoomCard({
               </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col gap-2.5 text-sm">
+              {isCharter && (
+                <div className="rounded-md bg-violet-50 px-3 py-2 text-xs text-violet-800">
+                  ห้องนี้เป็นส่วนหนึ่งของการ<strong>เหมา {resource.charterGroup!.roomCount} ห้อง</strong> ยอดเงินและการชำระด้านล่างคือ
+                  <strong> ยอดรวมของทั้งกลุ่ม</strong> ไม่ใช่ของห้องนี้ห้องเดียว
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-ink-500">สถานะ</span>
                 <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_TAG_CLASSES[b.status])}>

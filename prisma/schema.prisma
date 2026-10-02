@@ -161,6 +161,13 @@ model AccommodationBooking {
    */
   extensionCount Int @default(0)
 
+  /**
+   * Set to the same value on every booking created together by a charter ("เหมาโซน/เหมาทั้งหมด")
+   * request — one AccommodationBooking row per room, but one shared payment conceptually.
+   * Null for an ordinary single-room booking.
+   */
+  charterGroupId String?
+
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -171,6 +178,7 @@ model AccommodationBooking {
   linkedBanquetBookings BanquetBooking[]     @relation("LinkedAccommodation")
   attachments           Attachment[]
 
+  @@index([charterGroupId])
   @@index([resourceId, checkIn, checkOut])
 }
 

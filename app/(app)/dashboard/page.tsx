@@ -7,6 +7,7 @@ import { BanquetStrip } from "@/components/dashboard/BanquetStrip";
 import { DailySummaryCards } from "@/components/dashboard/DailySummaryCards";
 import { AutoRefresh } from "@/components/dashboard/AutoRefresh";
 import { ZONE_LABELS } from "@/lib/labels";
+import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 
 // Multiple staff/housekeeping view this at once, so it must never serve a cached snapshot —
 // always re-run the query on each request, on top of the client-side AutoRefresh polling.
@@ -72,11 +73,38 @@ export default async function DashboardPage({
     statusCounts[b.status]++;
   }
 
-  const resourcesByZone: Record<string, (typeof accommodationResources[number] & { booking?: (typeof accommodationBookings)[number] })[]> = {};
+  // Charter ("เหมาโซน/เหมาทั้งหมด") bookings are one AccommodationBooking row per room but one
+  // shared payment conceptually — fold every room's expected total and paid amount in a group
+  // into a single combined figure so every room's card reads the same, instead of only the
+  // anchor room showing a real payment and its siblings looking unpaid.
+  const charterAggregates = new Map<string, { roomCount: number; totalExpected: number; totalPaid: number }>();
+  for (const b of accommodationBookings) {
+    if (!b.charterGroupId || b.status === "CANCELLED") continue;
+    const { expectedTotal } = accommodationExpectedTotal(b, b.addons);
+    const paid = sumPaid(b.payment?.entries ?? []);
+    const existing = charterAggregates.get(b.charterGroupId) ?? { roomCount: 0, totalExpected: 0, totalPaid: 0 };
+    charterAggregates.set(b.charterGroupId, {
+      roomCount: existing.roomCount + 1,
+      totalExpected: existing.totalExpected + expectedTotal,
+      totalPaid: existing.totalPaid + paid,
+    });
+  }
+
+  const resourcesByZone: Record<
+    string,
+    (typeof accommodationResources[number] & {
+      booking?: (typeof accommodationBookings)[number];
+      charterGroup?: { roomCount: number; totalExpected: number; totalPaid: number };
+    })[]
+  > = {};
   for (const zone of Object.keys(ZONE_LABELS)) {
     const inZone = accommodationResources.filter((r) => r.zone === zone);
     if (inZone.length === 0) continue;
-    resourcesByZone[zone] = inZone.map((r) => ({ ...r, booking: bookingByResourceId.get(r.id) }));
+    resourcesByZone[zone] = inZone.map((r) => {
+      const booking = bookingByResourceId.get(r.id);
+      const charterGroup = booking?.charterGroupId ? charterAggregates.get(booking.charterGroupId) : undefined;
+      return { ...r, booking, charterGroup };
+    });
   }
 
   const banquetWithBookings = banquetResources.map((r) => ({

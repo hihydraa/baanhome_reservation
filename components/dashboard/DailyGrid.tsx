@@ -8,6 +8,7 @@ type BookingWithRelations = Prisma.AccommodationBookingGetPayload<{
 }>;
 type ResourceWithBooking = Resource & {
   booking?: BookingWithRelations;
+  charterGroup?: { roomCount: number; totalExpected: number; totalPaid: number };
 };
 
 export function DailyGrid({
