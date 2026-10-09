@@ -40,21 +40,20 @@ export function BanquetStrip({
                 {r.bookings.map((b) => {
                   const chipContent = (
                     <>
-                      <span className="font-medium text-forest-800">
-                        {formatTime(b.startTime)}-{formatTime(b.endTime)}
-                        {readOnly && <span className="ml-1.5 font-normal text-ink-600">{b.customerName}</span>}
-                      </span>
-                      <Badge variant="outline" className="text-[10px]">
-                        {BANQUET_EVENT_TYPE_LABELS[b.eventType]}
-                      </Badge>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-forest-800">
+                          {formatTime(b.startTime)}-{formatTime(b.endTime)}
+                        </span>
+                        <Badge variant="outline" className="shrink-0 text-[10px]">
+                          {BANQUET_EVENT_TYPE_LABELS[b.eventType]}
+                        </Badge>
+                      </div>
+                      <div className="truncate text-ink-600">{b.customerName}</div>
                     </>
                   );
                   if (readOnly) {
                     return (
-                      <div
-                        key={b.id}
-                        className="flex items-center justify-between rounded-md bg-gold-100 px-2 py-1 text-xs"
-                      >
+                      <div key={b.id} className="flex flex-col gap-0.5 rounded-md bg-gold-100 px-2 py-1 text-xs">
                         {chipContent}
                       </div>
                     );
@@ -63,7 +62,7 @@ export function BanquetStrip({
                     <Link
                       key={b.id}
                       href={`/banquet/${b.id}`}
-                      className="flex items-center justify-between rounded-md bg-gold-100 px-2 py-1 text-xs hover:bg-gold-100/70"
+                      className="flex flex-col gap-0.5 rounded-md bg-gold-100 px-2 py-1 text-xs hover:bg-gold-100/70"
                     >
                       {chipContent}
                     </Link>
