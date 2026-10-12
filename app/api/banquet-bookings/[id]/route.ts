@@ -6,7 +6,7 @@ import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { logBanquetCancellation } from "@/lib/cancellation-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
-import { buildQuotationSnapshot, diffQuotation, logQuotationChange } from "@/lib/quotation-log";
+import { buildQuotationSnapshot, diffQuotation, logQuotationChange, stayLine } from "@/lib/quotation-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,7 +37,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const existing = await prisma.banquetBooking.findUnique({
     where: { id },
-    include: { resource: true, addons: { include: { service: true } } },
+    include: {
+      resource: true,
+      addons: { include: { service: true } },
+      linkedAccommodations: { include: { resource: true } },
+    },
   });
   if (!existing) return errorResponse("ไม่พบการจอง", 404);
 
@@ -105,9 +109,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
   });
 
-  const [newResource, newServices] = await Promise.all([
+  const [newResource, newServices, newStays] = await Promise.all([
     prisma.resource.findUniqueOrThrow({ where: { id: data.resourceId } }),
     prisma.specialService.findMany({ where: { id: { in: data.addons.flatMap((a) => (a.serviceId ? [a.serviceId] : [])) } } }),
+    prisma.accommodationBooking.findMany({ where: { id: { in: data.linkedAccommodationIds } }, include: { resource: true } }),
   ]);
   const serviceName = new Map(newServices.map((s) => [s.id, s.name]));
   const before = buildQuotationSnapshot({
@@ -118,6 +123,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       quantity: a.quantity,
       price: Number(a.price),
     })),
+    stays: existing.linkedAccommodations.flatMap((b) => stayLine(b) ?? []),
     discount: { type: existing.discountType, value: Number(existing.discountValue), note: existing.discountNote ?? "" },
   });
   const after = buildQuotationSnapshot({
@@ -128,6 +134,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       quantity: a.quantity,
       price: a.price,
     })),
+    stays: newStays.flatMap((b) => stayLine(b) ?? []),
     discount: { type: data.discountType, value: data.discountValue, note: data.discountNote || "" },
   });
   await logQuotationChange({

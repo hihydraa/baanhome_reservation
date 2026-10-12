@@ -87,6 +87,30 @@ export function banquetExpectedTotal(
   return { hours, roomTotal, addonsTotal, subtotal, discountAmount, expectedTotal: subtotal - discountAmount };
 }
 
+export type QuotationStay = { nights: number; price: number };
+
+export type QuotationTotals = BanquetTotalBreakdown & {
+  /** Sum of every linked overnight room (nights × room price). */
+  staysTotal: number;
+};
+
+/** What the printed quotation shows: banquet room + add-ons + every linked accommodation room, with the
+ *  discount applied to the whole. Kept apart from banquetExpectedTotal because the banquet payment ledger
+ *  must not absorb room charges — those are already collected on each accommodation booking's own ledger. */
+export function quotationTotals(
+  booking: { startTime: Date; endTime: Date },
+  resource: { hourlyPrice: Money; dailyPrice: Money },
+  addons: { price: Money; quantity: number }[],
+  stays: QuotationStay[],
+  discount?: BanquetDiscount | null
+): QuotationTotals {
+  const base = banquetExpectedTotal(booking, resource, addons);
+  const staysTotal = stays.reduce((sum, st) => sum + st.nights * st.price, 0);
+  const subtotal = base.subtotal + staysTotal;
+  const discountAmount = discountAmountFor(subtotal, discount);
+  return { ...base, staysTotal, subtotal, discountAmount, expectedTotal: subtotal - discountAmount };
+}
+
 export type PaymentBadgeInfo = {
   label: string;
   variant: "success" | "warning" | "muted";
