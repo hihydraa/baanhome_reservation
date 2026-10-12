@@ -58,6 +58,8 @@ export type PerformanceInput = {
   accommodation: AccRow[]; // every booking overlapping the range (any status)
   banquet: BanquetRow[]; // every booking with eventDate in range (any status)
   entriesInRange: PaymentEntryRow[];
+  /** Normalised names of customers who booked anything before the range (to tell new from returning). */
+  priorCustomerNames?: string[];
 };
 
 // ---------- Output ----------
@@ -133,6 +135,26 @@ export type PerformanceReport = {
     items: { name: string; scope: "ACCOMMODATION" | "BANQUET" | "BOTH"; quantity: number; revenue: number; bookings: number }[];
   };
   bookingCounts: { accommodation: number; banquet: number };
+  customers: {
+    unique: number;
+    /** Booked 2+ times within the range. */
+    repeat: number;
+    /** Also booked before the range started. */
+    returning: number;
+    newCustomers: number;
+    topShare: number;
+    top: {
+      name: string;
+      accommodation: number;
+      banquet: number;
+      nights: number;
+      revenue: number;
+      paid: number;
+      remaining: number;
+      share: number;
+      returning: boolean;
+    }[];
+  };
   /** One entry per day in the range: rooms occupied that night / banquet rooms with an event that day. */
   daily: {
     date: string;
@@ -344,6 +366,34 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
   const addonTotal = addonTotalAcc + addonTotalBanquet;
   const bookingTotal = accPriced.length + banquetPriced.length;
 
+  // ----- customers (grouped by trimmed name; the booking forms store free-text names) -----
+  const normName = (v: string) => v.trim().replace(/\s+/g, " ");
+  const prior = new Set((input.priorCustomerNames ?? []).map(normName));
+  type Cust = { name: string; acc: Set<string>; banquet: number; nights: number; revenue: number; paid: number };
+  const custMap = new Map<string, Cust>();
+  const cust = (name: string) => {
+    const key = normName(name);
+    const c = custMap.get(key) ?? { name: key, acc: new Set<string>(), banquet: 0, nights: 0, revenue: 0, paid: 0 };
+    custMap.set(key, c);
+    return c;
+  };
+  for (const x of accPriced) {
+    const c = cust(x.row.customerName);
+    c.acc.add(x.row.charterGroupId ?? x.row.id);
+    c.nights += Math.max(0, Math.round((x.row.checkOut.getTime() - x.row.checkIn.getTime()) / DAY_MS));
+    c.revenue += x.p.net;
+    c.paid += x.p.paid;
+  }
+  for (const x of banquetPriced) {
+    const c = cust(x.row.customerName);
+    c.banquet += 1;
+    c.revenue += x.p.net;
+    c.paid += x.p.paid;
+  }
+  const custs = Array.from(custMap.values());
+  const topCusts = custs.sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const custReturning = custs.filter((c) => prior.has(c.name)).length;
+
   // ----- event types -----
   const typeMap = new Map<string, { events: number; revenue: number }>();
   for (const x of banquetPriced) {
@@ -381,6 +431,24 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
     to,
     days,
     daily,
+    customers: {
+      unique: custs.length,
+      repeat: custs.filter((c) => c.acc.size + c.banquet >= 2).length,
+      returning: custReturning,
+      newCustomers: custs.length - custReturning,
+      topShare: pct(topCusts.reduce((sum, c) => sum + c.revenue, 0), net),
+      top: topCusts.map((c) => ({
+        name: c.name,
+        accommodation: c.acc.size,
+        banquet: c.banquet,
+        nights: c.nights,
+        revenue: c.revenue,
+        paid: c.paid,
+        remaining: Math.max(0, round2(c.revenue - c.paid)),
+        share: pct(c.revenue, net),
+        returning: prior.has(c.name),
+      })),
+    },
     accommodationOcc: {
       rate: pct(occupiedNights, capacityNights),
       occupiedNights,
@@ -489,7 +557,7 @@ export async function loadPerformance(from: string, to: string): Promise<Perform
   const start = parseDateOnly(from);
   const end = new Date(parseDateOnly(to).getTime() + DAY_MS);
 
-  const [resources, accommodation, banquet, entries] = await Promise.all([
+  const [resources, accommodation, banquet, entries, priorAcc, priorBanquet] = await Promise.all([
     prisma.resource.findMany({
       where: { type: { in: ["ACCOMMODATION", "BANQUET"] } },
       select: { id: true, name: true, zone: true, type: true, hourlyPrice: true, dailyPrice: true },
@@ -506,6 +574,16 @@ export async function loadPerformance(from: string, to: string): Promise<Perform
       where: { paidAt: { gte: start, lt: end } },
       select: { amount: true, method: true, payment: { select: { accommodationBookingId: true } } },
     }),
+    prisma.accommodationBooking.findMany({
+      where: { checkIn: { lt: start }, status: { not: "CANCELLED" } },
+      select: { customerName: true },
+      distinct: ["customerName"],
+    }),
+    prisma.banquetBooking.findMany({
+      where: { eventDate: { lt: start }, status: { not: "CANCELLED" } },
+      select: { customerName: true },
+      distinct: ["customerName"],
+    }),
   ]);
 
   return computePerformance(
@@ -518,6 +596,7 @@ export async function loadPerformance(from: string, to: string): Promise<Perform
         method: e.method,
         accommodation: e.payment.accommodationBookingId != null,
       })),
+      priorCustomerNames: [...priorAcc, ...priorBanquet].map((b) => b.customerName),
     },
     from,
     to

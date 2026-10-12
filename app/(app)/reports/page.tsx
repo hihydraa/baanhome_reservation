@@ -413,6 +413,64 @@ export default async function ReportsPage({
             </Card>
           </Section>
 
+          <Section title="Top ลูกค้า">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+              <Kpi title="ลูกค้าในช่วงนี้" value={`${r.customers.unique} ราย`} sub="นับตามชื่อลูกค้า" />
+              <Kpi
+                title="ลูกค้าเก่า / ลูกค้าใหม่"
+                value={`${r.customers.returning} / ${r.customers.newCustomers}`}
+                sub="เก่า = เคยจองก่อนช่วงนี้"
+              />
+              <Kpi title="ลูกค้าที่จองซ้ำในช่วงนี้" value={`${r.customers.repeat} ราย`} sub="จอง 2 ครั้งขึ้นไป" />
+              <Kpi
+                title="รายได้จาก Top 10"
+                value={pct(r.customers.topShare)}
+                sub="ของยอดสุทธิ (ยิ่งสูงยิ่งพึ่งลูกค้าไม่กี่ราย)"
+              />
+            </div>
+            <Card>
+              <CardContent className="overflow-x-auto pt-4">
+                {r.customers.top.length === 0 ? (
+                  <p className="text-sm text-ink-400">ไม่มีข้อมูลลูกค้าในช่วงนี้</p>
+                ) : (
+                  <table className="w-full min-w-[40rem]">
+                    <thead>
+                      <tr>
+                        <th className={th}>#</th>
+                        <th className={th}>ลูกค้า</th>
+                        <th className={`${th} text-right`}>ห้องพัก</th>
+                        <th className={`${th} text-right`}>คืน</th>
+                        <th className={`${th} text-right`}>จัดเลี้ยง</th>
+                        <th className={`${th} text-right`}>ยอดรวม (บาท)</th>
+                        <th className={`${th} text-right`}>% ของรายได้</th>
+                        <th className={`${th} text-right`}>ค้างชำระ</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.customers.top.map((c, i) => (
+                        <tr key={c.name} className="border-t border-cream-200">
+                          <td className={td}>{i + 1}</td>
+                          <td className={td}>
+                            {c.name}
+                            {c.returning && <span className="ml-1.5 rounded bg-gold-100 px-1.5 py-0.5 text-xs text-forest-800">ลูกค้าเก่า</span>}
+                          </td>
+                          <td className={`${td} text-right`}>{c.accommodation}</td>
+                          <td className={`${td} text-right`}>{c.nights}</td>
+                          <td className={`${td} text-right`}>{c.banquet}</td>
+                          <td className={`${td} text-right font-semibold`}>{baht(c.revenue)}</td>
+                          <td className={`${td} text-right`}>{pct(c.share)}</td>
+                          <td className={`${td} text-right ${c.remaining > 0 ? "font-semibold text-red-700" : "text-ink-400"}`}>
+                            {c.remaining > 0 ? baht(c.remaining) : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </Section>
+
           <Section title="ส่วนลด การยกเลิก และช่องทางการจอง">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Card>
