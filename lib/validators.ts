@@ -111,7 +111,13 @@ export const banquetBookingInputSchema = z
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
     addons: z.array(addonInputSchema).default([]),
+    discountType: z.enum(["BAHT", "PERCENT"]).default("BAHT"),
+    discountValue: z.coerce.number().min(0, "ส่วนลดต้องไม่ติดลบ").default(0),
     initialPayment: initialPaymentInputSchema.optional(),
+  })
+  .refine((b) => b.discountType !== "PERCENT" || b.discountValue <= 100, {
+    message: "ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100",
+    path: ["discountValue"],
   })
   .refine((b) => b.endTime > b.startTime, {
     message: "เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม",

@@ -6,6 +6,7 @@ import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { logBanquetCancellation } from "@/lib/cancellation-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
+import { buildQuotationSnapshot, diffQuotation, logQuotationChange } from "@/lib/quotation-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const existing = await prisma.banquetBooking.findUnique({
     where: { id },
-    include: { resource: true },
+    include: { resource: true, addons: { include: { service: true } } },
   });
   if (!existing) return errorResponse("ไม่พบการจอง", 404);
 
@@ -83,6 +84,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         linkedAccommodations: { set: data.linkedAccommodationIds.map((linkId) => ({ id: linkId })) },
         status: data.status,
         notes: data.notes,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
         addons: {
           create: data.addons.map((a) => ({
             serviceId: a.serviceId || null,
@@ -99,6 +102,38 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         linkedAccommodations: true,
       },
     });
+  });
+
+  const [newResource, newServices] = await Promise.all([
+    prisma.resource.findUniqueOrThrow({ where: { id: data.resourceId } }),
+    prisma.specialService.findMany({ where: { id: { in: data.addons.flatMap((a) => (a.serviceId ? [a.serviceId] : [])) } } }),
+  ]);
+  const serviceName = new Map(newServices.map((s) => [s.id, s.name]));
+  const before = buildQuotationSnapshot({
+    ...existing,
+    resource: existing.resource,
+    addons: existing.addons.map((a) => ({
+      name: a.service?.name || a.description || "-",
+      quantity: a.quantity,
+      price: Number(a.price),
+    })),
+    discount: { type: existing.discountType, value: Number(existing.discountValue) },
+  });
+  const after = buildQuotationSnapshot({
+    ...booking,
+    resource: newResource,
+    addons: data.addons.map((a) => ({
+      name: (a.serviceId && serviceName.get(a.serviceId)) || a.description || "-",
+      quantity: a.quantity,
+      price: a.price,
+    })),
+    discount: { type: data.discountType, value: data.discountValue },
+  });
+  await logQuotationChange({
+    bookingId: id,
+    userId: session!.user.id,
+    userName: session!.user.name ?? session!.user.username,
+    changes: diffQuotation(before, after),
   });
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {

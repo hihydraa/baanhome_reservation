@@ -54,6 +54,11 @@ enum BanquetEventType {
   OTHER
 }
 
+enum DiscountType {
+  BAHT
+  PERCENT
+}
+
 enum BanquetStatus {
   RESERVED
   CONFIRMED
@@ -84,6 +89,7 @@ model User {
   cancellationLogs      CancellationLog[]
   paymentEntries        PaymentEntry[]
   attachments           Attachment[]
+  quotationLogs         QuotationLog[]
 }
 
 /**
@@ -236,16 +242,34 @@ model BanquetBooking {
   linkedAccommodations AccommodationBooking[] @relation("LinkedAccommodation")
   status               BanquetStatus          @default(RESERVED)
   notes                String?
+  discountType         DiscountType           @default(BAHT)
+  discountValue        Decimal                @default(0) @db.Decimal(10, 2)
   createdById          String?
   createdBy            User?                  @relation(fields: [createdById], references: [id])
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
 
-  addons      BanquetAddon[]
-  payment     Payment?
-  attachments Attachment[]
+  addons        BanquetAddon[]
+  payment       Payment?
+  attachments   Attachment[]
+  quotationLogs QuotationLog[]
 
   @@index([resourceId, eventDate])
+}
+
+/// Audit trail for the banquet quotation: one row per save that changed anything the quotation shows.
+/// userName is denormalised so the log stays readable if the user is later deleted.
+model QuotationLog {
+  id        String         @id @default(cuid())
+  bookingId String
+  booking   BanquetBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName  String
+  changes   String[]
+  createdAt DateTime       @default(now())
+
+  @@index([bookingId, createdAt])
 }
 
 model CancellationLog {
