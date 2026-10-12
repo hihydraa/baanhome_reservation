@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { formatShortThaiDate, formatTime } from "@/lib/dates";
+import { formatShortThaiDate, formatThaiDate, formatTime, todayDateOnly } from "@/lib/dates";
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
 import { PreparedByField } from "@/components/banquet/PreparedByField";
@@ -59,6 +59,8 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
   ];
 
   const revisionCount = await prisma.quotationLog.count({ where: { bookingId: booking.id } });
+
+  const issueDate = formatThaiDate(todayDateOnly());
 
   const quotationNumber = `QT${formatShortThaiDate(booking.eventDate).replace(/-/g, "")}-${booking.id.slice(-5).toUpperCase()}`;
   const projectLine = `${formatShortThaiDate(booking.eventDate)} ${formatTime(booking.startTime)} ห้อง ${booking.resource.name} ${booking.headcount} ท่าน`;
@@ -223,7 +225,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
               <PreparedByField defaultValue={session?.user.name ?? ""} />
               <div className="text-center">
                 <p>ผู้จัดทำ / ผู้เสนอราคา</p>
-                <p className="mt-3">วันที่ ..........................................</p>
+                <p className="mt-3">วันที่ {issueDate}</p>
               </div>
             </div>
             <div className="flex flex-col items-center gap-8">
