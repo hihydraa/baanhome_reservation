@@ -12,7 +12,7 @@ export type QuotationSnapshot = {
   endTime: Date;
   headcount: number;
   addons: { name: string; quantity: number; price: number }[];
-  discount: { type: "BAHT" | "PERCENT"; value: number };
+  discount: { type: "BAHT" | "PERCENT"; value: number; note: string };
   total: number;
 };
 
@@ -25,7 +25,7 @@ type SnapshotInput = {
   headcount: number;
   resource: { name: string; hourlyPrice: unknown; dailyPrice: unknown };
   addons: { name: string; quantity: number; price: number }[];
-  discount: BanquetDiscount & { value: number };
+  discount: BanquetDiscount & { value: number; note: string };
 };
 
 export function buildQuotationSnapshot(input: SnapshotInput): QuotationSnapshot {
@@ -44,14 +44,16 @@ export function buildQuotationSnapshot(input: SnapshotInput): QuotationSnapshot 
     endTime: input.endTime,
     headcount: input.headcount,
     addons: input.addons,
-    discount: { type: input.discount.type, value: input.discount.value },
+    discount: { type: input.discount.type, value: input.discount.value, note: input.discount.note },
     total: expectedTotal,
   };
 }
 
 const baht = (n: number) => n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const discountLabel = (d: QuotationSnapshot["discount"]) =>
-  d.value > 0 ? (d.type === "PERCENT" ? `${d.value}%` : `${baht(d.value)} บาท`) : "ไม่มี";
+  d.value > 0
+    ? `${d.type === "PERCENT" ? `${d.value}%` : `${baht(d.value)} บาท`}${d.note ? ` (${d.note})` : ""}`
+    : "ไม่มี";
 const itemLabel = (a: { name: string; quantity: number; price: number }) => `${a.quantity} × ${baht(a.price)}`;
 
 /** Human-readable list of what changed between two quotation states; empty when nothing did. */

@@ -168,6 +168,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
                 <tr>
                   <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
                     ส่วนลด / DISCOUNT{booking.discountType === "PERCENT" ? ` ${discountValue}%` : ""}
+                    {booking.discountNote ? ` — ${booking.discountNote}` : ""}
                   </td>
                   <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold text-red-700">
                     -{discountAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}

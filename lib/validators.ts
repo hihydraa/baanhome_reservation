@@ -113,6 +113,7 @@ export const banquetBookingInputSchema = z
     addons: z.array(addonInputSchema).default([]),
     discountType: z.enum(["BAHT", "PERCENT"]).default("BAHT"),
     discountValue: z.coerce.number().min(0, "ส่วนลดต้องไม่ติดลบ").default(0),
+    discountNote: z.string().trim().optional(),
     initialPayment: initialPaymentInputSchema.optional(),
   })
   .refine((b) => b.discountType !== "PERCENT" || b.discountValue <= 100, {
