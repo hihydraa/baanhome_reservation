@@ -161,6 +161,10 @@ model AccommodationBooking {
   status       AccommodationStatus @default(RESERVED)
   notes        String?
 
+  discountType  DiscountType @default(BAHT)
+  discountValue Decimal      @default(0) @db.Decimal(10, 2)
+  discountNote  String?
+
   /**
    * Number of times "พักต่อ" (from the daily grid card) has pushed checkOut forward by one
    * night — settable by any staff role.
@@ -183,6 +187,7 @@ model AccommodationBooking {
   payment               Payment?
   linkedBanquetBookings BanquetBooking[]     @relation("LinkedAccommodation")
   attachments           Attachment[]
+  quotationLogs         QuotationLog[]
 
   @@index([charterGroupId])
   @@index([resourceId, checkIn, checkOut])
@@ -260,17 +265,21 @@ model BanquetBooking {
 
 /// Audit trail for the banquet quotation: one row per save that changed anything the quotation shows.
 /// userName is denormalised so the log stays readable if the user is later deleted.
+/// Exactly one of bookingId (banquet) / accommodationBookingId is set per row.
 model QuotationLog {
-  id        String         @id @default(cuid())
-  bookingId String
-  booking   BanquetBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  userId    String?
-  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userName  String
-  changes   String[]
-  createdAt DateTime       @default(now())
+  id                     String                @id @default(cuid())
+  bookingId              String?
+  booking                BanquetBooking?       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  accommodationBookingId String?
+  accommodationBooking   AccommodationBooking? @relation(fields: [accommodationBookingId], references: [id], onDelete: Cascade)
+  userId                 String?
+  user                   User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName               String
+  changes                String[]
+  createdAt              DateTime              @default(now())
 
   @@index([bookingId, createdAt])
+  @@index([accommodationBookingId, createdAt])
 }
 
 model CancellationLog {

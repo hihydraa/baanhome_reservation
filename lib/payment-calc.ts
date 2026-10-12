@@ -18,17 +18,32 @@ export type AccommodationTotalBreakdown = {
   nights: number;
   roomTotal: number;
   addonsTotal: number;
+  /** Room + add-ons, VAT-inclusive, before discount. */
+  subtotal: number;
+  discountAmount: number;
   expectedTotal: number;
 };
 
 export function accommodationExpectedTotal(
-  booking: { checkIn: Date; checkOut: Date; roomPrice: Money },
+  booking: {
+    checkIn: Date;
+    checkOut: Date;
+    roomPrice: Money;
+    /** Present on full booking rows; callers passing one get the quotation discount applied automatically. */
+    discountType?: "BAHT" | "PERCENT";
+    discountValue?: Money;
+  },
   addons: { price: Money; quantity: number }[]
 ): AccommodationTotalBreakdown {
   const nights = accommodationNights(booking.checkIn, booking.checkOut);
   const roomTotal = toNumber(booking.roomPrice) * nights;
   const addonsTotal = addons.reduce((sum, a) => sum + toNumber(a.price) * a.quantity, 0);
-  return { nights, roomTotal, addonsTotal, expectedTotal: roomTotal + addonsTotal };
+  const subtotal = roomTotal + addonsTotal;
+  const discountAmount = discountAmountFor(
+    subtotal,
+    booking.discountType ? { type: booking.discountType, value: booking.discountValue } : null
+  );
+  return { nights, roomTotal, addonsTotal, subtotal, discountAmount, expectedTotal: subtotal - discountAmount };
 }
 
 export type BanquetDiscount = { type: "BAHT" | "PERCENT"; value: Money };

@@ -9,6 +9,7 @@ import { AccommodationBookingForm, type AccommodationPaymentLedgerProps } from "
 import { DeleteBookingButton } from "@/components/accommodation/DeleteBookingButton";
 import { AttachmentManager } from "@/components/attachments/AttachmentManager";
 import { listAttachments } from "@/lib/attachments";
+import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 
 export default async function AccommodationDetailPage({
   params,
@@ -59,9 +60,12 @@ export default async function AccommodationDetailPage({
       quantity: a.quantity,
       price: Number(a.price),
     })),
+    discountType: booking.discountType,
+    discountValue: Number(booking.discountValue),
+    discountNote: booking.discountNote ?? "",
   };
 
-  const { nights, roomTotal, addonsTotal, expectedTotal } = accommodationExpectedTotal(booking, booking.addons);
+  const { nights, roomTotal, addonsTotal, discountAmount, expectedTotal } = accommodationExpectedTotal(booking, booking.addons);
 
   const ledger: AccommodationPaymentLedgerProps = {
     paymentId: payment.id,
@@ -69,6 +73,7 @@ export default async function AccommodationDetailPage({
     breakdown: [
       { label: `ค่าห้องพัก (${nights} คืน)`, value: roomTotal },
       ...(addonsTotal > 0 ? [{ label: "ค่าบริการเสริม", value: addonsTotal }] : []),
+      ...(discountAmount > 0 ? [{ label: `ส่วนลด${booking.discountNote ? ` (${booking.discountNote})` : ""}`, value: -discountAmount }] : []),
     ],
     entries: payment.entries.map((e) => ({
       id: e.id,
@@ -110,6 +115,7 @@ export default async function AccommodationDetailPage({
           initial={initial}
           ledger={ledger}
         />
+        <QuotationLogList accommodationBookingId={booking.id} />
         <AttachmentManager bookingType="ACCOMMODATION" bookingId={booking.id} initial={attachments} />
       </div>
     </div>

@@ -6,6 +6,8 @@ import { parseDateOnly } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { logAccommodationCancellation } from "@/lib/cancellation-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
+import { accommodationExpectedTotal } from "@/lib/payment-calc";
+import { diffAccommodationQuotation, logQuotationChange, type AccommodationQuotationSnapshot } from "@/lib/quotation-log";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -36,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const existing = await prisma.accommodationBooking.findUnique({
     where: { id },
-    include: { resource: true },
+    include: { resource: true, addons: { include: { service: true } } },
   });
   if (!existing) return errorResponse("ไม่พบการจอง", 404);
 
@@ -80,6 +82,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         roomPrice: data.roomPrice ?? null,
         status: data.status,
         notes: data.notes,
+        discountType: data.discountType,
+        discountValue: data.discountValue,
+        discountNote: data.discountNote || null,
         addons: {
           create: data.addons.map((a) => ({
             serviceId: a.serviceId || null,
@@ -95,6 +100,61 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
       },
     });
+  });
+
+  const [newResource, newServices] = await Promise.all([
+    prisma.resource.findUniqueOrThrow({ where: { id: data.resourceId } }),
+    prisma.specialService.findMany({ where: { id: { in: data.addons.flatMap((a) => (a.serviceId ? [a.serviceId] : [])) } } }),
+  ]);
+  const serviceName = new Map(newServices.map((s) => [s.id, s.name]));
+  const snapshot = (input: {
+    customerName: string;
+    phone: string;
+    resourceName: string;
+    checkIn: Date;
+    checkOut: Date;
+    guestCount: number;
+    roomPrice: number;
+    addons: { name: string; quantity: number; price: number }[];
+    discount: { type: "BAHT" | "PERCENT"; value: number; note: string };
+  }): AccommodationQuotationSnapshot => ({
+    ...input,
+    total: accommodationExpectedTotal(
+      { ...input, discountType: input.discount.type, discountValue: input.discount.value },
+      input.addons
+    ).expectedTotal,
+  });
+  const before = snapshot({
+    customerName: existing.customerName,
+    phone: existing.phone,
+    resourceName: existing.resource.name,
+    checkIn: existing.checkIn,
+    checkOut: existing.checkOut,
+    guestCount: existing.guestCount,
+    roomPrice: Number(existing.roomPrice ?? 0),
+    addons: existing.addons.map((a) => ({ name: a.service?.name || a.description || "-", quantity: a.quantity, price: Number(a.price) })),
+    discount: { type: existing.discountType, value: Number(existing.discountValue), note: existing.discountNote ?? "" },
+  });
+  const after = snapshot({
+    customerName: booking.customerName,
+    phone: booking.phone,
+    resourceName: newResource.name,
+    checkIn: booking.checkIn,
+    checkOut: booking.checkOut,
+    guestCount: booking.guestCount,
+    roomPrice: Number(booking.roomPrice ?? 0),
+    addons: data.addons.map((a) => ({
+      name: (a.serviceId && serviceName.get(a.serviceId)) || a.description || "-",
+      quantity: a.quantity,
+      price: a.price,
+    })),
+    discount: { type: data.discountType, value: data.discountValue, note: data.discountNote || "" },
+  });
+  await logQuotationChange({
+    accommodationBookingId: id,
+    userId: session!.user.id,
+    userName: session!.user.name ?? session!.user.username,
+    changes: diffAccommodationQuotation(before, after),
   });
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {

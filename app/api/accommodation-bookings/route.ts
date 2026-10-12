@@ -5,6 +5,7 @@ import { accommodationBookingInputSchema } from "@/lib/validators";
 import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
+import { logQuotationChange } from "@/lib/quotation-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 export async function GET(req: NextRequest) {
@@ -69,6 +70,9 @@ export async function POST(req: NextRequest) {
       roomPrice: data.roomPrice ?? null,
       status: data.status,
       notes: data.notes,
+      discountType: data.discountType,
+      discountValue: data.discountValue,
+      discountNote: data.discountNote || null,
       createdById: session!.user.id,
       addons: {
         create: data.addons.map((a) => ({
@@ -96,6 +100,13 @@ export async function POST(req: NextRequest) {
       },
     },
     include: { resource: true, addons: true, payment: { include: { entries: true } } },
+  });
+
+  await logQuotationChange({
+    accommodationBookingId: booking.id,
+    userId: session!.user.id,
+    userName: session!.user.name ?? session!.user.username,
+    changes: ["สร้างใบเสนอราคา (จากการจองครั้งแรก)"],
   });
 
   await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });

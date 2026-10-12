@@ -69,7 +69,14 @@ export const accommodationBookingInputSchema = z
     notes: z.string().optional(),
     cancelReason: z.string().optional(),
     addons: z.array(addonInputSchema).default([]),
+    discountType: z.enum(["BAHT", "PERCENT"]).default("BAHT"),
+    discountValue: z.coerce.number().min(0, "ส่วนลดต้องไม่ติดลบ").default(0),
+    discountNote: z.string().trim().optional(),
     initialPayment: initialPaymentInputSchema.optional(),
+  })
+  .refine((b) => b.discountType !== "PERCENT" || b.discountValue <= 100, {
+    message: "ส่วนลดเป็นเปอร์เซ็นต์ต้องไม่เกิน 100",
+    path: ["discountValue"],
   })
   .refine((b) => b.checkOut > b.checkIn, {
     message: "วันที่เช็คเอาท์ต้องอยู่หลังวันที่เช็คอิน",
