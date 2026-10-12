@@ -15,6 +15,7 @@ import {
 } from "@/lib/labels";
 import { formatThaiDate, parseDateOnly, toDateOnlyString, todayDateOnly } from "@/lib/dates";
 import Link from "next/link";
+import { DailyOccChart } from "@/components/reports/DailyOccChart";
 
 const baht = (v: number) => v.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const pct = (v: number) => `${v.toFixed(1)}%`;
@@ -86,6 +87,21 @@ export default async function ReportsPage({
   const prevRange = previousRange(from, to);
   const [r, prev] = await Promise.all([loadPerformance(from, to), loadPerformance(prevRange.from, prevRange.to)]);
   const todayStr = toDateOnlyString(todayDateOnly());
+  const dayLabel = (date: string) => String(Number(date.slice(8)));
+  const weekendDates = r.daily.map((d) => d.date).filter((d) => [0, 6].includes(parseDateOnly(d).getUTCDay()));
+  const accRoomCount = r.accommodationOcc.byRoom.length;
+  const accPoints = r.daily.map((d) => ({
+    date: d.date,
+    label: dayLabel(d.date),
+    value: d.accRate,
+    detail: `${d.accOccupied} / ${accRoomCount} ห้อง`,
+  }));
+  const banquetPoints = r.daily.map((d) => ({
+    date: d.date,
+    label: dayLabel(d.date),
+    value: d.banquetRate,
+    detail: `${d.banquetUsed} / ${r.banquetOcc.roomCount} ห้องมีงาน`,
+  }));
   const rangeLabel = `${formatThaiDate(parseDateOnly(from))} – ${formatThaiDate(parseDateOnly(to))} (${r.days} วัน)`;
 
   return (
@@ -137,6 +153,11 @@ export default async function ReportsPage({
               </Card>
             </div>
             <Card>
+              <CardContent className="pt-4">
+                <DailyOccChart title="OCC. รายวัน — ห้องพัก (ทุกโซน)" points={accPoints} color="#ad8620" weekendDates={weekendDates} />
+              </CardContent>
+            </Card>
+            <Card>
               <CardContent className="overflow-x-auto pt-4">
                 <table className="w-full min-w-[28rem]">
                   <thead>
@@ -180,6 +201,11 @@ export default async function ReportsPage({
                 sub="หลังส่วนลด รวม VAT"
               />
             </div>
+            <Card>
+              <CardContent className="pt-4">
+                <DailyOccChart title="OCC. รายวัน — ห้องจัดเลี้ยง" points={banquetPoints} color="#2a7350" weekendDates={weekendDates} />
+              </CardContent>
+            </Card>
             <Card>
               <CardContent className="overflow-x-auto pt-4">
                 <table className="w-full min-w-[28rem]">

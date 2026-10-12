@@ -133,6 +133,8 @@ export type PerformanceReport = {
     items: { name: string; scope: "ACCOMMODATION" | "BANQUET" | "BOTH"; quantity: number; revenue: number; bookings: number }[];
   };
   bookingCounts: { accommodation: number; banquet: number };
+  /** One entry per day in the range: rooms occupied that night / banquet rooms with an event that day. */
+  daily: { date: string; accOccupied: number; accRate: number; banquetUsed: number; banquetRate: number }[];
 };
 
 const clipNights = (checkIn: Date, checkOut: Date, start: Date, end: Date) => {
@@ -343,10 +345,26 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
     typeMap.set(x.row.eventType, cur);
   }
 
+  const daily: PerformanceReport["daily"] = [];
+  for (let i = 0; i < days; i++) {
+    const day = new Date(start.getTime() + i * DAY_MS);
+    const key = toDateOnlyString(day);
+    const accOccupied = accActive.filter((b) => b.checkIn <= day && b.checkOut > day).length;
+    const banquetUsed = new Set(banquetActive.filter((b) => toDateOnlyString(b.eventDate) === key).map((b) => b.resourceId)).size;
+    daily.push({
+      date: key,
+      accOccupied,
+      accRate: pct(accOccupied, accRooms.length),
+      banquetUsed,
+      banquetRate: pct(banquetUsed, banquetRooms.length),
+    });
+  }
+
   return {
     from,
     to,
     days,
+    daily,
     accommodationOcc: {
       rate: pct(occupiedNights, capacityNights),
       occupiedNights,
