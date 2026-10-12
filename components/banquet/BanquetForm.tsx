@@ -16,6 +16,7 @@ import {
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
 import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
+import { DiscountField } from "@/components/quotation/DiscountField";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
 import { useToast } from "@/components/ui/toast-provider";
 import { BANQUET_EVENT_TYPE_LABELS, BANQUET_STATUS_LABELS } from "@/lib/labels";
@@ -341,33 +342,7 @@ export function BanquetForm({
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
 
-      <div className="flex flex-col gap-1.5">
-        <Label>ส่วนลดในใบเสนอราคา</Label>
-        <div className="flex flex-wrap gap-2">
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            className="max-w-40"
-            value={value.discountValue}
-            onChange={(e) => setValue({ ...value, discountValue: Number(e.target.value) })}
-          />
-          <Select
-            className="max-w-28"
-            value={value.discountType}
-            onChange={(e) => setValue({ ...value, discountType: e.target.value as "BAHT" | "PERCENT" })}
-          >
-            <option value="BAHT">บาท</option>
-            <option value="PERCENT">%</option>
-          </Select>
-          <Input
-            className="min-w-48 flex-1"
-            placeholder="หมายเหตุส่วนลด เช่น ลูกค้าประจำ, โปรโมชัน"
-            value={value.discountNote}
-            onChange={(e) => setValue({ ...value, discountNote: e.target.value })}
-          />
-        </div>
-      </div>
+      <DiscountField value={value} onChange={(d) => setValue({ ...value, ...d })} />
 
       {value.id && (
         <a

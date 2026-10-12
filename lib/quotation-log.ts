@@ -61,6 +61,37 @@ const discountLabel = (d: QuotationSnapshot["discount"]) =>
     : "ไม่มี";
 const itemLabel = (a: { name: string; quantity: number; price: number }) => `${a.quantity} × ${baht(a.price)}`;
 
+type Item = { name: string; quantity: number; price: number };
+const nightsLabel = (a: Item) => `${a.quantity} คืน × ${baht(a.price)}`;
+
+/** Line items are matched as a multiset on (name, qty, price); leftovers sharing a name read as an edit. */
+function diffItems(
+  before: Item[],
+  after: Item[],
+  fmt: { edit: (name: string, o: Item, x: Item) => string; add: (name: string, x: Item) => string; remove: (name: string, o: Item) => string }
+): string[] {
+  const key = (a: Item) => `${a.name}|${a.quantity}|${a.price}`;
+  const removed = [...before];
+  const added: Item[] = [];
+  for (const a of after) {
+    const i = removed.findIndex((r) => key(r) === key(a));
+    if (i >= 0) removed.splice(i, 1);
+    else added.push(a);
+  }
+  const out: string[] = [];
+  for (const a of added) {
+    const i = removed.findIndex((r) => r.name === a.name);
+    if (i >= 0) {
+      out.push(fmt.edit(a.name, removed[i], a));
+      removed.splice(i, 1);
+    } else {
+      out.push(fmt.add(a.name, a));
+    }
+  }
+  for (const r of removed) out.push(fmt.remove(r.name, r));
+  return out;
+}
+
 /** Human-readable list of what changed between two quotation states; empty when nothing did. */
 export function diffQuotation(before: QuotationSnapshot, after: QuotationSnapshot): string[] {
   const out: string[] = [];
@@ -74,44 +105,18 @@ export function diffQuotation(before: QuotationSnapshot, after: QuotationSnapsho
   if (range(before) !== range(after)) out.push(`เวลา: ${range(before)} → ${range(after)}`);
   if (before.headcount !== after.headcount) out.push(`จำนวนคน: ${before.headcount} → ${after.headcount}`);
 
-  // Add-ons are matched as a multiset on (name, qty, price); leftovers sharing a name read as an edit.
-  const key = (a: { name: string; quantity: number; price: number }) => `${a.name}|${a.quantity}|${a.price}`;
-  const removed = [...before.addons];
-  const added: typeof after.addons = [];
-  for (const a of after.addons) {
-    const i = removed.findIndex((r) => key(r) === key(a));
-    if (i >= 0) removed.splice(i, 1);
-    else added.push(a);
-  }
-  for (const a of added) {
-    const i = removed.findIndex((r) => r.name === a.name);
-    if (i >= 0) {
-      out.push(`แก้ไขรายการ "${a.name}": ${itemLabel(removed[i])} → ${itemLabel(a)}`);
-      removed.splice(i, 1);
-    } else {
-      out.push(`เพิ่มรายการ "${a.name}" (${itemLabel(a)})`);
-    }
-  }
-  for (const r of removed) out.push(`ลบรายการ "${r.name}" (${itemLabel(r)})`);
-
-  const stayKey = (a: QuotationSnapshot["stays"][number]) => `${a.name}|${a.quantity}|${a.price}`;
-  const stayRemoved = [...before.stays];
-  const stayAdded: typeof after.stays = [];
-  for (const a of after.stays) {
-    const i = stayRemoved.findIndex((r) => stayKey(r) === stayKey(a));
-    if (i >= 0) stayRemoved.splice(i, 1);
-    else stayAdded.push(a);
-  }
-  for (const a of stayAdded) {
-    const i = stayRemoved.findIndex((r) => r.name === a.name);
-    if (i >= 0) {
-      out.push(`แก้ไขห้องพัก "${a.name}": ${stayRemoved[i].quantity} คืน × ${baht(stayRemoved[i].price)} → ${a.quantity} คืน × ${baht(a.price)}`);
-      stayRemoved.splice(i, 1);
-    } else {
-      out.push(`เพิ่มห้องพัก "${a.name}" (${a.quantity} คืน × ${baht(a.price)})`);
-    }
-  }
-  for (const r of stayRemoved) out.push(`ลบห้องพัก "${r.name}" (${r.quantity} คืน × ${baht(r.price)})`);
+  out.push(
+    ...diffItems(before.addons, after.addons, {
+      edit: (n, o, x) => `แก้ไขรายการ "${n}": ${itemLabel(o)} → ${itemLabel(x)}`,
+      add: (n, x) => `เพิ่มรายการ "${n}" (${itemLabel(x)})`,
+      remove: (n, o) => `ลบรายการ "${n}" (${itemLabel(o)})`,
+    }),
+    ...diffItems(before.stays, after.stays, {
+      edit: (n, o, x) => `แก้ไขห้องพัก "${n}": ${nightsLabel(o)} → ${nightsLabel(x)}`,
+      add: (n, x) => `เพิ่มห้องพัก "${n}" (${nightsLabel(x)})`,
+      remove: (n, o) => `ลบห้องพัก "${n}" (${nightsLabel(o)})`,
+    })
+  );
 
   if (discountLabel(before.discount) !== discountLabel(after.discount))
     out.push(`ส่วนลด: ${discountLabel(before.discount)} → ${discountLabel(after.discount)}`);
@@ -119,6 +124,48 @@ export function diffQuotation(before: QuotationSnapshot, after: QuotationSnapsho
   if (out.length > 0 && Math.abs(before.total - after.total) >= 0.005)
     out.push(`ยอดสุทธิ: ${baht(before.total)} → ${baht(after.total)} บาท`);
 
+  return out;
+}
+
+/** Accommodation quotation: same idea as the banquet snapshot, but the room itself is the main line. */
+export type AccommodationQuotationSnapshot = {
+  customerName: string;
+  phone: string;
+  resourceName: string;
+  checkIn: Date;
+  checkOut: Date;
+  guestCount: number;
+  roomPrice: number;
+  addons: Item[];
+  discount: { type: "BAHT" | "PERCENT"; value: number; note: string };
+  total: number;
+};
+
+export function diffAccommodationQuotation(
+  before: AccommodationQuotationSnapshot,
+  after: AccommodationQuotationSnapshot
+): string[] {
+  const out: string[] = [];
+  if (before.customerName !== after.customerName) out.push(`ชื่อลูกค้า: ${before.customerName} → ${after.customerName}`);
+  if (before.phone !== after.phone) out.push(`เบอร์โทร: ${before.phone || "-"} → ${after.phone || "-"}`);
+  if (before.resourceName !== after.resourceName) out.push(`ห้องพัก: ${before.resourceName} → ${after.resourceName}`);
+  if (before.checkIn.getTime() !== after.checkIn.getTime())
+    out.push(`เช็คอิน: ${formatShortThaiDate(before.checkIn)} → ${formatShortThaiDate(after.checkIn)}`);
+  if (before.checkOut.getTime() !== after.checkOut.getTime())
+    out.push(`เช็คเอาท์: ${formatShortThaiDate(before.checkOut)} → ${formatShortThaiDate(after.checkOut)}`);
+  if (before.guestCount !== after.guestCount) out.push(`จำนวนคน: ${before.guestCount} → ${after.guestCount}`);
+  if (before.roomPrice !== after.roomPrice) out.push(`ราคาห้อง/คืน: ${baht(before.roomPrice)} → ${baht(after.roomPrice)}`);
+  out.push(
+    ...diffItems(before.addons, after.addons, {
+      edit: (n, o, x) => `แก้ไขรายการ "${n}": ${itemLabel(o)} → ${itemLabel(x)}`,
+      add: (n, x) => `เพิ่มรายการ "${n}" (${itemLabel(x)})`,
+      remove: (n, o) => `ลบรายการ "${n}" (${itemLabel(o)})`,
+    })
+  );
+  if (discountLabel(before.discount) !== discountLabel(after.discount))
+    out.push(`ส่วนลด: ${discountLabel(before.discount)} → ${discountLabel(after.discount)}`);
+  if (out.length > 0 && Math.abs(before.total - after.total) >= 0.005)
+    out.push(`ยอดสุทธิ: ${baht(before.total)} → ${baht(after.total)} บาท`);
   return out;
 }
 
@@ -139,13 +186,22 @@ export function stayLine(b: {
 }
 
 export async function logQuotationChange(params: {
-  bookingId: string;
+  /** Set for a banquet booking's quotation. */
+  bookingId?: string;
+  /** Set for an accommodation booking's quotation. */
+  accommodationBookingId?: string;
   userId: string;
   userName: string;
   changes: string[];
 }) {
   if (params.changes.length === 0) return;
   await prisma.quotationLog.create({
-    data: { bookingId: params.bookingId, userId: params.userId, userName: params.userName, changes: params.changes },
+    data: {
+      bookingId: params.bookingId,
+      accommodationBookingId: params.accommodationBookingId,
+      userId: params.userId,
+      userName: params.userName,
+      changes: params.changes,
+    },
   });
 }

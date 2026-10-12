@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,6 +15,7 @@ import {
   type InitialDepositValue,
 } from "@/components/payment/InitialDepositInput";
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
+import { DiscountField } from "@/components/quotation/DiscountField";
 import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
@@ -36,6 +37,9 @@ export type AccommodationBookingFormValue = {
   notes: string;
   cancelReason: string;
   addons: AddonFormValue[];
+  discountType: "BAHT" | "PERCENT";
+  discountValue: number;
+  discountNote: string;
 };
 
 export function defaultAccommodationFormValue(
@@ -55,6 +59,9 @@ export function defaultAccommodationFormValue(
     notes: "",
     cancelReason: "",
     addons: [],
+    discountType: "BAHT",
+    discountValue: 0,
+    discountNote: "",
     ...overrides,
   };
 }
@@ -269,6 +276,20 @@ export function AccommodationBookingForm({
       </div>
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
+
+      <DiscountField value={value} onChange={(d) => setValue({ ...value, ...d })} />
+
+      {value.id && (
+        <a
+          href={`/quotation/accommodation/${value.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-forest-700 hover:underline"
+        >
+          <FileText className="h-4 w-4" />
+          สร้างใบเสนอราคา (พิมพ์ / บันทึก PDF)
+        </a>
+      )}
 
       {!value.id && <InitialDepositInput value={initialDeposit} onChange={setInitialDeposit} />}
 

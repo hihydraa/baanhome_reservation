@@ -2,8 +2,20 @@ import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /** Server component: full audit trail of quotation edits (who, when, what). */
-export async function QuotationLogList({ bookingId, className }: { bookingId: string; className?: string }) {
-  const logs = await prisma.quotationLog.findMany({ where: { bookingId }, orderBy: { createdAt: "desc" } });
+export async function QuotationLogList({
+  bookingId,
+  accommodationBookingId,
+  className,
+}: {
+  /** Banquet booking id. */
+  bookingId?: string;
+  accommodationBookingId?: string;
+  className?: string;
+}) {
+  const logs = await prisma.quotationLog.findMany({
+    where: accommodationBookingId ? { accommodationBookingId } : { bookingId },
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
     <Card className={className}>
