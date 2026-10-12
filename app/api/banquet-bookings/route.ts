@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       notes: data.notes,
       discountType: data.discountType,
       discountValue: data.discountValue,
+      discountNote: data.discountNote || null,
       createdById: session!.user.id,
       addons: {
         create: data.addons.map((a) => ({

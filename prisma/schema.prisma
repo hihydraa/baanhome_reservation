@@ -244,6 +244,7 @@ model BanquetBooking {
   notes                String?
   discountType         DiscountType           @default(BAHT)
   discountValue        Decimal                @default(0) @db.Decimal(10, 2)
+  discountNote         String?
   createdById          String?
   createdBy            User?                  @relation(fields: [createdById], references: [id])
   createdAt            DateTime               @default(now())

@@ -86,6 +86,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         notes: data.notes,
         discountType: data.discountType,
         discountValue: data.discountValue,
+        discountNote: data.discountNote || null,
         addons: {
           create: data.addons.map((a) => ({
             serviceId: a.serviceId || null,
@@ -117,7 +118,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       quantity: a.quantity,
       price: Number(a.price),
     })),
-    discount: { type: existing.discountType, value: Number(existing.discountValue) },
+    discount: { type: existing.discountType, value: Number(existing.discountValue), note: existing.discountNote ?? "" },
   });
   const after = buildQuotationSnapshot({
     ...booking,
@@ -127,7 +128,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       quantity: a.quantity,
       price: a.price,
     })),
-    discount: { type: data.discountType, value: data.discountValue },
+    discount: { type: data.discountType, value: data.discountValue, note: data.discountNote || "" },
   });
   await logQuotationChange({
     bookingId: id,

@@ -75,6 +75,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     })),
     discountType: booking.discountType,
     discountValue: Number(booking.discountValue),
+    discountNote: booking.discountNote ?? "",
   };
 
   const { roomTotal, addonsTotal, discountAmount, expectedTotal } = banquetExpectedTotal(
@@ -90,7 +91,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     breakdown: [
       { label: "ค่าห้องจัดเลี้ยง", value: roomTotal },
       ...(addonsTotal > 0 ? [{ label: "ค่าบริการเพิ่มเติม", value: addonsTotal }] : []),
-      ...(discountAmount > 0 ? [{ label: "ส่วนลด", value: -discountAmount }] : []),
+      ...(discountAmount > 0 ? [{ label: `ส่วนลด${booking.discountNote ? ` (${booking.discountNote})` : ""}`, value: -discountAmount }] : []),
     ],
     entries: payment.entries.map((e) => ({
       id: e.id,
