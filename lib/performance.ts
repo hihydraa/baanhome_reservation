@@ -88,16 +88,26 @@ export type PerformanceReport = {
     byRoom: { name: string; usedDays: number; events: number; hours: number; rate: number }[];
     byEventType: { type: string; events: number; revenue: number }[];
   };
-  /** Revenue recognised on the service date (check-in / event date), net of discount. VAT-inclusive prices. */
+  /**
+   * Revenue by the date the service is actually delivered, net of the discount the business bears (VAT-inclusive prices):
+   * accommodation night by night (a booking's net total is spread evenly over its nights), banquet on the event date.
+   * "Recognised" = service dates up to today; "upcoming" = already booked but not yet delivered.
+   */
   revenue: {
     accommodation: number;
     banquet: number;
     gross: number;
     discount: number;
+    /** Recognised + upcoming. */
     net: number;
+    recognized: { accommodation: number; banquet: number; total: number };
+    upcoming: { accommodation: number; banquet: number; total: number };
+    /** VAT split of the recognised revenue. */
     exVat: number;
     vat: number;
   };
+  /** Money already received on bookings that were cancelled — fee / refund still to be decided per booking terms. */
+  cancelledDeposits: { count: number; amount: number };
   /** Cash actually received in the range, by payment date. */
   cash: {
     total: number;
@@ -269,16 +279,44 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
     };
   };
 
+  // Bookings arriving in the range: used for collection, receivables and counts.
   const accPriced = accInRange.map((b) => ({ row: b, p: priceAcc(b) }));
   const banquetPriced = banquetActive.map((b) => ({ row: b, p: priceBanquet(b) }));
   const all = [...accPriced.map((x) => x.p), ...banquetPriced.map((x) => x.p)];
 
-  const accRevenue = accPriced.reduce((s, x) => s + x.p.net, 0);
-  const banquetRevenue = banquetPriced.reduce((s, x) => s + x.p.net, 0);
-  const gross = all.reduce((s, p) => s + p.gross, 0);
-  const discount = all.reduce((s, p) => s + p.discount, 0);
-  const net = accRevenue + banquetRevenue;
-  const { exVat, vat } = extractVat(net);
+  // Every stay with at least one night in the range, weighted by the share of its nights falling inside it
+  // (frac) and inside the already-delivered part of it (recFrac, nights dated up to today).
+  const deliveredEnd = new Date(Math.min(end.getTime(), today.getTime() + DAY_MS));
+  const accRev = accActive
+    .map((b) => {
+      const total = Math.max(1, Math.round((b.checkOut.getTime() - b.checkIn.getTime()) / DAY_MS));
+      return {
+        row: b,
+        p: priceAcc(b),
+        inNights: clipNights(b.checkIn, b.checkOut, start, end),
+        frac: clipNights(b.checkIn, b.checkOut, start, end) / total,
+        recFrac: clipNights(b.checkIn, b.checkOut, start, deliveredEnd) / total,
+      };
+    })
+    .filter((x) => x.frac > 0);
+  const banquetDelivered = (b: BanquetRow) => b.eventDate <= today;
+
+  const accNet = accRev.reduce((s, x) => s + x.p.net * x.frac, 0);
+  const accRecognized = accRev.reduce((s, x) => s + x.p.net * x.recFrac, 0);
+  const banquetNet = banquetPriced.reduce((s, x) => s + x.p.net, 0);
+  const banquetRecognized = banquetPriced.filter((x) => banquetDelivered(x.row)).reduce((s, x) => s + x.p.net, 0);
+  const weighted = [...accRev.map((x) => ({ p: x.p, w: x.frac })), ...banquetPriced.map((x) => ({ p: x.p, w: 1 }))];
+  const gross = weighted.reduce((s, x) => s + x.p.gross * x.w, 0);
+  const discount = weighted.reduce((s, x) => s + x.p.discount * x.w, 0);
+  const net = accNet + banquetNet;
+  const recognizedTotal = accRecognized + banquetRecognized;
+  const { exVat, vat } = extractVat(recognizedTotal);
+
+  // Deposits held on cancelled bookings: not revenue until a fee is decided per the booking terms.
+  const cancelledPaid = [
+    ...input.accommodation.filter((b) => b.status === "CANCELLED" && b.checkIn >= start && b.checkIn < end).map((b) => sumPaid(b.payment?.entries ?? [])),
+    ...input.banquet.filter((b) => b.status === "CANCELLED").map((b) => sumPaid(b.payment?.entries ?? [])),
+  ].filter((v) => v > 0);
 
   // ----- cash basis -----
   const methodMap = new Map<string, number>();
@@ -292,7 +330,7 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
   }
 
   // ----- collection / deposit -----
-  const expected = net;
+  const expected = all.reduce((s, p) => s + p.net, 0);
   const paid = all.reduce((s, p) => s + p.paid, 0);
   const withPayment = all.filter((p) => p.paid > 0).length;
   const upcoming = [
@@ -314,11 +352,11 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
 
   // ----- discounts -----
   const noteMap = new Map<string, { amount: number; count: number }>();
-  for (const p of all) {
+  for (const { p, w } of weighted) {
     if (!p.hasDiscount) continue;
     const key = p.note.trim() || "(ไม่ระบุหมายเหตุ)";
     const cur = noteMap.get(key) ?? { amount: 0, count: 0 };
-    cur.amount += p.discount;
+    cur.amount += p.discount * w;
     cur.count += 1;
     noteMap.set(key, cur);
   }
@@ -333,10 +371,10 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
 
   // ----- channels -----
   const chan = new Map<string, { groups: Set<string>; revenue: number }>();
-  for (const x of accPriced) {
+  for (const x of accRev) {
     const c = chan.get(x.row.source) ?? { groups: new Set<string>(), revenue: 0 };
     c.groups.add(x.row.charterGroupId ?? x.row.id);
-    c.revenue += x.p.net;
+    c.revenue += x.p.net * x.frac;
     chan.set(x.row.source, c);
   }
 
@@ -346,11 +384,11 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
   let addonTotalAcc = 0;
   let addonTotalBanquet = 0;
   let bookingsWithAddons = 0;
-  const addTo = (scope: "ACCOMMODATION" | "BANQUET", bookingKey: string, addons: AddonRow[]) => {
+  const addTo = (scope: "ACCOMMODATION" | "BANQUET", bookingKey: string, addons: AddonRow[], w = 1) => {
     if (addons.length > 0) bookingsWithAddons += 1;
     for (const a of addons) {
       const name = a.service?.name || a.description || "-";
-      const revenue = a.quantity * n(a.price);
+      const revenue = a.quantity * n(a.price) * w;
       const it = itemMap.get(name) ?? { name, scopes: new Set(), quantity: 0, revenue: 0, bookings: new Set<string>() };
       it.scopes.add(scope);
       it.quantity += a.quantity;
@@ -361,10 +399,10 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
       else addonTotalBanquet += revenue;
     }
   };
-  for (const x of accPriced) addTo("ACCOMMODATION", `A${x.row.id}`, x.row.addons);
+  for (const x of accRev) addTo("ACCOMMODATION", `A${x.row.id}`, x.row.addons, x.frac);
   for (const x of banquetPriced) addTo("BANQUET", `B${x.row.id}`, x.row.addons);
   const addonTotal = addonTotalAcc + addonTotalBanquet;
-  const bookingTotal = accPriced.length + banquetPriced.length;
+  const bookingTotal = accRev.length + banquetPriced.length;
 
   // ----- customers (grouped by trimmed name; the booking forms store free-text names) -----
   const normName = (v: string) => v.trim().replace(/\s+/g, " ");
@@ -377,12 +415,12 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
     custMap.set(key, c);
     return c;
   };
-  for (const x of accPriced) {
+  for (const x of accRev) {
     const c = cust(x.row.customerName);
     c.acc.add(x.row.charterGroupId ?? x.row.id);
-    c.nights += Math.max(0, Math.round((x.row.checkOut.getTime() - x.row.checkIn.getTime()) / DAY_MS));
-    c.revenue += x.p.net;
-    c.paid += x.p.paid;
+    c.nights += x.inNights;
+    c.revenue += x.p.net * x.frac;
+    c.paid += x.p.paid * x.frac;
   }
   for (const x of banquetPriced) {
     const c = cust(x.row.customerName);
@@ -468,7 +506,22 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
       byRoom: banquetByRoom,
       byEventType: Array.from(typeMap.entries()).map(([type, v]) => ({ type, ...v })).sort((a, b) => b.revenue - a.revenue),
     },
-    revenue: { accommodation: accRevenue, banquet: banquetRevenue, gross, discount, net, exVat, vat },
+    revenue: {
+      accommodation: accNet,
+      banquet: banquetNet,
+      gross,
+      discount,
+      net,
+      recognized: { accommodation: accRecognized, banquet: banquetRecognized, total: recognizedTotal },
+      upcoming: {
+        accommodation: accNet - accRecognized,
+        banquet: banquetNet - banquetRecognized,
+        total: net - recognizedTotal,
+      },
+      exVat,
+      vat,
+    },
+    cancelledDeposits: { count: cancelledPaid.length, amount: cancelledPaid.reduce((a, b) => a + b, 0) },
     cash: {
       total: cashAcc + cashBanquet,
       accommodation: cashAcc,
@@ -491,7 +544,7 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
     receivablesTotal: receivables.reduce((s, r) => s + r.remaining, 0),
     discounts: {
       total: discount,
-      bookingsWithDiscount: all.filter((p) => p.hasDiscount).length,
+      bookingsWithDiscount: weighted.filter((x) => x.p.hasDiscount).length,
       byNote: Array.from(noteMap.entries()).map(([note, v]) => ({ note, ...v })).sort((a, b) => b.amount - a.amount),
     },
     cancellations: {

@@ -266,21 +266,27 @@ export default async function ReportsPage({
           </Section>
 
           <Section title="รายได้ (แสดงทั้ง 2 มุมมอง)">
+            <p className="-mt-1 text-xs text-ink-400">หลักการ: รายได้ห้องพัก/พูลวิลล่า รับรู้ตามคืนที่เข้าพักจริง (ทุกช่องทางการจอง) ห้องจัดเลี้ยงรับรู้ตามวันที่จัดงาน ไม่ยึดวันที่รับเงิน และใช้ยอดสุทธิหลังส่วนลด · ยังไม่รวมรายได้ร้านอาหาร</p>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base">ตามวันใช้บริการ (รับรู้รายได้)</CardTitle>
-                  <p className="text-xs text-ink-400">การจองที่เช็คอิน/จัดงานในช่วงนี้ ไม่รวมที่ยกเลิก ตามยอดในใบเสนอราคา (รวม VAT)</p>
+                  <CardTitle className="text-base">ตามวันที่ให้บริการจริง (รับรู้รายได้)</CardTitle>
+                  <p className="text-xs text-ink-400">
+                    ห้องพักแบ่งตามคืนที่พัก (ยอดสุทธิของการจองเฉลี่ยตามจำนวนคืน) · จัดเลี้ยงตามวันจัดงาน · ไม่รวมการจองที่ยกเลิก · รวม VAT
+                  </p>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-1.5">
-                  <Row label="ห้องพัก" value={`${baht(r.revenue.accommodation)} บาท`} />
-                  <Row label="ห้องจัดเลี้ยง" value={`${baht(r.revenue.banquet)} บาท`} />
-                  <div className="my-1 border-t border-cream-200" />
-                  <Row label="ยอดก่อนส่วนลด" value={`${baht(r.revenue.gross)} บาท`} />
-                  <Row label="ส่วนลดรวม" value={`-${baht(r.revenue.discount)} บาท`} />
-                  <Row label="ยอดสุทธิ" value={`${baht(r.revenue.net)} บาท`} strong />
+                  <Row label="ห้องพัก/พูลวิลล่า (รับรู้แล้ว)" value={`${baht(r.revenue.recognized.accommodation)} บาท`} />
+                  <Row label="ห้องจัดเลี้ยง (รับรู้แล้ว)" value={`${baht(r.revenue.recognized.banquet)} บาท`} />
+                  <Row label="รายได้ที่รับรู้แล้ว (ถึงวันนี้)" value={`${baht(r.revenue.recognized.total)} บาท`} strong />
                   <Row label="มูลค่าก่อนภาษี" value={`${baht(r.revenue.exVat)} บาท`} />
                   <Row label="VAT 7% (รวมอยู่แล้ว)" value={`${baht(r.revenue.vat)} บาท`} />
+                  <div className="my-1 border-t border-cream-200" />
+                  <Row label="จองไว้ ยังไม่ถึงวันให้บริการ" value={`${baht(r.revenue.upcoming.total)} บาท`} />
+                  <Row label="รวมรายได้ของช่วงนี้ (รับรู้แล้ว + จองไว้)" value={`${baht(r.revenue.net)} บาท`} strong />
+                  <div className="my-1 border-t border-cream-200" />
+                  <Row label="ยอดก่อนส่วนลด" value={`${baht(r.revenue.gross)} บาท`} />
+                  <Row label="ส่วนลดที่กิจการรับผิดชอบ" value={`-${baht(r.revenue.discount)} บาท`} />
                 </CardContent>
               </Card>
               <Card>
@@ -302,6 +308,7 @@ export default async function ReportsPage({
           </Section>
 
           <Section title="การเก็บเงินและมัดจำ">
+            <p className="-mt-1 text-xs text-ink-400">คิดตามการจองที่เช็คอิน/จัดงานในช่วงนี้ (ยอดรวมต่อการจอง ไม่แบ่งตามคืน)</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Kpi
                 title="เก็บเงินแล้ว / ยอดที่ต้องเก็บ"
@@ -319,6 +326,18 @@ export default async function ReportsPage({
                 sub={`${r.collection.upcomingWithDeposit} / ${r.collection.upcomingBookings} รายการมีมัดจำ · เก็บแล้ว ${baht(r.collection.upcomingPaid)} จาก ${baht(r.collection.upcomingExpected)} บาท`}
               />
             </div>
+            {r.cancelledDeposits.count > 0 && (
+              <Card>
+                <CardContent className="pt-4 text-sm">
+                  <p className="font-semibold text-forest-800">
+                    เงินที่รับไว้จากการจองที่ยกเลิก: {baht(r.cancelledDeposits.amount)} บาท ({r.cancelledDeposits.count} รายการ)
+                  </p>
+                  <p className="text-xs text-ink-400">
+                    ยังไม่นับเป็นรายได้ — ต้องพิจารณาตามเงื่อนไขการจอง การคืนเงิน และสิทธิเรียกเก็บค่าธรรมเนียมยกเลิกเป็นรายการ
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">ยอดค้างชำระ (ใช้บริการแล้วแต่ยังเก็บไม่ครบ) — รวม {baht(r.receivablesTotal)} บาท</CardTitle>
@@ -548,10 +567,10 @@ function Kpis({ r, prev }: { r: PerformanceReport; prev: PerformanceReport }) {
         delta={<Delta now={r.banquetOcc.rate} prev={prev.banquetOcc.rate} kind="pp" />}
       />
       <Kpi
-        title="รายได้ตามวันใช้บริการ"
-        value={`${baht(r.revenue.net)} บาท`}
-        sub={`ห้องพัก ${r.bookingCounts.accommodation} · จัดเลี้ยง ${r.bookingCounts.banquet} รายการ`}
-        delta={<Delta now={r.revenue.net} prev={prev.revenue.net} kind="pct" />}
+        title="รายได้ที่รับรู้แล้ว"
+        value={`${baht(r.revenue.recognized.total)} บาท`}
+        sub={`ตามคืน/วันที่ให้บริการจริง · จองไว้อีก ${baht(r.revenue.upcoming.total)} บาท`}
+        delta={<Delta now={r.revenue.recognized.total} prev={prev.revenue.recognized.total} kind="pct" />}
       />
       <Kpi
         title="รายได้ที่รับเงินแล้ว"
