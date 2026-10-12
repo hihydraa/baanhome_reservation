@@ -5,8 +5,9 @@ import { formatShortThaiDate, formatThaiDate, formatTime, todayDateOnly } from "
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
 import { PreparedByField } from "@/components/banquet/PreparedByField";
+import { stayLine } from "@/lib/quotation-log";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
-import { banquetExpectedTotal, extractVat, VAT_RATE } from "@/lib/payment-calc";
+import { extractVat, quotationTotals, VAT_RATE } from "@/lib/payment-calc";
 
 const BUSINESS = {
   name: "สวนอาหารบ้านโฮม (สำนักงานใหญ่)",
@@ -26,7 +27,11 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
 
   const booking = await prisma.banquetBooking.findUnique({
     where: { id },
-    include: { resource: true, addons: { include: { service: true } } },
+    include: {
+      resource: true,
+      addons: { include: { service: true } },
+      linkedAccommodations: { include: { resource: true }, orderBy: { checkIn: "asc" } },
+    },
   });
   if (!booking) notFound();
 
@@ -36,10 +41,16 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
 
   // Every price is VAT-inclusive: the room and add-ons add up to the gross total, the discount comes off
   // that, and VAT is extracted from the net (not added on top).
-  const { roomTotal, subtotal, discountAmount, expectedTotal: netTotal } = banquetExpectedTotal(
+  const stays = booking.linkedAccommodations.flatMap((b) => {
+    const line = stayLine(b);
+    return line ? [{ id: b.id, description: line.name, quantity: line.quantity, unitPrice: line.price }] : [];
+  });
+
+  const { roomTotal, subtotal, discountAmount, expectedTotal: netTotal } = quotationTotals(
     booking,
     booking.resource,
     booking.addons,
+    stays.map((st) => ({ nights: st.quantity, price: st.unitPrice })),
     { type: booking.discountType, value: booking.discountValue }
   );
   const { exVat, vat } = extractVat(netTotal);
@@ -49,6 +60,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
     ...(roomTotal > 0
       ? [{ id: "room", description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
       : []),
+    ...stays.map((st) => ({ ...st, amount: st.quantity * st.unitPrice })),
     ...booking.addons.map((a) => ({
       id: a.id,
       description: a.service?.name || a.description || "-",
