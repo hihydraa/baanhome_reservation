@@ -96,6 +96,16 @@ export default async function ReportsPage({
     value: d.accRate,
     detail: `${d.accOccupied} / ${accRoomCount} ห้อง`,
   }));
+  const zonePoints = (zone: string) =>
+    r.daily.map((d) => {
+      const z = d.zones.find((x) => x.zone === zone);
+      return {
+        date: d.date,
+        label: dayLabel(d.date),
+        value: z?.rate ?? 0,
+        detail: `${z?.occupied ?? 0} / ${z?.rooms ?? 0} ห้อง`,
+      };
+    });
   const banquetPoints = r.daily.map((d) => ({
     date: d.date,
     label: dayLabel(d.date),
@@ -153,8 +163,17 @@ export default async function ReportsPage({
               </Card>
             </div>
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="flex flex-col gap-6 pt-4">
                 <DailyOccChart title="OCC. รายวัน — ห้องพัก (ทุกโซน)" points={accPoints} color="#ad8620" weekendDates={weekendDates} />
+                {r.accommodationOcc.byZone.map((z) => (
+                  <DailyOccChart
+                    key={z.zone}
+                    title={`OCC. รายวัน — ${ZONE_LABELS[z.zone] ?? z.zone} (${z.roomCount} ห้อง)`}
+                    points={zonePoints(z.zone)}
+                    color="#ad8620"
+                    weekendDates={weekendDates}
+                  />
+                ))}
               </CardContent>
             </Card>
             <Card>

@@ -134,7 +134,15 @@ export type PerformanceReport = {
   };
   bookingCounts: { accommodation: number; banquet: number };
   /** One entry per day in the range: rooms occupied that night / banquet rooms with an event that day. */
-  daily: { date: string; accOccupied: number; accRate: number; banquetUsed: number; banquetRate: number }[];
+  daily: {
+    date: string;
+    accOccupied: number;
+    accRate: number;
+    /** Same figures per accommodation zone (Resort / Pool villa). */
+    zones: { zone: string; occupied: number; rooms: number; rate: number }[];
+    banquetUsed: number;
+    banquetRate: number;
+  }[];
 };
 
 const clipNights = (checkIn: Date, checkOut: Date, start: Date, end: Date) => {
@@ -349,12 +357,20 @@ export function computePerformance(input: PerformanceInput, from: string, to: st
   for (let i = 0; i < days; i++) {
     const day = new Date(start.getTime() + i * DAY_MS);
     const key = toDateOnlyString(day);
-    const accOccupied = accActive.filter((b) => b.checkIn <= day && b.checkOut > day).length;
+    const stays = accActive.filter((b) => b.checkIn <= day && b.checkOut > day);
+    const accOccupied = stays.length;
+    const zoneStats = zones.map((zone) => {
+      const rooms = accRooms.filter((r) => r.zone === zone);
+      const ids = new Set(rooms.map((r) => r.id));
+      const occupied = stays.filter((b) => ids.has(b.resourceId)).length;
+      return { zone, occupied, rooms: rooms.length, rate: pct(occupied, rooms.length) };
+    });
     const banquetUsed = new Set(banquetActive.filter((b) => toDateOnlyString(b.eventDate) === key).map((b) => b.resourceId)).size;
     daily.push({
       date: key,
       accOccupied,
       accRate: pct(accOccupied, accRooms.length),
+      zones: zoneStats,
       banquetUsed,
       banquetRate: pct(banquetUsed, banquetRooms.length),
     });
