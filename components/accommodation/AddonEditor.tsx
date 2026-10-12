@@ -116,7 +116,7 @@ export function AddonEditor({
                 data-cell={`${i}-name`}
                 list={listId}
                 placeholder="ชื่อรายการ"
-                value={addon.description}
+                value={addon.description || services.find((sv) => sv.id === addon.serviceId)?.name || ""}
                 onChange={(e) => handleNameChange(i, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, i, "name")}
               />
