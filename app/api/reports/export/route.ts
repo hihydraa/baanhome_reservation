@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
   }
 
   for (const b of banquetBookings) {
-    const { expectedTotal } = banquetExpectedTotal(b, b.resource, b.addons);
+    const { expectedTotal } = banquetExpectedTotal(b, b.resource, b.addons, { type: b.discountType, value: b.discountValue });
     const paid = sumPaid(b.payment?.entries ?? []);
     csv += csvRow([
       "ห้องจัดเลี้ยง",

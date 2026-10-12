@@ -9,6 +9,7 @@ import { BanquetForm, type BanquetPaymentLedgerProps } from "@/components/banque
 import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
 import { AttachmentManager } from "@/components/attachments/AttachmentManager";
 import { listAttachments } from "@/lib/attachments";
+import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -72,9 +73,16 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
       quantity: a.quantity,
       price: Number(a.price),
     })),
+    discountType: booking.discountType,
+    discountValue: Number(booking.discountValue),
   };
 
-  const { roomTotal, addonsTotal, expectedTotal } = banquetExpectedTotal(booking, booking.resource, booking.addons);
+  const { roomTotal, addonsTotal, discountAmount, expectedTotal } = banquetExpectedTotal(
+    booking,
+    booking.resource,
+    booking.addons,
+    { type: booking.discountType, value: booking.discountValue }
+  );
 
   const ledger: BanquetPaymentLedgerProps = {
     paymentId: payment.id,
@@ -82,6 +90,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
     breakdown: [
       { label: "ค่าห้องจัดเลี้ยง", value: roomTotal },
       ...(addonsTotal > 0 ? [{ label: "ค่าบริการเพิ่มเติม", value: addonsTotal }] : []),
+      ...(discountAmount > 0 ? [{ label: "ส่วนลด", value: -discountAmount }] : []),
     ],
     entries: payment.entries.map((e) => ({
       id: e.id,
@@ -128,6 +137,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           initialOverrides={initial}
           ledger={ledger}
         />
+        <QuotationLogList bookingId={booking.id} />
         <AttachmentManager bookingType="BANQUET" bookingId={booking.id} initial={attachments} />
       </div>
     </div>

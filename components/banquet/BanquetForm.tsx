@@ -46,6 +46,8 @@ export type BanquetFormValue = {
   notes: string;
   cancelReason: string;
   addons: AddonFormValue[];
+  discountType: "BAHT" | "PERCENT";
+  discountValue: number;
 };
 
 export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): BanquetFormValue {
@@ -63,6 +65,8 @@ export function defaultBanquetFormValue(overrides?: Partial<BanquetFormValue>): 
     notes: "",
     cancelReason: "",
     addons: [],
+    discountType: "BAHT",
+    discountValue: 0,
     ...overrides,
   };
 }
@@ -334,6 +338,28 @@ export function BanquetForm({
       </div>
 
       <AddonEditor value={value.addons} onChange={(addons) => setValue({ ...value, addons })} services={services} />
+
+      <div className="flex flex-col gap-1.5">
+        <Label>ส่วนลดในใบเสนอราคา</Label>
+        <div className="flex gap-2">
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            className="max-w-40"
+            value={value.discountValue}
+            onChange={(e) => setValue({ ...value, discountValue: Number(e.target.value) })}
+          />
+          <Select
+            className="max-w-28"
+            value={value.discountType}
+            onChange={(e) => setValue({ ...value, discountType: e.target.value as "BAHT" | "PERCENT" })}
+          >
+            <option value="BAHT">บาท</option>
+            <option value="PERCENT">%</option>
+          </Select>
+        </div>
+      </div>
 
       {value.id && (
         <a

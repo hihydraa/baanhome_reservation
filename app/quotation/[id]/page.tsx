@@ -5,6 +5,8 @@ import { formatShortThaiDate, formatTime } from "@/lib/dates";
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
 import { PreparedByField } from "@/components/banquet/PreparedByField";
+import { QuotationLogList } from "@/components/banquet/QuotationLogList";
+import { banquetExpectedTotal, extractVat, VAT_RATE } from "@/lib/payment-calc";
 
 const BUSINESS = {
   name: "สวนอาหารบ้านโฮม (สำนักงานใหญ่)",
@@ -16,8 +18,6 @@ const BUSINESS = {
   accountName: "นางวนิดา ชาวสามทอง",
   accountNumber: "662-3-99543-9",
 };
-
-const VAT_RATE = 0.07;
 
 export default async function QuotationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,17 +34,31 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
   // shows the buyer's own tax ID on the quotation when there's a matching record.
   const customer = await prisma.customer.findFirst({ where: { name: booking.customerName.trim() } });
 
-  const lineItems = booking.addons.map((a) => ({
-    id: a.id,
-    description: a.service?.name || a.description || "-",
-    quantity: a.quantity,
-    unitPrice: Number(a.price),
-    amount: a.quantity * Number(a.price),
-  }));
+  // Every price is VAT-inclusive: the room and add-ons add up to the gross total, the discount comes off
+  // that, and VAT is extracted from the net (not added on top).
+  const { roomTotal, subtotal, discountAmount, expectedTotal: netTotal } = banquetExpectedTotal(
+    booking,
+    booking.resource,
+    booking.addons,
+    { type: booking.discountType, value: booking.discountValue }
+  );
+  const { exVat, vat } = extractVat(netTotal);
+  const discountValue = Number(booking.discountValue);
 
-  const subtotal = lineItems.reduce((sum, item) => sum + item.amount, 0);
-  const vat = Math.round(subtotal * VAT_RATE * 100) / 100;
-  const netTotal = subtotal + vat;
+  const lineItems = [
+    ...(roomTotal > 0
+      ? [{ id: "room", description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
+      : []),
+    ...booking.addons.map((a) => ({
+      id: a.id,
+      description: a.service?.name || a.description || "-",
+      quantity: a.quantity,
+      unitPrice: Number(a.price),
+      amount: a.quantity * Number(a.price),
+    })),
+  ];
+
+  const revisionCount = await prisma.quotationLog.count({ where: { bookingId: booking.id } });
 
   const quotationNumber = `QT${formatShortThaiDate(booking.eventDate).replace(/-/g, "")}-${booking.id.slice(-5).toUpperCase()}`;
   const projectLine = `${formatShortThaiDate(booking.eventDate)} ${formatTime(booking.startTime)} ห้อง ${booking.resource.name} ${booking.headcount} ท่าน`;
@@ -71,6 +85,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
             <div className="shrink-0 rounded-md border border-ink-900 px-3 py-1.5 text-center font-bold">
               ใบเสนอราคา
               <div className="text-xs font-normal text-ink-600">{quotationNumber}</div>
+              {revisionCount > 1 && <div className="text-xs font-normal text-ink-600">แก้ไขครั้งที่ {revisionCount - 1}</div>}
             </div>
           </div>
 
@@ -121,7 +136,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
               {lineItems.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="border border-ink-900/20 px-2 py-4 text-center text-ink-400">
-                    ยังไม่มีรายการ — เพิ่มได้ที่ &quot;บริการเพิ่มเติม&quot; ในหน้ารายละเอียดการจอง
+                    ยังไม่มีรายการ — เลือกห้องที่ระบุราคา หรือเพิ่ม &quot;บริการเพิ่มเติม&quot; ในหน้ารายละเอียดการจอง
                   </td>
                 </tr>
               ) : (
@@ -143,15 +158,33 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
             <tbody>
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
-                  รวมเงิน / TOTAL
+                  รวมเงิน (รวม VAT) / TOTAL
                 </td>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold">
                   {subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
+              {discountAmount > 0 && (
+                <tr>
+                  <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
+                    ส่วนลด / DISCOUNT{booking.discountType === "PERCENT" ? ` ${discountValue}%` : ""}
+                  </td>
+                  <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold text-red-700">
+                    -{discountAmount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
-                  ภาษีมูลค่าเพิ่ม / VAT 7%
+                  มูลค่าก่อนภาษี / PRICE BEFORE VAT
+                </td>
+                <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold">
+                  {exVat.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
+                  ภาษีมูลค่าเพิ่ม / VAT {Math.round(VAT_RATE * 100)}% (รวมอยู่ในราคาแล้ว)
                 </td>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold">
                   {vat.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
@@ -201,6 +234,10 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mx-auto mt-4 w-full max-w-[210mm] print:hidden">
+        <QuotationLogList bookingId={booking.id} />
       </div>
 
       <style>{`

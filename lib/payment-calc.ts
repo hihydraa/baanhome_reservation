@@ -31,12 +31,35 @@ export function accommodationExpectedTotal(
   return { nights, roomTotal, addonsTotal, expectedTotal: roomTotal + addonsTotal };
 }
 
+export type BanquetDiscount = { type: "BAHT" | "PERCENT"; value: Money };
+
 export type BanquetTotalBreakdown = {
   hours: number;
   roomTotal: number;
   addonsTotal: number;
+  /** Room + add-ons, VAT-inclusive, before discount. */
+  subtotal: number;
+  discountAmount: number;
+  /** Net payable (VAT-inclusive) after discount. */
   expectedTotal: number;
 };
+
+export const VAT_RATE = 0.07;
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** All banquet prices are VAT-inclusive; the VAT portion is extracted from the net, never added on top. */
+export function extractVat(netInclusive: number): { exVat: number; vat: number } {
+  const exVat = round2(netInclusive / (1 + VAT_RATE));
+  return { exVat, vat: round2(netInclusive - exVat) };
+}
+
+export function discountAmountFor(subtotal: number, discount?: BanquetDiscount | null): number {
+  const v = toNumber(discount?.value);
+  if (!discount || v <= 0) return 0;
+  const raw = discount.type === "PERCENT" ? (subtotal * Math.min(v, 100)) / 100 : v;
+  return round2(Math.min(raw, subtotal));
+}
 
 /** No reliable formula distinguishes "hourly" from "full-day charter" bookings, so anything
  *  8 hours or longer is priced off the daily rate (falling back to the hourly rate either way
@@ -45,7 +68,8 @@ export type BanquetTotalBreakdown = {
 export function banquetExpectedTotal(
   booking: { startTime: Date; endTime: Date },
   resource: { hourlyPrice: Money; dailyPrice: Money },
-  addons: { price: Money; quantity: number }[] = []
+  addons: { price: Money; quantity: number }[] = [],
+  discount?: BanquetDiscount | null
 ): BanquetTotalBreakdown {
   const hours = Math.max(0, (booking.endTime.getTime() - booking.startTime.getTime()) / 3_600_000);
   const daily = resource.dailyPrice != null ? Number(resource.dailyPrice) : null;
@@ -58,7 +82,9 @@ export function banquetExpectedTotal(
 
   const addonsTotal = addons.reduce((sum, a) => sum + toNumber(a.price) * a.quantity, 0);
 
-  return { hours, roomTotal, addonsTotal, expectedTotal: roomTotal + addonsTotal };
+  const subtotal = roomTotal + addonsTotal;
+  const discountAmount = discountAmountFor(subtotal, discount);
+  return { hours, roomTotal, addonsTotal, subtotal, discountAmount, expectedTotal: subtotal - discountAmount };
 }
 
 export type PaymentBadgeInfo = {

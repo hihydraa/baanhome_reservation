@@ -6,6 +6,7 @@ import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime, nowBangk
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
 import { upsertCustomerFromBooking } from "@/lib/customers";
+import { logQuotationChange } from "@/lib/quotation-log";
 
 export async function GET(req: NextRequest) {
   const { response } = await requireSession();
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
       linkedAccommodations: { connect: data.linkedAccommodationIds.map((id) => ({ id })) },
       status: data.status,
       notes: data.notes,
+      discountType: data.discountType,
+      discountValue: data.discountValue,
       createdById: session!.user.id,
       addons: {
         create: data.addons.map((a) => ({
@@ -103,6 +106,13 @@ export async function POST(req: NextRequest) {
       },
     },
     include: { resource: true, addons: true, payment: { include: { entries: true } }, linkedAccommodations: true },
+  });
+
+  await logQuotationChange({
+    bookingId: booking.id,
+    userId: session!.user.id,
+    userName: session!.user.name ?? session!.user.username,
+    changes: ["สร้างใบเสนอราคา (จากการจองครั้งแรก)"],
   });
 
   await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
