@@ -200,6 +200,22 @@ export const attachmentCreateInputSchema = attachmentPresignInputSchema.extend({
   key: z.string().min(1),
 });
 
+export const cleaningRecordInputSchema = z.object({
+  resourceId: z.string().min(1),
+  type: z.enum(["CHECKOUT", "STAY"]),
+  items: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        category: z.string().nullable().optional(),
+        quantity: z.coerce.number().int().min(1).max(99),
+      })
+    )
+    .max(30)
+    .default([]),
+  notes: z.string().trim().max(500).optional(),
+});
+
 export const housekeepingStatusEnum = z.enum(["READY", "NEEDS_CLEANING", "OUT_OF_SERVICE"]);
 
 export const housekeepingStatusInputSchema = z.object({
