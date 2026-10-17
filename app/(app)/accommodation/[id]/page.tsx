@@ -10,6 +10,7 @@ import { DeleteBookingButton } from "@/components/accommodation/DeleteBookingBut
 import { AttachmentManager } from "@/components/attachments/AttachmentManager";
 import { listAttachments } from "@/lib/attachments";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
+import { PaymentEntryLogList } from "@/components/payment/PaymentEntryLogList";
 
 export default async function AccommodationDetailPage({
   params,
@@ -95,7 +96,7 @@ export default async function AccommodationDetailPage({
           <ArrowLeft className="h-4 w-4" />
           กลับไปรายการจองห้องพัก
         </Link>
-        <DeleteBookingButton id={booking.id} redirectTo="/accommodation" />
+        {session?.user.role === "ADMIN" && <DeleteBookingButton id={booking.id} redirectTo="/accommodation" />}
       </div>
 
       <div>
@@ -116,6 +117,7 @@ export default async function AccommodationDetailPage({
           ledger={ledger}
         />
         <QuotationLogList accommodationBookingId={booking.id} />
+        <PaymentEntryLogList bookingId={booking.id} />
         <AttachmentManager bookingType="ACCOMMODATION" bookingId={booking.id} initial={attachments} />
       </div>
     </div>

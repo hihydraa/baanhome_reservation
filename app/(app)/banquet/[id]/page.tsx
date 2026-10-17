@@ -10,6 +10,7 @@ import { DeleteBanquetButton } from "@/components/banquet/DeleteBanquetButton";
 import { AttachmentManager } from "@/components/attachments/AttachmentManager";
 import { listAttachments } from "@/lib/attachments";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
+import { PaymentEntryLogList } from "@/components/payment/PaymentEntryLogList";
 
 export default async function BanquetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -113,7 +114,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           <ArrowLeft className="h-4 w-4" />
           กลับไปตารางห้องจัดเลี้ยง
         </Link>
-        <DeleteBanquetButton id={booking.id} redirectTo="/banquet" />
+        {session?.user.role === "ADMIN" && <DeleteBanquetButton id={booking.id} redirectTo="/banquet" />}
       </div>
 
       <div>
@@ -139,6 +140,7 @@ export default async function BanquetDetailPage({ params }: { params: Promise<{ 
           ledger={ledger}
         />
         <QuotationLogList bookingId={booking.id} />
+        <PaymentEntryLogList bookingId={booking.id} />
         <AttachmentManager bookingType="BANQUET" bookingId={booking.id} initial={attachments} />
       </div>
     </div>

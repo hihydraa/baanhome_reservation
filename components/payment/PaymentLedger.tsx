@@ -43,6 +43,8 @@ type FormState = {
   receivedById: string;
   notes: string;
   receiptNumber: string;
+  /** Required when editing an existing entry — kept in the payment audit log. */
+  reason: string;
 };
 
 function entryToFormState(entry: PaymentEntryValue): FormState {
@@ -53,6 +55,7 @@ function entryToFormState(entry: PaymentEntryValue): FormState {
     receivedById: entry.receivedBy?.id ?? "",
     notes: entry.notes ?? "",
     receiptNumber: entry.receiptNumber,
+    reason: "",
   };
 }
 
@@ -64,6 +67,7 @@ function emptyFormState(defaultReceivedById: string): FormState {
     receivedById: defaultReceivedById,
     notes: "",
     receiptNumber: "",
+    reason: "",
   };
 }
 
@@ -90,7 +94,10 @@ export function PaymentLedger({
   const [form, setForm] = useState<FormState>(() => emptyFormState(currentUserId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingEntry, setDeletingEntry] = useState<PaymentEntryValue | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const paid = sumPaid(entries);
   const remaining = Math.max(0, expectedTotal - paid);
@@ -127,6 +134,7 @@ export function PaymentLedger({
         receivedById: form.receivedById || null,
         notes: form.notes,
         receiptNumber: form.receiptNumber.trim() || undefined,
+        ...(editingEntry ? { reason: form.reason } : {}),
       }),
     });
 
@@ -143,17 +151,31 @@ export function PaymentLedger({
     router.refresh();
   }
 
-  async function handleDelete(entryId: string) {
-    if (confirmingDeleteId !== entryId) {
-      setConfirmingDeleteId(entryId);
+  function openDeleteDialog(entry: PaymentEntryValue) {
+    setDeletingEntry(entry);
+    setDeleteReason("");
+    setDeleteError(null);
+  }
+
+  async function handleDelete(e: React.FormEvent) {
+    e.preventDefault();
+    if (!deletingEntry) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const res = await fetch(`/api/payments/entries/${deletingEntry.id}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: deleteReason }),
+    });
+    setDeleting(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setDeleteError(body.error ?? `ลบรายการไม่สำเร็จ (${res.status})`);
       return;
     }
-    setConfirmingDeleteId(null);
-    const res = await fetch(`/api/payments/entries/${entryId}`, { method: "DELETE" });
-    if (res.ok) {
-      showToast("ลบรายการชำระเงินแล้ว");
-      router.refresh();
-    }
+    setDeletingEntry(null);
+    showToast("ลบรายการชำระเงินแล้ว — บันทึกไว้ในประวัติ");
+    router.refresh();
   }
 
   return (
@@ -253,15 +275,11 @@ export function PaymentLedger({
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(entry.id)}
-                              className={
-                                confirmingDeleteId === entry.id
-                                  ? "rounded px-1.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                                  : "rounded p-1 text-ink-400 hover:bg-cream-100 hover:text-red-600"
-                              }
+                              onClick={() => openDeleteDialog(entry)}
+                              className="rounded p-1 text-ink-400 hover:bg-cream-100 hover:text-red-600"
                               title="ลบ"
                             >
-                              {confirmingDeleteId === entry.id ? "ยืนยันลบ" : <Trash2 className="h-3.5 w-3.5" />}
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         </TableCell>
@@ -348,6 +366,21 @@ export function PaymentLedger({
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 />
               </div>
+              {editingEntry && (
+                <div className="col-span-2 flex flex-col gap-1.5">
+                  <Label>
+                    เหตุผลการแก้ไข <span className="text-red-600">*</span>
+                  </Label>
+                  <Textarea
+                    rows={2}
+                    required
+                    minLength={3}
+                    placeholder="เช่น กรอกจำนวนเงินผิด — บันทึกลงประวัติการแก้ไข"
+                    value={form.reason}
+                    onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  />
+                </div>
+              )}
             </div>
 
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -356,6 +389,43 @@ export function PaymentLedger({
               <Button type="submit" variant="gold" disabled={saving}>
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editingEntry ? "บันทึกการแก้ไข" : "บันทึกการรับชำระ"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deletingEntry !== null} onOpenChange={(open) => !open && setDeletingEntry(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>ลบรายการชำระเงิน</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleDelete} className="flex flex-col gap-3">
+            {deletingEntry && (
+              <p className="rounded-md bg-cream-100 px-3 py-2 text-sm text-ink-900">
+                {deletingEntry.receiptNumber} · {deletingEntry.amount.toLocaleString("th-TH")} บาท ·{" "}
+                {PAYMENT_METHOD_LABELS[deletingEntry.method]} · {formatThaiDate(new Date(deletingEntry.paidAt))}
+              </p>
+            )}
+            <p className="text-xs text-ink-600">ข้อมูลรายการนี้ ผู้ลบ และเวลาที่ลบ จะถูกเก็บไว้ในประวัติให้ผู้ดูแลระบบตรวจสอบ</p>
+            <div className="flex flex-col gap-1.5">
+              <Label>
+                เหตุผลการลบ <span className="text-red-600">*</span>
+              </Label>
+              <Textarea
+                rows={2}
+                required
+                minLength={3}
+                placeholder="เช่น บันทึกรับเงินซ้ำ"
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+              />
+            </div>
+            {deleteError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>}
+            <DialogFooter>
+              <Button type="submit" variant="destructive" disabled={deleting}>
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                ยืนยันลบรายการ
               </Button>
             </DialogFooter>
           </form>

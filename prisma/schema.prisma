@@ -90,6 +90,7 @@ model User {
   paymentEntries        PaymentEntry[]
   attachments           Attachment[]
   quotationLogs         QuotationLog[]
+  paymentEntryLogs      PaymentEntryLog[]
 }
 
 /**
@@ -172,6 +173,14 @@ model AccommodationBooking {
   extensionCount Int @default(0)
 
   /**
+   * Soft delete — set only by an ADMIN via DELETE; the row (and its payments) is kept for audit
+   * and hidden from every normal query by the extension in lib/prisma.ts. A full snapshot is
+   * written to CancellationLog (action DELETE) at the same time.
+   */
+  deletedAt   DateTime?
+  deletedById String?
+
+  /**
    * Set to the same value on every booking created together by a charter ("เหมาโซน/เหมาทั้งหมด")
    * request — one AccommodationBooking row per room, but one shared payment conceptually.
    * Null for an ordinary single-room booking.
@@ -250,6 +259,9 @@ model BanquetBooking {
   discountType         DiscountType           @default(BAHT)
   discountValue        Decimal                @default(0) @db.Decimal(10, 2)
   discountNote         String?
+  /// Soft delete (ADMIN only) — see AccommodationBooking.deletedAt.
+  deletedAt            DateTime?
+  deletedById          String?
   createdById          String?
   createdBy            User?                  @relation(fields: [createdById], references: [id])
   createdAt            DateTime               @default(now())
@@ -282,8 +294,15 @@ model QuotationLog {
   @@index([accommodationBookingId, createdAt])
 }
 
+enum CancellationAction {
+  CANCEL
+  DELETE
+}
+
 model CancellationLog {
-  id            String      @id @default(cuid())
+  id            String             @id @default(cuid())
+  /// CANCEL = status changed to CANCELLED (any staff); DELETE = soft-deleted by an ADMIN.
+  action        CancellationAction @default(CANCEL)
   bookingType   BookingType
   bookingId     String
   resourceName  String
@@ -291,6 +310,8 @@ model CancellationLog {
   phone         String?
   bookingPeriod String
   reason        String?
+  /// DELETE only: the booking as it was (addons, payments, linked bookings) at deletion time.
+  snapshot      Json?
   cancelledById String?
   cancelledBy   User?       @relation(fields: [cancelledById], references: [id])
   cancelledAt   DateTime    @default(now())
@@ -327,6 +348,39 @@ model PaymentEntry {
   createdAt     DateTime      @default(now())
 
   @@index([paymentId])
+}
+
+enum PaymentEntryAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+/**
+ * Append-only audit trail for PaymentEntry: every create/edit/delete keeps the values before and
+ * after, who did it and when. No FK to PaymentEntry/Payment on purpose — the log must outlive a
+ * deleted entry. bookingLabel/userName are denormalised so rows stay readable on their own.
+ */
+model PaymentEntryLog {
+  id            String             @id @default(cuid())
+  action        PaymentEntryAction
+  entryId       String
+  paymentId     String
+  receiptNumber String
+  bookingType   BookingType?
+  bookingId     String?
+  bookingLabel  String
+  before        Json?
+  after         Json?
+  reason        String?
+  userId        String?
+  user          User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName      String
+  createdAt     DateTime           @default(now())
+
+  @@index([createdAt])
+  @@index([entryId])
+  @@index([bookingId])
 }
 
 /**

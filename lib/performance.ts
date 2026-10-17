@@ -624,7 +624,16 @@ export async function loadPerformance(from: string, to: string): Promise<Perform
       include: { addons: { include: { service: true } }, payment: { include: { entries: true } } },
     }),
     prisma.paymentEntry.findMany({
-      where: { paidAt: { gte: start, lt: end } },
+      where: {
+        paidAt: { gte: start, lt: end },
+        // Payments of soft-deleted bookings don't count (bookings themselves are filtered in lib/prisma.ts).
+        payment: {
+          NOT: [
+            { accommodationBooking: { is: { deletedAt: { not: null } } } },
+            { banquetBooking: { is: { deletedAt: { not: null } } } },
+          ],
+        },
+      },
       select: { amount: true, method: true, payment: { select: { accommodationBookingId: true } } },
     }),
     prisma.accommodationBooking.findMany({

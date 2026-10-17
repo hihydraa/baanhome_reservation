@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
-import { banquetBookingInputSchema } from "@/lib/validators";
+import { requireSession, requireWriteAccess, requireAdmin, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { banquetBookingInputSchema, deleteReasonInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
-import { logBanquetCancellation } from "@/lib/cancellation-log";
+import { logBanquetCancellation, softDeleteBanquetBooking } from "@/lib/cancellation-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 import { buildQuotationSnapshot, diffQuotation, logQuotationChange, stayLine } from "@/lib/quotation-log";
 
@@ -49,6 +49,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const parsed = banquetBookingInputSchema.safeParse(body);
   if (!parsed.success) return zodErrorResponse(parsed.error);
   const data = parsed.data;
+
+  if (existing.status !== "CANCELLED" && data.status === "CANCELLED" && (data.cancelReason?.trim().length ?? 0) < 3) {
+    return errorResponse("กรุณาระบุเหตุผลการยกเลิก (อย่างน้อย 3 ตัวอักษร)");
+  }
 
   const eventDate = parseDateOnly(data.eventDate);
   const startTime = combineDateAndTime(data.eventDate, data.startTime);
@@ -163,14 +167,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return NextResponse.json(booking);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { response } = await requireWriteAccess();
+/**
+ * ADMIN only, reason required. Soft delete — the booking and its payments are kept and the full
+ * record goes to the cancellation/deletion log. Staff use status "ยกเลิก" instead.
+ */
+export async function DELETE(req: NextRequest, { params }: Params) {
+  const { session, response } = await requireAdmin();
   if (response) return response;
 
   const { id } = await params;
-  const existing = await prisma.banquetBooking.findUnique({ where: { id } });
-  if (!existing) return errorResponse("ไม่พบการจอง", 404);
+  const body = await req.json().catch(() => ({}));
+  const parsed = deleteReasonInputSchema.safeParse(body);
+  if (!parsed.success) return zodErrorResponse(parsed.error);
 
-  await prisma.banquetBooking.delete({ where: { id } });
+  const deleted = await softDeleteBanquetBooking(id, parsed.data.reason, { id: session!.user.id });
+  if (!deleted) return errorResponse("ไม่พบการจอง", 404);
   return NextResponse.json({ ok: true });
 }

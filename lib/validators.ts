@@ -55,6 +55,16 @@ export const paymentEntryInputSchema = z.object({
   receiptNumber: z.string().trim().min(1).optional(),
 });
 
+/** Editing a recorded payment must say why — kept in PaymentEntryLog. */
+export const paymentEntryUpdateInputSchema = paymentEntryInputSchema.extend({
+  reason: z.string().trim().min(3, "กรุณาระบุเหตุผลการแก้ไขรายการชำระเงิน (อย่างน้อย 3 ตัวอักษร)"),
+});
+
+/** Body of a DELETE that needs a reason (payment entry, or an ADMIN deleting a booking). */
+export const deleteReasonInputSchema = z.object({
+  reason: z.string().trim().min(3, "กรุณาระบุเหตุผลการลบ (อย่างน้อย 3 ตัวอักษร)"),
+});
+
 export const accommodationBookingInputSchema = z
   .object({
     resourceId: z.string().min(1, "กรุณาเลือกห้อง"),
