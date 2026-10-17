@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "ภาพรวมรายวัน", icon: LayoutGrid },
+  { href: "/housekeeping", label: "ทำความสะอาดห้อง", icon: SprayCan },
   { href: "/accommodation", label: "จองห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "จองห้องจัดเลี้ยง", icon: CalendarClock },
   { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
@@ -14,7 +15,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
   const pathname = usePathname();
-  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard") : NAV_ITEMS;
+  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard" || item.href === "/housekeeping") : NAV_ITEMS;
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
@@ -30,7 +31,7 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
           return (
             <Link
