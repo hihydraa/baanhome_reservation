@@ -32,6 +32,11 @@ enum HousekeepingStatus {
   OUT_OF_SERVICE
 }
 
+enum CleaningType {
+  CHECKOUT
+  STAY
+}
+
 enum BookingSource {
   WALK_IN
   AGODA
@@ -92,6 +97,7 @@ model User {
   quotationLogs         QuotationLog[]
   paymentEntryLogs      PaymentEntryLog[]
   housekeepingLogs      HousekeepingLog[]
+  cleaningRecords       CleaningRecord[]
 }
 
 /**
@@ -146,6 +152,7 @@ model Resource {
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
   housekeepingLogs      HousekeepingLog[]
+  cleaningRecords       CleaningRecord[]
 
   @@index([type, zone, sortOrder])
 }
@@ -426,4 +433,40 @@ model HousekeepingLog {
 
   @@index([createdAt])
   @@index([resourceId, createdAt])
+}
+
+/**
+ * One room cleaning the housekeeper recorded: after a guest checked out, or during a stay.
+ * Room/user names are copied so the history survives renames and user deletion. serviceDate is the
+ * Bangkok calendar day (naive UTC, like every other date here) so it compares directly to check-in/out.
+ */
+model CleaningRecord {
+  id          String       @id @default(cuid())
+  resourceId  String
+  resource    Resource     @relation(fields: [resourceId], references: [id])
+  roomName    String
+  type        CleaningType
+  serviceDate DateTime
+  notes       String?
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName    String
+  createdAt   DateTime     @default(now())
+
+  items CleaningRecordItem[]
+
+  @@index([serviceDate])
+  @@index([resourceId, serviceDate])
+}
+
+/** A supply the housekeeper took out for a cleaning. category is set for the items that get audited against billed add-ons. */
+model CleaningRecordItem {
+  id       String         @id @default(cuid())
+  recordId String
+  record   CleaningRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  name     String
+  category String?
+  quantity Int            @default(1)
+
+  @@index([recordId])
 }

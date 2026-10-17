@@ -24,6 +24,7 @@ export default auth((req) => {
   // Mutations housekeeping performs right from the daily grid card's popup.
   const housekeeperActionPatterns = [
     /^\/api\/resources\/[^/]+\/housekeeping-status$/,
+    /^\/api\/housekeeping\/records$/,
     /^\/api\/accommodation-bookings\/[^/]+\/extend$/,
     /^\/api\/accommodation-bookings\/[^/]+\/addons$/,
   ];
