@@ -6,6 +6,7 @@ import { accommodationBulkBookingInputSchema } from "@/lib/validators";
 import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
+import { logCreatedEntries } from "@/lib/payment-entry-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 const CHARTER_SCOPE_LABELS: Record<string, string> = {
@@ -99,6 +100,13 @@ export async function POST(req: NextRequest) {
       })
     )
   );
+
+  if (hasInitialDeposit) {
+    const entries = await prisma.paymentEntry.findMany({
+      where: { payment: { accommodationBookingId: { in: bookings.map((b) => b.id) } } },
+    });
+    await logCreatedEntries(prisma, entries, session!.user);
+  }
 
   await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
 

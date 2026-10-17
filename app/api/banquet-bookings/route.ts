@@ -5,6 +5,7 @@ import { banquetBookingInputSchema } from "@/lib/validators";
 import { combineDateAndTime, parseDateOnly, formatThaiDate, formatTime, nowBangkok } from "@/lib/dates";
 import { findBanquetConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
+import { logCreatedEntries } from "@/lib/payment-entry-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 import { logQuotationChange } from "@/lib/quotation-log";
 
@@ -108,6 +109,8 @@ export async function POST(req: NextRequest) {
     },
     include: { resource: true, addons: true, payment: { include: { entries: true } }, linkedAccommodations: true },
   });
+
+  await logCreatedEntries(prisma, booking.payment?.entries ?? [], session!.user);
 
   await logQuotationChange({
     bookingId: booking.id,

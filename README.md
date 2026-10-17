@@ -25,6 +25,15 @@
 **การตรวจสอบคิวชนกัน (Conflict Detection)** อยู่ที่ [lib/booking-conflicts.ts](lib/booking-conflicts.ts)
 ใช้ร่วมกันทั้งตอนสร้าง/แก้ไขการจอง และ endpoint `/api/banquet-bookings/check-conflict` ที่หน้าฟอร์มเรียกแบบ real-time
 
+## การควบคุมและตรวจสอบ (Audit)
+
+- **ลบการจอง = soft delete เฉพาะ ADMIN** ต้องระบุเหตุผล การจองและรายการรับเงินยังอยู่ในฐานข้อมูล (`deletedAt`)
+  แต่ถูกซ่อนจากทุก query อัตโนมัติด้วย extension ใน [lib/soft-delete.ts](lib/soft-delete.ts) และบันทึก snapshot ทั้งหมดลง
+  `CancellationLog` (action `DELETE`) ดูได้ที่หน้า "ประวัติการยกเลิก/ลบ" — STAFF ใช้ได้แค่สถานะ "ยกเลิก" ซึ่งต้องใส่เหตุผล
+- **ประวัติรายการรับเงิน (`PaymentEntryLog`)** ทุกการรับ แก้ไข ลบ เก็บค่าเดิม/ค่าใหม่/ผู้ทำ/เวลา/เหตุผล บันทึกใน transaction
+  เดียวกับการเปลี่ยนแปลง (แก้ไข/ลบต้องใส่เหตุผล) ดูรายการจองละรายการที่หน้ารายละเอียดการจอง และภาพรวมที่ `/payment-log` (ADMIN)
+- ถ้าต้องอ่านการจองที่ถูกลบโดยตั้งใจ ให้ใส่เงื่อนไข `deletedAt` เองใน `where` (เช่น `{ deletedAt: { not: null } }`)
+
 ## เริ่มพัฒนาในเครื่อง (Local Development)
 
 ### 1. ติดตั้ง dependencies

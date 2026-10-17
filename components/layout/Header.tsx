@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -12,7 +12,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/dashboard", label: "ภาพรวม", icon: LayoutGrid },
   { href: "/accommodation", label: "ห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "ห้องจัดเลี้ยง", icon: CalendarClock },
-  { href: "/cancellations", label: "ประวัติยกเลิก", icon: History },
+  { href: "/cancellations", label: "ยกเลิก/ลบ", icon: History },
   { href: "/pricing", label: "ราคาห้อง", icon: Tag },
   { href: "/reports", label: "รายงาน", icon: BarChart3 },
   { href: "/customers", label: "ลูกค้า", icon: BookUser },
@@ -82,6 +82,18 @@ export function Header({
             >
               <Users className="h-3.5 w-3.5" />
               ผู้ใช้งาน
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              href="/payment-log"
+              className={cn(
+                "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+                pathname.startsWith("/payment-log") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+              )}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              แก้ไขการรับเงิน
             </Link>
           )}
         </nav>

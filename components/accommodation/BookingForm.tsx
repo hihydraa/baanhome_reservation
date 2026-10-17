@@ -111,6 +111,8 @@ export function AccommodationBookingForm({
   });
   const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
   const [saving, setSaving] = useState(false);
+  // A reason is only required when this save is what cancels the booking (server enforces the same).
+  const cancelReasonRequired = !(initial.status === "CANCELLED");
   const [error, setError] = useState<string | null>(null);
 
   function handleResourceChange(resourceId: string) {
@@ -264,10 +266,14 @@ export function AccommodationBookingForm({
 
         {value.status === "CANCELLED" && (
           <div className="col-span-2 flex flex-col gap-1.5">
-            <Label>เหตุผลที่ยกเลิก</Label>
+            <Label>
+              เหตุผลที่ยกเลิก {cancelReasonRequired && <span className="text-red-600">*</span>}
+            </Label>
             <Textarea
               rows={2}
-              placeholder="ระบุเหตุผลการยกเลิก (ถ้ามี)"
+              required={cancelReasonRequired}
+              minLength={cancelReasonRequired ? 3 : undefined}
+              placeholder="ระบุเหตุผลการยกเลิก (จำเป็น — บันทึกลงประวัติการยกเลิก)"
               value={value.cancelReason}
               onChange={(e) => setValue({ ...value, cancelReason: e.target.value })}
             />

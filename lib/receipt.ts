@@ -1,6 +1,9 @@
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-type ClientWithEntries = Pick<Prisma.TransactionClient | PrismaClient, "paymentEntry">;
+/** Anything with a paymentEntry.count — the app client (extended), a transaction client, etc. */
+type ClientWithEntries = {
+  paymentEntry: { count(args: { where: Prisma.PaymentEntryWhereInput }): PromiseLike<number> };
+};
 
 /** Sequential per-day receipt number, e.g. RC260917-001 — shared across all bookings so the
  *  sequence matches what's printed on physical receipts. Not perfectly race-safe under heavy

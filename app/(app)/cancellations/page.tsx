@@ -3,6 +3,14 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { BOOKING_TYPE_LABELS } from "@/lib/labels";
 
+/** For a DELETE row: total of the payments the booking had when it was deleted (from the snapshot). */
+function paidOnRecord(log: { action: string; snapshot: unknown }): string | null {
+  if (log.action !== "DELETE") return null;
+  const entries = (log.snapshot as { payment?: { entries?: { amount: string | number }[] } } | null)?.payment?.entries ?? [];
+  const total = entries.reduce((sum, e) => sum + Number(e.amount), 0);
+  return total.toLocaleString("th-TH");
+}
+
 export default async function CancellationsPage() {
   const logs = await prisma.cancellationLog.findMany({
     include: { cancelledBy: true },
@@ -12,7 +20,12 @@ export default async function CancellationsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-forest-800">ประวัติการยกเลิก</h1>
+      <div>
+        <h1 className="text-xl font-semibold text-forest-800">ประวัติการยกเลิก/ลบการจอง</h1>
+        <p className="text-sm text-ink-400">
+          &quot;ยกเลิก&quot; = พนักงานเปลี่ยนสถานะเป็นยกเลิก · &quot;ลบ&quot; = ผู้ดูแลระบบลบการจอง (ข้อมูลเดิมและยอดที่เคยรับไว้ถูกเก็บไว้)
+        </p>
+      </div>
 
       {logs.length === 0 ? (
         <p className="rounded-lg border border-dashed border-cream-200 p-8 text-center text-sm text-ink-400">
@@ -22,13 +35,15 @@ export default async function CancellationsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>วันที่ยกเลิก</TableHead>
+              <TableHead>วันที่</TableHead>
+              <TableHead>การกระทำ</TableHead>
               <TableHead>ประเภท</TableHead>
               <TableHead>ห้อง</TableHead>
               <TableHead>ลูกค้า</TableHead>
               <TableHead>ช่วงเวลาที่จอง</TableHead>
-              <TableHead>ยกเลิกโดย</TableHead>
+              <TableHead>โดย</TableHead>
               <TableHead>เหตุผล</TableHead>
+              <TableHead>ยอดที่เคยรับ (บาท)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -41,6 +56,9 @@ export default async function CancellationsPage() {
                   })}
                 </TableCell>
                 <TableCell>
+                  {log.action === "DELETE" ? <Badge variant="danger">ลบ</Badge> : <Badge variant="warning">ยกเลิก</Badge>}
+                </TableCell>
+                <TableCell>
                   <Badge variant="outline">{BOOKING_TYPE_LABELS[log.bookingType]}</Badge>
                 </TableCell>
                 <TableCell className="font-medium">{log.resourceName}</TableCell>
@@ -51,6 +69,7 @@ export default async function CancellationsPage() {
                 <TableCell>{log.bookingPeriod}</TableCell>
                 <TableCell>{log.cancelledBy?.name ?? "-"}</TableCell>
                 <TableCell className="max-w-xs">{log.reason || "-"}</TableCell>
+                <TableCell className="text-right">{paidOnRecord(log) ?? "-"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

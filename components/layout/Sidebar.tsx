@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "ภาพรวมรายวัน", icon: LayoutGrid },
   { href: "/accommodation", label: "จองห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "จองห้องจัดเลี้ยง", icon: CalendarClock },
-  { href: "/cancellations", label: "ประวัติการยกเลิก", icon: History },
+  { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
 ];
 
 export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
@@ -115,6 +115,18 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
             >
               <Users className="h-4 w-4" />
               จัดการผู้ใช้งาน
+            </Link>
+            <Link
+              href="/payment-log"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/payment-log")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              ประวัติแก้ไขการรับเงิน
             </Link>
           </>
         )}
