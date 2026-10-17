@@ -30,6 +30,7 @@ export default auth((req) => {
   const isAllowedForHousekeeper =
     req.nextUrl.pathname === "/" ||
     req.nextUrl.pathname.startsWith("/dashboard") ||
+    req.nextUrl.pathname === "/housekeeping" ||
     housekeeperActionPatterns.some((re) => re.test(req.nextUrl.pathname));
 
   if (isLoggedIn && isHousekeeper && !isAllowedForHousekeeper) {
