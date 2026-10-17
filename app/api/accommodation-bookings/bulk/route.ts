@@ -72,6 +72,9 @@ export async function POST(req: NextRequest) {
           checkIn,
           checkOut,
           guestCount: data.guestCount,
+          // Same default as the single-booking form: each room's standard nightly rate, except Agoda
+          // bookings, whose price is negotiated per booking and left for staff to enter.
+          roomPrice: data.source === "AGODA" ? null : r.price,
           status: data.status,
           notes:
             index === 0
