@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> };
 
 /** Any logged-in role (including housekeeping) can update a room's cleaning status. */
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const { response } = await requireSession();
+  const { session, response } = await requireSession();
   if (response) return response;
 
   const { id } = await params;
@@ -18,10 +18,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const parsed = housekeepingStatusInputSchema.safeParse(body);
   if (!parsed.success) return zodErrorResponse(parsed.error);
 
-  const resource = await prisma.resource.update({
-    where: { id },
-    data: { housekeepingStatus: parsed.data.housekeepingStatus },
-  });
+  const next = parsed.data.housekeepingStatus;
+  if (next === existing.housekeepingStatus) return NextResponse.json(existing);
+
+  // The status change and its history row commit together, so a room can't change state unrecorded.
+  const [resource] = await prisma.$transaction([
+    prisma.resource.update({ where: { id }, data: { housekeepingStatus: next } }),
+    prisma.housekeepingLog.create({
+      data: {
+        resourceId: id,
+        roomName: existing.name,
+        fromStatus: existing.housekeepingStatus,
+        toStatus: next,
+        userId: session!.user.id,
+        userName: session!.user.name ?? "-",
+      },
+    }),
+  ]);
 
   return NextResponse.json(resource);
 }
