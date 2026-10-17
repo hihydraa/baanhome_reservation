@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck, SprayCan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -16,6 +16,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/pricing", label: "ราคาห้อง", icon: Tag },
   { href: "/reports", label: "รายงาน", icon: BarChart3 },
   { href: "/customers", label: "ลูกค้า", icon: BookUser },
+  { href: "/housekeeping-log", label: "ทำห้อง", icon: SprayCan },
 ];
 
 export function Header({

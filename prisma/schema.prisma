@@ -91,6 +91,7 @@ model User {
   attachments           Attachment[]
   quotationLogs         QuotationLog[]
   paymentEntryLogs      PaymentEntryLog[]
+  housekeepingLogs      HousekeepingLog[]
 }
 
 /**
@@ -144,6 +145,7 @@ model Resource {
 
   accommodationBookings AccommodationBooking[]
   banquetBookings       BanquetBooking[]
+  housekeepingLogs      HousekeepingLog[]
 
   @@index([type, zone, sortOrder])
 }
@@ -403,4 +405,25 @@ model Attachment {
 
   @@index([accommodationBookingId])
   @@index([banquetBookingId])
+}
+
+/**
+ * Append-only record of every change to a room's housekeeping status — who set it, when, and
+ * what it changed from/to. Room and user names are copied so the history survives renames and
+ * user deletion.
+ */
+model HousekeepingLog {
+  id         String             @id @default(cuid())
+  resourceId String
+  resource   Resource           @relation(fields: [resourceId], references: [id])
+  roomName   String
+  fromStatus HousekeepingStatus
+  toStatus   HousekeepingStatus
+  userId     String?
+  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName   String
+  createdAt  DateTime           @default(now())
+
+  @@index([createdAt])
+  @@index([resourceId, createdAt])
 }
