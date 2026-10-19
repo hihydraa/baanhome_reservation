@@ -28,6 +28,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const serviceDate = data.serviceDate ? parseDateOnly(data.serviceDate) : existing.serviceDate;
   if (serviceDate > todayDateOnly()) return errorResponse("เลือกวันที่หลังวันนี้ไม่ได้", 400);
+  const ledgerDate = data.ledgerDate ? parseDateOnly(data.ledgerDate) : existing.ledgerDate;
+  if (ledgerDate > todayDateOnly()) return errorResponse("เลือกวันที่ลงบัญชีหลังวันนี้ไม่ได้", 400);
 
   // Replace the items and update the record together so a failed edit never leaves a half-edited record.
   const [, record] = await prisma.$transaction([
@@ -39,6 +41,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         roomName: room.name,
         type: data.type,
         serviceDate,
+        ledgerDate,
         notes: data.notes || null,
         repairNote: data.repairNote || null,
         editedByName: session!.user.name ?? "-",

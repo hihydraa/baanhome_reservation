@@ -44,7 +44,9 @@ export default async function HousekeepingDailyPage({
   const today = todayDateOnly();
   const sp = await searchParams;
   // ?date= (a single day) is kept for old links; otherwise from/to pick a range, defaulting to today.
-  let from = parseDay(sp.from) ?? parseDay(sp.date) ?? today;
+  const yesterday = shiftDate(today, -1);
+  // The log is dated by the day of the stay being cleaned up, so it opens on yesterday.
+  let from = parseDay(sp.from) ?? parseDay(sp.date) ?? yesterday;
   let to = parseDay(sp.to) ?? parseDay(sp.date) ?? from;
   if (from > to) [from, to] = [to, from];
   if (to > today) to = today;
@@ -55,7 +57,7 @@ export default async function HousekeepingDailyPage({
 
   const [records, review, extraBedService, rooms] = await Promise.all([
     prisma.cleaningRecord.findMany({
-      where: { serviceDate: { gte: from, lte: to } },
+      where: { ledgerDate: { gte: from, lte: to } },
       include: { items: true, resource: { select: { sortOrder: true, zone: true } } },
     }),
     single ? prisma.cleaningDayReview.findUnique({ where: { date: from } }) : null,
@@ -71,7 +73,7 @@ export default async function HousekeepingDailyPage({
 
   const rows = [...records].sort(
     (a, b) =>
-      a.serviceDate.getTime() - b.serviceDate.getTime() ||
+      a.ledgerDate.getTime() - b.ledgerDate.getTime() ||
       a.resource.zone.localeCompare(b.resource.zone) ||
       a.resource.sortOrder - b.resource.sortOrder ||
       a.createdAt.getTime() - b.createdAt.getTime()
@@ -119,8 +121,8 @@ export default async function HousekeepingDailyPage({
               วันถัดไป →
             </Link>
           )}
-          <Link href={link(todayStr, todayStr)} className={nav}>วันนี้</Link>
-          <Link href={link(toDateOnlyString(shiftDate(today, -6)), todayStr)} className={nav}>7 วันล่าสุด</Link>
+          <Link href={link(toDateOnlyString(yesterday), toDateOnlyString(yesterday))} className={nav}>เมื่อวาน</Link>
+          <Link href={link(toDateOnlyString(shiftDate(today, -7)), toDateOnlyString(yesterday))} className={nav}>7 วันล่าสุด</Link>
           <Link href={link(monthStart, todayStr)} className={nav}>เดือนนี้</Link>
         </div>
       </form>
@@ -165,7 +167,12 @@ export default async function HousekeepingDailyPage({
               const beds = qtyOf(r.items, EXTRA_BED);
               return (
                 <TableRow key={r.id}>
-                  <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(r.serviceDate)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {formatShortThaiDate(r.ledgerDate)}
+                    <span className="block text-xs text-ink-400">
+                      บันทึกจริง {formatShortThaiDate(r.serviceDate)} {r.createdAt.toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-sm font-medium">{size === "SMALL" ? cell : ""}</TableCell>
                   <TableCell className="text-sm font-medium">{size === "LARGE" ? cell : ""}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm font-medium">{size === "OTHER" ? r.roomName : ""}</TableCell>
@@ -194,6 +201,7 @@ export default async function HousekeepingDailyPage({
                         resourceId: r.resourceId,
                         type: r.type,
                         serviceDate: toDateOnlyString(r.serviceDate),
+                        ledgerDate: toDateOnlyString(r.ledgerDate),
                         items: r.items.map((i) => ({ name: i.name, quantity: i.quantity })),
                         notes: r.notes ?? "",
                         repairNote: r.repairNote ?? "",

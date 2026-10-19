@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { cleaningRecordInputSchema } from "@/lib/validators";
-import { todayDateOnly } from "@/lib/dates";
+import { parseDateOnly, shiftDate, todayDateOnly } from "@/lib/dates";
 import { TRACKED_KEYS } from "@/lib/housekeeping";
 
 /**
@@ -21,6 +21,10 @@ export async function POST(req: NextRequest) {
   const room = await prisma.resource.findUnique({ where: { id: data.resourceId } });
   if (!room || room.type !== "ACCOMMODATION") return errorResponse("ไม่พบห้อง", 404);
 
+  const serviceDate = todayDateOnly();
+  const ledgerDate = data.ledgerDate ? parseDateOnly(data.ledgerDate) : shiftDate(serviceDate, -1);
+  if (ledgerDate > serviceDate) return errorResponse("วันที่ลงบัญชีต้องไม่หลังวันนี้", 400);
+
   const userName = session!.user.name ?? "-";
   const markReady = data.type === "CHECKOUT" && room.housekeepingStatus === "NEEDS_CLEANING";
 
@@ -31,7 +35,8 @@ export async function POST(req: NextRequest) {
         resourceId: room.id,
         roomName: room.name,
         type: data.type,
-        serviceDate: todayDateOnly(),
+        serviceDate,
+        ledgerDate,
         notes: data.notes || null,
         repairNote: data.repairNote || null,
         userId: session!.user.id,
