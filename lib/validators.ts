@@ -214,6 +214,7 @@ export const cleaningRecordInputSchema = z.object({
     .max(30)
     .default([]),
   notes: z.string().trim().max(500).optional(),
+  repairNote: z.string().trim().max(500).optional(),
 });
 
 export const housekeepingStatusEnum = z.enum(["READY", "NEEDS_CLEANING", "OUT_OF_SERVICE"]);

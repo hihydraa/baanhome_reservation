@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck, SprayCan } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck, SprayCan, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -18,6 +18,7 @@ const MOBILE_NAV_ITEMS = [
   { href: "/reports", label: "รายงาน", icon: BarChart3 },
   { href: "/customers", label: "ลูกค้า", icon: BookUser },
   { href: "/housekeeping-log", label: "บันทึกทำห้อง", icon: SprayCan },
+  { href: "/housekeeping-daily", label: "ตารางทำห้อง", icon: ClipboardList },
 ];
 
 export function Header({
@@ -34,7 +35,7 @@ export function Header({
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
+    <header className="print:hidden sticky top-0 z-40 border-b border-cream-200 bg-cream-50/95 backdrop-blur">
       <div className="flex items-center justify-between px-4 py-3 md:px-6">
         <div className="md:hidden font-semibold text-forest-800">บ้านโฮม Mini MICE</div>
         <div className="hidden md:block text-sm text-ink-600">

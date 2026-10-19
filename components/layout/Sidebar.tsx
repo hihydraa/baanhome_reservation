@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan, ClipboardList } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -18,7 +18,7 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
   const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard" || item.href === "/housekeeping") : NAV_ITEMS;
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
+    <aside className="hidden print:!hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
       <div className="flex items-center gap-3 px-5 py-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gold-500">
           <ChefHat className="h-5 w-5 text-forest-900" />
@@ -99,6 +99,18 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
             >
               <SprayCan className="h-4 w-4" />
               บันทึกการทำห้อง
+            </Link>
+            <Link
+              href="/housekeeping-daily"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/housekeeping-daily")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <ClipboardList className="h-4 w-4" />
+              ตารางทำห้องรายวัน
             </Link>
             <Link
               href="/sales-dashboard"

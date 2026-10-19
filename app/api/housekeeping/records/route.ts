@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
         type: data.type,
         serviceDate: todayDateOnly(),
         notes: data.notes || null,
+        repairNote: data.repairNote || null,
         userId: session!.user.id,
         userName,
         items: {
