@@ -1,5 +1,6 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { formatBytes, type DatabaseStorageInfo } from "@/lib/reports";
+import { formatBytes } from "@/lib/format";
+import type { DatabaseStorageInfo } from "@/lib/reports";
 import { cn } from "@/lib/utils";
 
 export function DatabaseStorageCard({ storage }: { storage: DatabaseStorageInfo }) {
