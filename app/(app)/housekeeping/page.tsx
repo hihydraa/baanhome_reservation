@@ -53,11 +53,26 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
     return "ว่าง";
   };
 
-  const recordLines = new Map<string, string[]>();
+  const todayStr = toDateOnlyString(today);
+  const recordLines = new Map<string, HousekeepingRoom["todayRecords"]>();
   for (const r of records) {
     const supplies = r.items.map((i) => `${i.name} ×${i.quantity}`).join(", ");
-    const line = `${CLEANING_TYPE_LABELS[r.type]}${supplies ? ` — เบิก ${supplies}` : ""} (${r.userName})`;
-    recordLines.set(r.resourceId, [...(recordLines.get(r.resourceId) ?? []), line]);
+    recordLines.set(r.resourceId, [
+      ...(recordLines.get(r.resourceId) ?? []),
+      {
+        id: r.id,
+        label: `${CLEANING_TYPE_LABELS[r.type]}${supplies ? ` — เบิก ${supplies}` : ""} (${r.userName}${r.editedByName ? `, แก้ไขโดย ${r.editedByName}` : ""})`,
+        form: {
+          id: r.id,
+          resourceId: r.resourceId,
+          type: r.type,
+          serviceDate: toDateOnlyString(r.serviceDate),
+          items: r.items.map((i) => ({ name: i.name, quantity: i.quantity })),
+          notes: r.notes ?? "",
+          repairNote: r.repairNote ?? "",
+        },
+      },
+    ]);
   }
 
   const items: (HousekeepingRoom & { zone: string })[] = rooms.map((r) => ({
@@ -74,6 +89,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
     OUT_OF_SERVICE: items.filter((i) => i.status === "OUT_OF_SERVICE").length,
     READY: items.filter((i) => i.status === "READY").length,
   };
+  const roomOptions = rooms.map((r) => ({ id: r.id, name: r.name }));
   const zones = Array.from(new Set(items.map((i) => i.zone)));
 
   return (
@@ -169,7 +185,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
             <h2 className="text-base font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {list.map((room) => (
-                <HousekeepingRoomCard key={room.id} room={room} />
+                <HousekeepingRoomCard key={room.id} room={room} rooms={roomOptions} maxDate={todayStr} />
               ))}
             </div>
           </section>
