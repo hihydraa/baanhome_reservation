@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Brush, CheckCircle2, SprayCan } from "lucide-react";
+import { AlertTriangle, Brush, CheckCircle2, Pencil, SprayCan } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CleaningRecordDialog } from "@/components/housekeeping/CleaningRecordDialog";
+import { CleaningRecordDialog, type CleaningRecordFormValue } from "@/components/housekeeping/CleaningRecordDialog";
 import { useToast } from "@/components/ui/toast-provider";
 import { useScrollSafeRefresh } from "@/lib/use-scroll-safe-refresh";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
@@ -15,8 +15,8 @@ export type HousekeepingRoom = {
   status: "READY" | "NEEDS_CLEANING" | "OUT_OF_SERVICE";
   /** Today's situation for the room, e.g. "เช็คเอาท์วันนี้" — never includes guest details. */
   context: string;
-  /** What was already recorded for this room today, one line per cleaning. */
-  todayRecords: string[];
+  /** What was already recorded for this room today — tapping a line opens it for editing. */
+  todayRecords: { id: string; label: string; form: CleaningRecordFormValue & { id: string } }[];
 };
 
 const STATUS_STYLES = {
@@ -26,13 +26,22 @@ const STATUS_STYLES = {
 } as const;
 
 /** One room for the housekeeper: tap it, record the cleaning (type + supplies taken out). */
-export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
+export function HousekeepingRoomCard({
+  room,
+  rooms,
+  maxDate,
+}: {
+  room: HousekeepingRoom;
+  rooms: { id: string; name: string }[];
+  maxDate: string;
+}) {
   const { showToast } = useToast();
   const refresh = useScrollSafeRefresh();
   const [open, setOpen] = useState(false);
   // Remount the dialog on every open so it always starts blank.
   const [openCount, setOpenCount] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<{ record: HousekeepingRoom["todayRecords"][number]; n: number } | null>(null);
   const { icon: StatusIcon, classes } = STATUS_STYLES[room.status];
 
   async function setStatus(value: HousekeepingRoom["status"]) {
@@ -98,12 +107,37 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
 
         {room.todayRecords.length > 0 && (
           <ul className="flex flex-col gap-0.5 border-t border-cream-100 pt-2 text-xs text-ink-600">
-            {room.todayRecords.map((line, i) => (
-              <li key={i}>✓ {line}</li>
+            {room.todayRecords.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  className="flex w-full items-start gap-1 rounded px-1 py-0.5 text-left hover:bg-cream-100"
+                  onClick={() => setEditing({ record: r, n: Date.now() })}
+                >
+                  <span>✓ {r.label}</span>
+                  <span className="ml-auto flex shrink-0 items-center gap-0.5 text-forest-700">
+                    <Pencil className="h-3 w-3" />
+                    แก้ไข
+                  </span>
+                </button>
+              </li>
             ))}
           </ul>
         )}
       </div>
+
+      {editing && (
+        <CleaningRecordDialog
+          key={editing.n}
+          open
+          onOpenChange={(o) => !o && setEditing(null)}
+          title={`แก้ไขบันทึก ${room.name}`}
+          rooms={rooms}
+          maxDate={maxDate}
+          initial={editing.record.form}
+          onSaved={refresh}
+        />
+      )}
 
       <CleaningRecordDialog
         key={openCount}
