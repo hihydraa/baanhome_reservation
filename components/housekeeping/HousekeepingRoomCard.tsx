@@ -31,9 +31,9 @@ const STATUS_STYLES = {
 type CleaningType = "CHECKOUT" | "STAY";
 
 /** One selectable supply: tracked ones carry a category so the review page can audit them against billing. */
-const CHOICES: { name: string; category: string | null }[] = [
-  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null })),
-  ...SUPPLY_ITEMS.map((name) => ({ name, category: null as string | null })),
+const CHOICES: { name: string; category: string | null; unit: string }[] = [
+  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null, unit: "" })),
+  ...SUPPLY_ITEMS.map((i) => ({ name: i.name, category: null as string | null, unit: i.unit })),
 ];
 
 /** One room for the housekeeper: tap it, record the cleaning (type + supplies taken out). */
@@ -46,6 +46,7 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
   const [other, setOther] = useState("");
   const [otherQty, setOtherQty] = useState(1);
   const [notes, setNotes] = useState("");
+  const [repair, setRepair] = useState("");
   const [saving, setSaving] = useState(false);
   const { icon: StatusIcon, classes } = STATUS_STYLES[room.status];
 
@@ -55,6 +56,7 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
     setOther("");
     setOtherQty(1);
     setNotes("");
+    setRepair("");
     setOpen(true);
   }
 
@@ -92,7 +94,7 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
     const res = await fetch("/api/housekeeping/records", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ resourceId: room.id, type, items, notes: notes.trim() || undefined }),
+      body: JSON.stringify({ resourceId: room.id, type, items, notes: notes.trim() || undefined, repairNote: repair.trim() || undefined }),
     });
     setSaving(false);
     if (res.ok) {
@@ -186,6 +188,7 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
                   <div key={c.name} className="flex items-center justify-between gap-2 px-3 py-2">
                     <span className={cn(c.category && "font-medium text-forest-800")}>
                       {c.name}
+                      {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
                       {c.category && <span className="ml-1 text-xs font-normal text-gold-700">(บริการเสริม)</span>}
                     </span>
                     <div className="flex items-center gap-2">
@@ -214,7 +217,12 @@ export function HousekeepingRoomCard({ room }: { room: HousekeepingRoom }) {
             </div>
 
             <div className="flex flex-col gap-2">
-              <p className="font-medium text-ink-900">3. หมายเหตุ (ถ้ามี)</p>
+              <p className="font-medium text-ink-900">3. แจ้งซ่อม (ถ้ามี)</p>
+              <Textarea value={repair} onChange={(e) => setRepair(e.target.value)} rows={2} placeholder="เช่น หลอดไฟห้องน้ำเสีย" />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className="font-medium text-ink-900">4. หมายเหตุ (ถ้ามี)</p>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
             </div>
 

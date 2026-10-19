@@ -98,6 +98,7 @@ model User {
   paymentEntryLogs      PaymentEntryLog[]
   housekeepingLogs      HousekeepingLog[]
   cleaningRecords       CleaningRecord[]
+  cleaningDayReviews    CleaningDayReview[]
 }
 
 /**
@@ -448,6 +449,7 @@ model CleaningRecord {
   type        CleaningType
   serviceDate DateTime
   notes       String?
+  repairNote  String?
   userId      String?
   user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   userName    String
@@ -469,4 +471,14 @@ model CleaningRecordItem {
   quantity Int            @default(1)
 
   @@index([recordId])
+}
+
+/** The counter's check of one day's cleaning log — replaces the signature on the paper form. One per Bangkok day. */
+model CleaningDayReview {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName  String
+  createdAt DateTime @default(now())
 }

@@ -1,9 +1,13 @@
+import Link from "next/link";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ZONE_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS } from "@/lib/housekeeping";
-import { todayDateOnly, formatThaiDate } from "@/lib/dates";
+import { todayDateOnly, formatThaiDate, shiftDate, toDateOnlyString } from "@/lib/dates";
+import { summarizeCleaning } from "@/lib/cleaning-summary";
+import { SUPPLY_ITEMS } from "@/lib/housekeeping";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HousekeepingRoomCard, type HousekeepingRoom } from "@/components/housekeeping/HousekeepingRoomCard";
 
 // Several people work this at once — never serve a cached snapshot.
@@ -12,12 +16,16 @@ export const dynamic = "force-dynamic";
 const STATUS_ORDER = { NEEDS_CLEANING: 0, OUT_OF_SERVICE: 1, READY: 2 } as const;
 
 /** The housekeeper's work list: every accommodation room, rooms needing cleaning first. */
-export default async function HousekeepingPage() {
+export default async function HousekeepingPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const today = todayDateOnly();
-  const [rooms, bookings, records] = await Promise.all([
+  const { date: dateParam } = await searchParams;
+  // The summary can look back at earlier days (never ahead of today); the room cards are always today's.
+  const parsedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T00:00:00Z`) : today;
+  const summaryDate = Number.isNaN(parsedDate.getTime()) || parsedDate > today ? today : parsedDate;
+  const [rooms, bookings, records, summaryRecords] = await Promise.all([
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
     // Only dates and status — a housekeeper never needs guest names or prices.
     prisma.accommodationBooking.findMany({
@@ -29,7 +37,12 @@ export default async function HousekeepingPage() {
       orderBy: { createdAt: "asc" },
       include: { items: true },
     }),
+    prisma.cleaningRecord.findMany({ where: { serviceDate: summaryDate }, include: { items: true } }),
   ]);
+  const summary = summarizeCleaning(summaryRecords);
+  const prevDay = toDateOnlyString(shiftDate(summaryDate, -1));
+  const nextDay = summaryDate < today ? toDateOnlyString(shiftDate(summaryDate, 1)) : null;
+  const isToday = summaryDate.getTime() === today.getTime();
 
   const todayMs = today.getTime();
   const contextFor = (resourceId: string): string => {
@@ -86,6 +99,66 @@ export default async function HousekeepingPage() {
           <p className="text-xs text-red-800">ชำรุด</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>สรุปการทำความสะอาด {isToday ? "วันนี้" : formatThaiDate(summaryDate)}</CardTitle>
+            <div className="flex items-center gap-2 text-sm">
+              <Link href={`/housekeeping?date=${prevDay}`} className="rounded-full bg-cream-200 px-3 py-1 text-ink-600 hover:bg-cream-100">
+                ← วันก่อน
+              </Link>
+              {nextDay && (
+                <Link href={`/housekeeping?date=${nextDay}`} className="rounded-full bg-cream-200 px-3 py-1 text-ink-600 hover:bg-cream-100">
+                  วันถัดไป →
+                </Link>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {summary.records === 0 ? (
+            <p className="text-sm text-ink-400">ยังไม่มีบันทึกการทำความสะอาดในวันนี้</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-cream-100 p-3 text-center">
+                  <p className="text-2xl font-semibold text-forest-800">{summary.rooms}</p>
+                  <p className="text-xs text-ink-600">ห้องที่ทำทั้งหมด</p>
+                </div>
+                <div className="rounded-lg bg-cream-100 p-3 text-center">
+                  <p className="text-2xl font-semibold text-forest-800">{summary.small}</p>
+                  <p className="text-xs text-ink-600">ห้องเล็ก</p>
+                </div>
+                <div className="rounded-lg bg-cream-100 p-3 text-center">
+                  <p className="text-2xl font-semibold text-forest-800">{summary.large}</p>
+                  <p className="text-xs text-ink-600">ห้องใหญ่</p>
+                </div>
+                <div className="rounded-lg bg-cream-100 p-3 text-center">
+                  <p className="text-2xl font-semibold text-forest-800">{summary.other}</p>
+                  <p className="text-xs text-ink-600">พูลวิลล่า/อื่นๆ</p>
+                </div>
+              </div>
+              <p className="text-sm text-ink-600">
+                หลังลูกค้าเช็คเอาท์ {summary.checkoutCleans} ครั้ง · ระหว่างเข้าพัก {summary.stayCleans} ครั้ง
+              </p>
+              <div>
+                <p className="mb-1 text-sm font-medium text-ink-900">เบิกไปทั้งหมด</p>
+                <div className="flex flex-wrap gap-2">
+                  {[...SUPPLY_ITEMS.map((i) => ({ name: i.name, unit: i.unit })), ...Object.keys(summary.supplies).filter((n) => !SUPPLY_ITEMS.some((i) => i.name === n)).map((name) => ({ name, unit: "" }))]
+                    .filter((i) => (summary.supplies[i.name] ?? 0) > 0)
+                    .map((i) => (
+                      <span key={i.name} className="rounded-full border border-cream-200 bg-white px-3 py-1 text-sm">
+                        {i.name} <span className="font-semibold">{summary.supplies[i.name]}</span> {i.unit}
+                      </span>
+                    ))}
+                  {Object.values(summary.supplies).every((v) => v === 0) && <span className="text-sm text-ink-400">ไม่มีการเบิก</span>}
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {zones.map((zone) => {
         const list = items
