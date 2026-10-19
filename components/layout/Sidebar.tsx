@@ -16,7 +16,12 @@ const NAV_ITEMS = [
 
 export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
   const pathname = usePathname();
-  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard" || item.href.startsWith("/housekeeping")) : NAV_ITEMS;
+  // The room-cleaning page is for housekeepers (and the admin); front-desk staff don't see it.
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (isHousekeeper) return item.href === "/dashboard" || item.href.startsWith("/housekeeping");
+    if (item.href === "/housekeeping") return isAdmin;
+    return true;
+  });
 
   return (
     <aside className="hidden print:!hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
@@ -90,18 +95,6 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
               ฐานข้อมูลลูกค้า
             </Link>
             <Link
-              href="/housekeeping-log"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/housekeeping-log")
-                  ? "bg-gold-500 text-forest-900"
-                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
-              )}
-            >
-              <SprayCan className="h-4 w-4" />
-              บันทึกการทำห้อง
-            </Link>
-            <Link
               href="/sales-dashboard"
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -118,6 +111,18 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
 
         {isAdmin && (
           <>
+            <Link
+              href="/housekeeping-log"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                pathname.startsWith("/housekeeping-log")
+                  ? "bg-gold-500 text-forest-900"
+                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              )}
+            >
+              <SprayCan className="h-4 w-4" />
+              บันทึกการทำห้อง
+            </Link>
             <Link
               href="/users"
               className={cn(

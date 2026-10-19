@@ -18,7 +18,6 @@ const MOBILE_NAV_ITEMS = [
   { href: "/pricing", label: "ราคาห้อง", icon: Tag },
   { href: "/reports", label: "รายงาน", icon: BarChart3 },
   { href: "/customers", label: "ลูกค้า", icon: BookUser },
-  { href: "/housekeeping-log", label: "บันทึกทำห้อง", icon: SprayCan },
 ];
 
 export function Header({
@@ -57,7 +56,7 @@ export function Header({
         </div>
       </div>
     <nav className="flex gap-1 overflow-x-auto border-t border-cream-200 px-3 py-2 md:hidden">
-        {(isHousekeeper ? MOBILE_NAV_ITEMS.slice(0, 3) : MOBILE_NAV_ITEMS).map((item) => {
+        {(isHousekeeper ? MOBILE_NAV_ITEMS.slice(0, 3) : MOBILE_NAV_ITEMS.filter((item) => isAdmin || item.href !== "/housekeeping")).map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
           return (
@@ -74,6 +73,18 @@ export function Header({
             </Link>
           );
         })}
+        {!isHousekeeper && isAdmin && (
+          <Link
+            href="/housekeeping-log"
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+              pathname.startsWith("/housekeeping-log") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+            )}
+          >
+            <SprayCan className="h-3.5 w-3.5" />
+            บันทึกทำห้อง
+          </Link>
+        )}
         {!isHousekeeper && isAdmin && (
           <Link
             href="/users"
