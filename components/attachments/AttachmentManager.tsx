@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { FileText, ImageIcon, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast-provider";
-import { formatBytes } from "@/lib/reports";
+import { formatBytes } from "@/lib/format";
 
 export type AttachmentBookingType = "ACCOMMODATION" | "BANQUET";
 
