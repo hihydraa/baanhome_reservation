@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
+
+// Only reads the session cookie — built from the DB-free config so the proxy bundle stays small.
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;

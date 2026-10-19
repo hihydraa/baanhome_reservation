@@ -17,6 +17,14 @@ const unusedPrismaEdgeBundles = [
   // files physically removed from node_modules.
   "./node_modules/@prisma/client/runtime/binary.js",
   "./node_modules/@prisma/client/runtime/binary.mjs",
+  // The Node-API "library" engine runtime (engineType = "client" doesn't use it), the ESM copy of the client
+  // runtime (the server loads the CommonJS one), and TypeScript declarations (never loaded at runtime).
+  // Verified with a production build + `next start`: sign-in, DB-backed pages and a write API all still work
+  // with these files physically removed.
+  "./node_modules/@prisma/client/runtime/library.*",
+  "./node_modules/@prisma/client/runtime/client.mjs",
+  "./node_modules/@prisma/client/runtime/*.d.ts",
+  "./node_modules/@prisma/client/runtime/*.d.mts",
 ];
 
 const nextConfig: NextConfig = {
