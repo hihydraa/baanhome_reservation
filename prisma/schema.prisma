@@ -323,8 +323,8 @@ model CancellationLog {
   /// DELETE only: the booking as it was (addons, payments, linked bookings) at deletion time.
   snapshot      Json?
   cancelledById String?
-  cancelledBy   User?       @relation(fields: [cancelledById], references: [id])
-  cancelledAt   DateTime    @default(now())
+  cancelledBy   User?              @relation(fields: [cancelledById], references: [id])
+  cancelledAt   DateTime           @default(now())
 
   @@index([cancelledAt])
 }
@@ -442,18 +442,20 @@ model HousekeepingLog {
  * Bangkok calendar day (naive UTC, like every other date here) so it compares directly to check-in/out.
  */
 model CleaningRecord {
-  id          String       @id @default(cuid())
-  resourceId  String
-  resource    Resource     @relation(fields: [resourceId], references: [id])
-  roomName    String
-  type        CleaningType
-  serviceDate DateTime
-  notes       String?
-  repairNote  String?
-  userId      String?
-  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  userName    String
-  createdAt   DateTime     @default(now())
+  id           String       @id @default(cuid())
+  resourceId   String
+  resource     Resource     @relation(fields: [resourceId], references: [id])
+  roomName     String
+  type         CleaningType
+  serviceDate  DateTime
+  notes        String?
+  repairNote   String?
+  editedByName String?
+  editedAt     DateTime?
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName     String
+  createdAt    DateTime     @default(now())
 
   items CleaningRecordItem[]
 
@@ -461,7 +463,9 @@ model CleaningRecord {
   @@index([resourceId, serviceDate])
 }
 
-/** A supply the housekeeper took out for a cleaning. category is set for the items that get audited against billed add-ons. */
+/**
+ * A supply the housekeeper took out for a cleaning. category is set for the items that get audited against billed add-ons.
+ */
 model CleaningRecordItem {
   id       String         @id @default(cuid())
   recordId String
@@ -473,7 +477,9 @@ model CleaningRecordItem {
   @@index([recordId])
 }
 
-/** The counter's check of one day's cleaning log — replaces the signature on the paper form. One per Bangkok day. */
+/**
+ * The counter's check of one day's cleaning log — replaces the signature on the paper form. One per Bangkok day.
+ */
 model CleaningDayReview {
   id        String   @id @default(cuid())
   date      DateTime @unique

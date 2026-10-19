@@ -217,6 +217,8 @@ export const cleaningRecordInputSchema = z.object({
   repairNote: z.string().trim().max(500).optional(),
 });
 
+export const cleaningRecordUpdateSchema = cleaningRecordInputSchema.extend({ serviceDate: dateOnly.optional() });
+
 export const housekeepingStatusEnum = z.enum(["READY", "NEEDS_CLEANING", "OUT_OF_SERVICE"]);
 
 export const housekeepingStatusInputSchema = z.object({

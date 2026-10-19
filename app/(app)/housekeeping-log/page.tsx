@@ -163,7 +163,7 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
                   <TableHead>วันที่</TableHead>
                   <TableHead className="text-right">เช็คเอาท์</TableHead>
                   <TableHead className="text-right">ทำหลังเช็คเอาท์</TableHead>
-                  <TableHead className="text-right">ทำระหว่างพัก</TableHead>
+                  <TableHead className="text-right">ทำเมื่อลูกค้าพักต่อ</TableHead>
                   <TableHead>ห้องที่ขาดบันทึก</TableHead>
                   <TableHead>หมายเหตุ</TableHead>
                 </TableRow>

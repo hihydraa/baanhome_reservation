@@ -47,7 +47,7 @@ export function roomShortName(name: string): string {
 
 export const CLEANING_TYPE_LABELS: Record<string, string> = {
   CHECKOUT: "ลูกค้าเช็คเอาท์",
-  STAY: "ระหว่างเข้าพัก",
+  STAY: "ลูกค้าพักต่อ",
 };
 
 export function trackedKeyForAddonName(name: string | null | undefined): TrackedKey | null {

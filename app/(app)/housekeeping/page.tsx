@@ -140,7 +140,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
                 </div>
               </div>
               <p className="text-sm text-ink-600">
-                หลังลูกค้าเช็คเอาท์ {summary.checkoutCleans} ครั้ง · ระหว่างเข้าพัก {summary.stayCleans} ครั้ง
+                หลังลูกค้าเช็คเอาท์ {summary.checkoutCleans} ครั้ง · ลูกค้าพักต่อ {summary.stayCleans} ครั้ง
               </p>
               <div>
                 <p className="mb-1 text-sm font-medium text-ink-900">เบิกไปทั้งหมด</p>
