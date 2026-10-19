@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
 import { formatShortThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
+import { BLOCKING_KINDS, ISSUE_LABELS, reconcileNights } from "@/lib/housekeeping-reconcile";
 
 // Audit view — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
@@ -27,20 +28,20 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
   const rangeDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;
   const today = todayDateOnly();
   const firstDay = shiftDate(today, -(rangeDays - 1));
+  // Nights being reconciled: the last `rangeDays` nights up to last night (whose cleaning is this morning's).
+  const lastNight = shiftDate(today, -1);
+  const firstNight = shiftDate(today, -rangeDays);
   // Log timestamps are real instants; day buckets are Bangkok calendar days.
   const since = new Date(firstDay.getTime() - BANGKOK_OFFSET_MS);
 
-  const [logs, checkouts, stays, records] = await Promise.all([
+  const [logs, stays, records] = await Promise.all([
     prisma.housekeepingLog.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 500 }),
-    prisma.accommodationBooking.findMany({
-      where: { checkOut: { gte: firstDay, lte: today }, status: { not: "CANCELLED" } },
-      select: { checkOut: true, resourceId: true, resource: { select: { name: true } } },
-    }),
     // Every stay that overlaps the range — used to audit supplies against billed add-ons.
     prisma.accommodationBooking.findMany({
-      where: { checkIn: { lte: today }, checkOut: { gt: firstDay }, status: { not: "CANCELLED" } },
+      where: { checkIn: { lte: today }, checkOut: { gt: firstNight }, status: { not: "CANCELLED" } },
       select: {
         id: true,
+        status: true,
         resourceId: true,
         customerName: true,
         checkIn: true,
@@ -51,42 +52,37 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
       orderBy: { checkIn: "desc" },
     }),
     prisma.cleaningRecord.findMany({
-      where: { serviceDate: { gte: shiftDate(firstDay, -30), lte: today } },
+      where: { OR: [{ serviceDate: { gte: shiftDate(firstNight, -30), lte: today } }, { ledgerDate: { gte: firstNight, lte: today } }] },
       orderBy: { createdAt: "desc" },
       include: { items: true },
     }),
   ]);
 
-  // ----- daily: checked-out rooms vs rooms cleaned for checkout -----
-  const dayKeyOf = (d: Date) => toDateOnlyString(d);
-  const cleanedByDay = new Map<string, Set<string>>();
-  const stayCleansByDay = new Map<string, number>();
-  for (const r of records) {
-    const k = dayKeyOf(r.serviceDate);
-    if (r.type === "CHECKOUT") cleanedByDay.set(k, (cleanedByDay.get(k) ?? new Set<string>()).add(r.resourceId));
-    else stayCleansByDay.set(k, (stayCleansByDay.get(k) ?? 0) + 1);
-  }
-  const checkoutsByDay = new Map<string, Map<string, string>>();
-  for (const b of checkouts) {
-    const key = dayKeyOf(b.checkOut);
-    const rooms = checkoutsByDay.get(key) ?? new Map<string, string>();
-    rooms.set(b.resourceId, b.resource.name);
-    checkoutsByDay.set(key, rooms);
-  }
-  const daily = Array.from({ length: rangeDays }, (_, i) => shiftDate(today, -i)).map((d) => {
-    const key = dayKeyOf(d);
-    const rooms = checkoutsByDay.get(key) ?? new Map<string, string>();
-    const cleaned = cleanedByDay.get(key) ?? new Set<string>();
-    return {
-      key,
-      date: d,
-      checkoutCount: rooms.size,
-      cleanedCount: cleaned.size,
-      stayCleans: stayCleansByDay.get(key) ?? 0,
-      missing: [...rooms.entries()].filter(([id]) => !cleaned.has(id)).map(([, name]) => name),
-      extra: [...cleaned].filter((id) => !rooms.has(id)).length,
-    };
+  // ----- room-night reconciliation: bookings vs cleaning records (by ledger date) -----
+  const nights = Array.from({ length: rangeDays }, (_, i) => shiftDate(lastNight, -i));
+  const recon = reconcileNights({
+    nights,
+    today,
+    bookings: stays.map((st) => ({
+      id: st.id,
+      resourceId: st.resourceId,
+      roomName: st.resource.name,
+      customerName: st.customerName,
+      checkIn: st.checkIn,
+      checkOut: st.checkOut,
+      status: st.status,
+    })),
+    records: records.map((r) => ({ id: r.id, resourceId: r.resourceId, roomName: r.roomName, type: r.type, ledgerDate: r.ledgerDate })),
   });
+  const blocking = new Set<string>(BLOCKING_KINDS);
+  const allIssues = recon.flatMap((n) => n.issues);
+  const totals = {
+    occupied: recon.reduce((s2, n) => s2 + n.occupied, 0),
+    checkouts: recon.reduce((s2, n) => s2 + n.checkouts, 0),
+    cleaned: recon.reduce((s2, n) => s2 + n.checkoutCleaned, 0),
+    stay: recon.reduce((s2, n) => s2 + n.stayCleans, 0),
+    problems: allIssues.filter((i) => blocking.has(i.kind)).length,
+  };
 
   // ----- supplies taken out vs add-ons billed, per stay -----
   type Audit = { id: string; room: string; customer: string; from: Date; to: Date; label: string; billed: number; taken: number };
@@ -149,41 +145,116 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
 
       <Card>
         <CardHeader>
-          <CardTitle>ห้องที่ลูกค้าเช็คเอาท์ เทียบกับห้องที่แม่บ้านบันทึกทำความสะอาด</CardTitle>
+          <CardTitle>
+            กระทบยอดห้อง: การจอง เทียบกับการทำความสะอาด (ตามวันที่ลงบัญชี)
+            {totals.problems > 0 && <span className="ml-2 text-sm font-semibold text-red-700">ผิดปกติ {totals.problems} รายการ</span>}
+          </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-4">
           <p className="text-xs text-ink-400">
-            เทียบจากการจองที่เช็คเอาท์ในวันนั้น กับบันทึกประเภท &quot;ลูกค้าเช็คเอาท์&quot; ของแม่บ้านในวันเดียวกัน ห้องที่ขาดบันทึกจะแสดงชื่อ
-            (ถ้าทำช้าข้ามวันจะขึ้นเป็นขาดด้วย)
+            วันที่ลงบัญชี D คือคืนที่ลูกค้าพัก (ทำความสะอาดตอนเช้าวัน D+1) ห้องที่ลูกค้าเช็คเอาท์เช้า D+1 ต้องมีบันทึก &quot;ลูกค้าเช็คเอาท์&quot; ลงบัญชีวัน D
+            ส่วน &quot;ลูกค้าพักต่อ&quot; ทำเฉพาะเมื่อลูกค้าขอ จึงไม่ถือว่าขาด ระบบตรวจแค่ว่าห้องนั้นมีคนพักจริง
           </p>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            {[
+              { label: "คืนที่มีคนพัก (ห้อง-คืน)", value: totals.occupied },
+              { label: "ห้องที่เช็คเอาท์", value: totals.checkouts },
+              { label: "ทำหลังเช็คเอาท์แล้ว", value: totals.cleaned },
+              { label: "ลูกค้าพักต่อ (ลูกค้าขอ)", value: totals.stay },
+              { label: "ผิดปกติ", value: totals.problems, bad: totals.problems > 0 },
+            ].map((c) => (
+              <div key={c.label} className={cn("rounded-lg p-3 text-center", c.bad ? "bg-red-50" : "bg-cream-100")}>
+                <p className={cn("text-2xl font-semibold", c.bad ? "text-red-700" : "text-forest-800")}>{c.value}</p>
+                <p className="text-xs text-ink-600">{c.label}</p>
+              </div>
+            ))}
+          </div>
+
           <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>วันที่</TableHead>
-                  <TableHead className="text-right">เช็คเอาท์</TableHead>
+                  <TableHead>วันที่ลงบัญชี</TableHead>
+                  <TableHead className="text-right">ห้องที่มีคนพัก</TableHead>
+                  <TableHead className="text-right">เช็คเอาท์เช้าวันถัดไป</TableHead>
                   <TableHead className="text-right">ทำหลังเช็คเอาท์</TableHead>
-                  <TableHead className="text-right">ทำเมื่อลูกค้าพักต่อ</TableHead>
-                  <TableHead>ห้องที่ขาดบันทึก</TableHead>
-                  <TableHead>หมายเหตุ</TableHead>
+                  <TableHead className="text-right">พักต่อ (ลูกค้าขอ)</TableHead>
+                  <TableHead>ผลกระทบยอด</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {daily.map((d) => (
-                  <TableRow key={d.key}>
-                    <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(d.date)}</TableCell>
-                    <TableCell className="text-right text-sm">{d.checkoutCount}</TableCell>
-                    <TableCell className="text-right text-sm">{d.cleanedCount}</TableCell>
-                    <TableCell className="text-right text-sm">{d.stayCleans}</TableCell>
-                    <TableCell className="text-sm">
-                      {d.missing.length === 0 ? "-" : <span className="font-medium text-red-700">{d.missing.join(", ")}</span>}
-                    </TableCell>
-                    <TableCell className="text-sm text-ink-600">{d.extra > 0 ? `ทำ ${d.extra} ห้องที่ไม่มีเช็คเอาท์วันนี้` : ""}</TableCell>
-                  </TableRow>
-                ))}
+                {recon.map((n) => {
+                  const problems = n.issues.filter((i) => blocking.has(i.kind));
+                  const pending = n.issues.filter((i) => i.kind === "PENDING_CHECKOUT");
+                  const notes = n.issues.filter((i) => i.kind === "NEVER_CHECKED_IN");
+                  return (
+                    <TableRow key={toDateOnlyString(n.night)}>
+                      <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(n.night)}</TableCell>
+                      <TableCell className="text-right text-sm">{n.occupied}</TableCell>
+                      <TableCell className="text-right text-sm">{n.checkouts}</TableCell>
+                      <TableCell className="text-right text-sm">{n.checkoutCleaned}</TableCell>
+                      <TableCell className="text-right text-sm">{n.stayCleans}</TableCell>
+                      <TableCell className="text-sm">
+                        {problems.length === 0 && pending.length === 0 && notes.length === 0 ? (
+                          <span className="text-emerald-700">ตรงกัน</span>
+                        ) : (
+                          <span className="flex flex-col gap-0.5">
+                            {problems.length > 0 && <span className="font-medium text-red-700">ผิดปกติ {problems.length} รายการ</span>}
+                            {pending.length > 0 && <span className="text-amber-700">รอทำความสะอาด {pending.length} ห้อง</span>}
+                            {notes.length > 0 && <span className="text-ink-600">ยังไม่เช็คอิน {notes.length} ห้อง</span>}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
+
+          {allIssues.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>วันที่ลงบัญชี</TableHead>
+                    <TableHead>ห้อง</TableHead>
+                    <TableHead>ปัญหา</TableHead>
+                    <TableHead>การจอง</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allIssues.map((i, idx) => (
+                    <TableRow key={`${i.kind}-${i.resourceId}-${toDateOnlyString(i.night)}-${idx}`}>
+                      <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(i.night)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm font-medium">{i.roomName}</TableCell>
+                      <TableCell className="text-sm">
+                        <span
+                          className={cn(
+                            blocking.has(i.kind) ? "font-medium text-red-700" : i.kind === "PENDING_CHECKOUT" ? "text-amber-700" : "text-ink-600"
+                          )}
+                        >
+                          {ISSUE_LABELS[i.kind]}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {i.bookingId ? (
+                          <Link href={`/accommodation/${i.bookingId}`} className="text-forest-700 hover:underline">
+                            {i.customerName}
+                          </Link>
+                        ) : (
+                          <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
+                            ดูบันทึกในบัญชีคุมฯ
+                          </Link>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
