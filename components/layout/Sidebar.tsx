@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "ภาพรวมรายวัน", icon: LayoutGrid },
   { href: "/housekeeping", label: "ทำความสะอาดห้อง", icon: SprayCan },
+  { href: "/housekeeping-daily", label: "บัญชีคุมทำความสะอาด/เบิกวัสดุ", icon: ClipboardList },
   { href: "/accommodation", label: "จองห้องพัก", icon: BedDouble },
   { href: "/banquet", label: "จองห้องจัดเลี้ยง", icon: CalendarClock },
   { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
@@ -15,7 +16,7 @@ const NAV_ITEMS = [
 
 export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
   const pathname = usePathname();
-  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard" || item.href === "/housekeeping") : NAV_ITEMS;
+  const navItems = isHousekeeper ? NAV_ITEMS.filter((item) => item.href === "/dashboard" || item.href.startsWith("/housekeeping")) : NAV_ITEMS;
 
   return (
     <aside className="hidden print:!hidden w-64 shrink-0 flex-col bg-forest-900 text-cream-50 md:flex">
@@ -99,18 +100,6 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
             >
               <SprayCan className="h-4 w-4" />
               บันทึกการทำห้อง
-            </Link>
-            <Link
-              href="/housekeeping-daily"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/housekeeping-daily")
-                  ? "bg-gold-500 text-forest-900"
-                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
-              )}
-            >
-              <ClipboardList className="h-4 w-4" />
-              ตารางทำห้องรายวัน
             </Link>
             <Link
               href="/sales-dashboard"
