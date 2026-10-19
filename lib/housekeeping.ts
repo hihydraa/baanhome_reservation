@@ -27,6 +27,7 @@ export const SUPPLY_ITEMS = [
   { name: "ทิชชู่", unit: "ม้วน" },
   { name: "หมวก", unit: "ชิ้น" },
   { name: "ถุงขยะ", unit: "ใบ" },
+  { name: "ถุงใส่ผ้าอนามัย", unit: "ใบ" },
 ] as const;
 
 export type RoomSize = "SMALL" | "LARGE" | "OTHER";
