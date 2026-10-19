@@ -4,9 +4,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { DailySheetActions } from "@/components/housekeeping/DailySheetActions";
+import { EditCleaningButton } from "@/components/housekeeping/EditCleaningButton";
+import { CLEANING_TYPE_LABELS } from "@/lib/housekeeping";
 import { summarizeCleaning } from "@/lib/cleaning-summary";
 import { SUPPLY_ITEMS, roomShortName, roomSizeOf } from "@/lib/housekeeping";
-import { formatThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
+import { formatShortThaiDate, formatThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
 
 // Reviewed live by the counter — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
@@ -21,61 +23,115 @@ function qtyOf(items: { name: string; quantity: number }[], name: string): numbe
  * ADMIN and STAFF (the counter): one day's cleaning log laid out like the paper
  * "บัญชีคุมการทำความสะอาดและเบิกวัสดุสิ้นเปลือง" — a row per room cleaned, a column per supply.
  */
-export default async function HousekeepingDailyPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
+const MAX_RANGE_DAYS = 92;
+
+function parseDay(v: string | undefined): Date | null {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export default async function HousekeepingDailyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string; from?: string; to?: string }>;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   // Housekeepers see the same log read-only, without the amount column or the counter's sign-off.
   const isHousekeeper = session.user.role === "HOUSEKEEPER";
 
   const today = todayDateOnly();
-  const { date: dateParam } = await searchParams;
-  const parsed = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T00:00:00Z`) : today;
-  const date = Number.isNaN(parsed.getTime()) ? today : parsed;
+  const sp = await searchParams;
+  // ?date= (a single day) is kept for old links; otherwise from/to pick a range, defaulting to today.
+  let from = parseDay(sp.from) ?? parseDay(sp.date) ?? today;
+  let to = parseDay(sp.to) ?? parseDay(sp.date) ?? from;
+  if (from > to) [from, to] = [to, from];
+  if (to > today) to = today;
+  if (from > to) from = to;
+  const maxFrom = shiftDate(to, -(MAX_RANGE_DAYS - 1));
+  if (from < maxFrom) from = maxFrom;
+  const single = from.getTime() === to.getTime();
 
-  const [records, review, extraBedService] = await Promise.all([
+  const [records, review, extraBedService, rooms] = await Promise.all([
     prisma.cleaningRecord.findMany({
-      where: { serviceDate: date },
+      where: { serviceDate: { gte: from, lte: to } },
       include: { items: true, resource: { select: { sortOrder: true, zone: true } } },
     }),
-    prisma.cleaningDayReview.findUnique({ where: { date } }),
+    single ? prisma.cleaningDayReview.findUnique({ where: { date: from } }) : null,
     isHousekeeper
       ? null
       : prisma.specialService.findFirst({ where: { scope: "ACCOMMODATION", name: { contains: EXTRA_BED } }, select: { price: true } }),
+    prisma.resource.findMany({
+      where: { type: "ACCOMMODATION" },
+      orderBy: [{ zone: "asc" }, { sortOrder: "asc" }],
+      select: { id: true, name: true },
+    }),
   ]);
 
   const rows = [...records].sort(
-    (a, b) => a.resource.zone.localeCompare(b.resource.zone) || a.resource.sortOrder - b.resource.sortOrder || a.createdAt.getTime() - b.createdAt.getTime()
+    (a, b) =>
+      a.serviceDate.getTime() - b.serviceDate.getTime() ||
+      a.resource.zone.localeCompare(b.resource.zone) ||
+      a.resource.sortOrder - b.resource.sortOrder ||
+      a.createdAt.getTime() - b.createdAt.getTime()
   );
   const summary = summarizeCleaning(records);
   const bedPrice = extraBedService ? Number(extraBedService.price) : 0;
-  const dateStr = toDateOnlyString(date);
-  const prev = toDateOnlyString(shiftDate(date, -1));
-  const next = date < today ? toDateOnlyString(shiftDate(date, 1)) : null;
+  const fromStr = toDateOnlyString(from);
+  const toStr = toDateOnlyString(to);
+  const todayStr = toDateOnlyString(today);
   const reviewedLabel = review
     ? `ตรวจแล้วโดย ${review.userName} ${review.createdAt.toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}`
     : null;
+  const link = (f: string, t: string) => `/housekeeping-daily?from=${f}&to=${t}`;
+  const monthStart = toDateOnlyString(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)));
   const nav = "rounded-full bg-cream-200 px-3 py-1.5 text-sm text-ink-600 hover:bg-cream-100";
+  const title = single ? formatThaiDate(from) : `${formatThaiDate(from)} – ${formatThaiDate(to)}`;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-forest-800">บัญชีคุมการทำความสะอาดและเบิกวัสดุสิ้นเปลือง</h1>
-          <p className="text-sm text-ink-600">{formatThaiDate(date)}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <Link href={`/housekeeping-daily?date=${prev}`} className={nav}>← วันก่อน</Link>
-          {next && <Link href={`/housekeeping-daily?date=${next}`} className={nav}>วันถัดไป →</Link>}
-          {date < today && <Link href="/housekeeping-daily" className={nav}>วันนี้</Link>}
-        </div>
+      <div>
+        <h1 className="text-xl font-semibold text-forest-800">บัญชีคุมการทำความสะอาดและเบิกวัสดุสิ้นเปลือง</h1>
+        <p className="text-sm text-ink-600">{title}</p>
       </div>
 
-      <DailySheetActions date={dateStr} reviewedLabel={reviewedLabel} canReview={!isHousekeeper} />
+      <form method="get" className="flex flex-wrap items-end gap-2 print:hidden">
+        <label className="flex flex-col gap-1 text-xs text-ink-600">
+          ตั้งแต่วันที่
+          <input type="date" name="from" defaultValue={fromStr} max={todayStr} className="h-9 rounded-md border border-cream-200 bg-white px-2 text-sm" />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-600">
+          ถึงวันที่
+          <input type="date" name="to" defaultValue={toStr} max={todayStr} className="h-9 rounded-md border border-cream-200 bg-white px-2 text-sm" />
+        </label>
+        <button type="submit" className="h-9 rounded-md bg-forest-700 px-4 text-sm font-medium text-cream-50 hover:bg-forest-600">
+          ดูรายการ
+        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {single && (
+            <Link href={link(toDateOnlyString(shiftDate(from, -1)), toDateOnlyString(shiftDate(from, -1)))} className={nav}>
+              ← วันก่อน
+            </Link>
+          )}
+          {single && from < today && (
+            <Link href={link(toDateOnlyString(shiftDate(from, 1)), toDateOnlyString(shiftDate(from, 1)))} className={nav}>
+              วันถัดไป →
+            </Link>
+          )}
+          <Link href={link(todayStr, todayStr)} className={nav}>วันนี้</Link>
+          <Link href={link(toDateOnlyString(shiftDate(today, -6)), todayStr)} className={nav}>7 วันล่าสุด</Link>
+          <Link href={link(monthStart, todayStr)} className={nav}>เดือนนี้</Link>
+        </div>
+      </form>
+
+      <DailySheetActions date={fromStr} reviewedLabel={reviewedLabel} canReview={!isHousekeeper && single} />
 
       <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>วันที่</TableHead>
               <TableHead>ห้องเล็ก</TableHead>
               <TableHead>ห้องใหญ่</TableHead>
               <TableHead>อื่นๆ</TableHead>
@@ -92,12 +148,13 @@ export default async function HousekeepingDailyPage({ searchParams }: { searchPa
               <TableHead>รายการแจ้งซ่อม</TableHead>
               <TableHead>หมายเหตุ</TableHead>
               <TableHead>ผู้ทำ</TableHead>
+              <TableHead className="print:hidden" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={(isHousekeeper ? 5 : 6) + SUPPLY_ITEMS.length + 3} className="py-8 text-center text-sm text-ink-400">
+                <TableCell colSpan={(isHousekeeper ? 6 : 7) + SUPPLY_ITEMS.length + 4} className="py-8 text-center text-sm text-ink-400">
                   ไม่มีบันทึกการทำความสะอาดในวันนี้
                 </TableCell>
               </TableRow>
@@ -108,10 +165,11 @@ export default async function HousekeepingDailyPage({ searchParams }: { searchPa
               const beds = qtyOf(r.items, EXTRA_BED);
               return (
                 <TableRow key={r.id}>
+                  <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(r.serviceDate)}</TableCell>
                   <TableCell className="text-sm font-medium">{size === "SMALL" ? cell : ""}</TableCell>
                   <TableCell className="text-sm font-medium">{size === "LARGE" ? cell : ""}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm font-medium">{size === "OTHER" ? r.roomName : ""}</TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-ink-600">{r.type === "CHECKOUT" ? "เช็คเอาท์" : "ระหว่างพัก"}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs text-ink-600">{CLEANING_TYPE_LABELS[r.type]}</TableCell>
                   <TableCell className="text-right text-sm">{beds || ""}</TableCell>
                   {!isHousekeeper && (
                     <TableCell className="text-right text-sm">{beds && bedPrice ? (beds * bedPrice).toLocaleString("th-TH") : ""}</TableCell>
@@ -123,12 +181,31 @@ export default async function HousekeepingDailyPage({ searchParams }: { searchPa
                   ))}
                   <TableCell className="min-w-40 text-sm">{r.repairNote ?? ""}</TableCell>
                   <TableCell className="min-w-32 text-sm">{r.notes ?? ""}</TableCell>
-                  <TableCell className="whitespace-nowrap text-sm">{r.userName}</TableCell>
+                  <TableCell className="whitespace-nowrap text-sm">
+                    {r.userName}
+                    {r.editedByName && <span className="block text-xs text-ink-400">แก้ไขโดย {r.editedByName}</span>}
+                  </TableCell>
+                  <TableCell className="print:hidden">
+                    <EditCleaningButton
+                      rooms={rooms}
+                      maxDate={todayStr}
+                      record={{
+                        id: r.id,
+                        resourceId: r.resourceId,
+                        type: r.type,
+                        serviceDate: toDateOnlyString(r.serviceDate),
+                        items: r.items.map((i) => ({ name: i.name, quantity: i.quantity })),
+                        notes: r.notes ?? "",
+                        repairNote: r.repairNote ?? "",
+                      }}
+                    />
+                  </TableCell>
                 </TableRow>
               );
             })}
             {rows.length > 0 && (
               <TableRow className="bg-cream-100 font-semibold">
+                <TableCell className="text-xs">{summary.records} รายการ</TableCell>
                 <TableCell className="text-sm">รวม {summary.small}</TableCell>
                 <TableCell className="text-sm">รวม {summary.large}</TableCell>
                 <TableCell className="text-sm">{summary.other > 0 ? `รวม ${summary.other}` : ""}</TableCell>
@@ -144,7 +221,7 @@ export default async function HousekeepingDailyPage({ searchParams }: { searchPa
                     {summary.supplies[i.name] || ""}
                   </TableCell>
                 ))}
-                <TableCell colSpan={3} className="text-sm">{reviewedLabel ?? "เคาน์เตอร์ยังไม่ได้ตรวจ"}</TableCell>
+                <TableCell colSpan={4} className="text-sm">{single ? (reviewedLabel ?? "เคาน์เตอร์ยังไม่ได้ตรวจ") : ""}</TableCell>
               </TableRow>
             )}
           </TableBody>
