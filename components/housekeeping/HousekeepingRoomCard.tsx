@@ -30,10 +30,13 @@ export function HousekeepingRoomCard({
   room,
   rooms,
   maxDate,
+  defaultLedgerDate,
 }: {
   room: HousekeepingRoom;
   rooms: { id: string; name: string }[];
   maxDate: string;
+  /** The date a new cleaning is logged under by default (the day before today). */
+  defaultLedgerDate: string;
 }) {
   const { showToast } = useToast();
   const refresh = useScrollSafeRefresh();
@@ -144,7 +147,7 @@ export function HousekeepingRoomCard({
         open={open}
         onOpenChange={setOpen}
         title={`ทำความสะอาด ${room.name}`}
-        initial={{ resourceId: room.id, type: null, items: [], notes: "", repairNote: "" }}
+        initial={{ resourceId: room.id, type: null, ledgerDate: defaultLedgerDate, items: [], notes: "", repairNote: "" }}
         onSaved={refresh}
       />
     </>

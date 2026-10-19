@@ -22,9 +22,11 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
 
   const today = todayDateOnly();
   const { date: dateParam } = await searchParams;
-  // The summary can look back at earlier days (never ahead of today); the room cards are always today's.
-  const parsedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T00:00:00Z`) : today;
-  const summaryDate = Number.isNaN(parsedDate.getTime()) || parsedDate > today ? today : parsedDate;
+  // The summary is by the date the log shows (a morning cleaning is logged under yesterday), defaulting to
+  // yesterday and able to look back; the room cards are always today's recordings.
+  const yesterday = shiftDate(today, -1);
+  const parsedDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? new Date(`${dateParam}T00:00:00Z`) : yesterday;
+  const summaryDate = Number.isNaN(parsedDate.getTime()) || parsedDate > today ? yesterday : parsedDate;
   const [rooms, bookings, records, summaryRecords] = await Promise.all([
     prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, orderBy: [{ zone: "asc" }, { sortOrder: "asc" }] }),
     // Only dates and status — a housekeeper never needs guest names or prices.
@@ -37,12 +39,12 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
       orderBy: { createdAt: "asc" },
       include: { items: true },
     }),
-    prisma.cleaningRecord.findMany({ where: { serviceDate: summaryDate }, include: { items: true } }),
+    prisma.cleaningRecord.findMany({ where: { ledgerDate: summaryDate }, include: { items: true } }),
   ]);
   const summary = summarizeCleaning(summaryRecords);
   const prevDay = toDateOnlyString(shiftDate(summaryDate, -1));
   const nextDay = summaryDate < today ? toDateOnlyString(shiftDate(summaryDate, 1)) : null;
-  const isToday = summaryDate.getTime() === today.getTime();
+  const isYesterday = summaryDate.getTime() === yesterday.getTime();
 
   const todayMs = today.getTime();
   const contextFor = (resourceId: string): string => {
@@ -67,6 +69,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
           resourceId: r.resourceId,
           type: r.type,
           serviceDate: toDateOnlyString(r.serviceDate),
+          ledgerDate: toDateOnlyString(r.ledgerDate),
           items: r.items.map((i) => ({ name: i.name, quantity: i.quantity })),
           notes: r.notes ?? "",
           repairNote: r.repairNote ?? "",
@@ -119,7 +122,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <CardTitle>สรุปการทำความสะอาด {isToday ? "วันนี้" : formatThaiDate(summaryDate)}</CardTitle>
+            <CardTitle>สรุปการทำความสะอาด วันที่ลงบัญชี {isYesterday ? "เมื่อวาน " : ""}{formatThaiDate(summaryDate)}</CardTitle>
             <div className="flex items-center gap-2 text-sm">
               <Link href={`/housekeeping?date=${prevDay}`} className="rounded-full bg-cream-200 px-3 py-1 text-ink-600 hover:bg-cream-100">
                 ← วันก่อน
@@ -134,7 +137,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {summary.records === 0 ? (
-            <p className="text-sm text-ink-400">ยังไม่มีบันทึกการทำความสะอาดในวันนี้</p>
+            <p className="text-sm text-ink-400">ยังไม่มีบันทึกการทำความสะอาดที่ลงบัญชีวันนี้</p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -185,7 +188,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
             <h2 className="text-base font-semibold text-forest-800">{ZONE_LABELS[zone] ?? zone}</h2>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {list.map((room) => (
-                <HousekeepingRoomCard key={room.id} room={room} rooms={roomOptions} maxDate={todayStr} />
+                <HousekeepingRoomCard key={room.id} room={room} rooms={roomOptions} maxDate={todayStr} defaultLedgerDate={toDateOnlyString(yesterday)} />
               ))}
             </div>
           </section>

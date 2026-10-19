@@ -19,6 +19,8 @@ export type CleaningRecordFormValue = {
   type: CleaningType | null;
   /** yyyy-mm-dd; only editable for an existing record. */
   serviceDate?: string;
+  /** yyyy-mm-dd the paper log shows (usually the day before the cleaning). */
+  ledgerDate: string;
   items: { name: string; quantity: number }[];
   notes: string;
   repairNote: string;
@@ -59,6 +61,7 @@ export function CleaningRecordDialog({
   const [resourceId, setResourceId] = useState(initial.resourceId);
   const [type, setType] = useState<CleaningType | null>(initial.type);
   const [serviceDate, setServiceDate] = useState(initial.serviceDate ?? "");
+  const [ledgerDate, setLedgerDate] = useState(initial.ledgerDate);
   const [qty, setQty] = useState<Record<string, number>>(
     Object.fromEntries(initial.items.filter((i) => known.has(i.name)).map((i) => [i.name, i.quantity]))
   );
@@ -87,6 +90,7 @@ export function CleaningRecordDialog({
         items,
         notes: notes.trim() || undefined,
         repairNote: repair.trim() || undefined,
+        ledgerDate: ledgerDate || undefined,
         ...(isEdit && serviceDate ? { serviceDate } : {}),
       }),
     });
@@ -110,27 +114,32 @@ export function CleaningRecordDialog({
 
         <div className="flex flex-col gap-4 text-sm">
           {isEdit && rooms && (
-            <div className="grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1">
-                <span className="font-medium text-ink-900">ห้อง</span>
-                <select
-                  className="h-10 rounded-md border border-cream-200 bg-white px-2"
-                  value={resourceId}
-                  onChange={(e) => setResourceId(e.target.value)}
-                >
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="font-medium text-ink-900">วันที่</span>
-                <Input type="date" max={maxDate} value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
-              </label>
-            </div>
+            <label className="flex flex-col gap-1">
+              <span className="font-medium text-ink-900">ห้อง</span>
+              <select className="h-10 rounded-md border border-cream-200 bg-white px-2" value={resourceId} onChange={(e) => setResourceId(e.target.value)}>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="font-medium text-ink-900">วันที่ลงบัญชี</span>
+              <Input type="date" max={maxDate} value={ledgerDate} onChange={(e) => setLedgerDate(e.target.value)} />
+              <span className="text-xs text-ink-400">วันที่ที่แสดงในตารางบัญชีคุมฯ (ปกติคือเมื่อวาน)</span>
+            </label>
+            {isEdit && (
+              <label className="flex flex-col gap-1">
+                <span className="font-medium text-ink-900">วันที่ทำจริง</span>
+                <Input type="date" max={maxDate} value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
+                <span className="text-xs text-ink-400">วันที่กดบันทึกจริง</span>
+              </label>
+            )}
+          </div>
 
           <div className="flex flex-col gap-2">
             <p className="font-medium text-ink-900">1. ทำความสะอาดเพราะอะไร</p>

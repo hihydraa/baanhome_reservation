@@ -448,6 +448,8 @@ model CleaningRecord {
   roomName     String
   type         CleaningType
   serviceDate  DateTime
+  /// The date the paper log shows: normally the day before serviceDate, since the morning cleaning is of the previous day's stay.
+  ledgerDate   DateTime
   notes        String?
   repairNote   String?
   editedByName String?
@@ -460,6 +462,7 @@ model CleaningRecord {
   items CleaningRecordItem[]
 
   @@index([serviceDate])
+  @@index([ledgerDate])
   @@index([resourceId, serviceDate])
 }
 

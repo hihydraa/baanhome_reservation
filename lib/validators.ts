@@ -215,6 +215,8 @@ export const cleaningRecordInputSchema = z.object({
     .default([]),
   notes: z.string().trim().max(500).optional(),
   repairNote: z.string().trim().max(500).optional(),
+  /** yyyy-mm-dd the log shows; defaults to the day before the cleaning was recorded. */
+  ledgerDate: dateOnly.optional(),
 });
 
 export const cleaningRecordUpdateSchema = cleaningRecordInputSchema.extend({ serviceDate: dateOnly.optional() });
