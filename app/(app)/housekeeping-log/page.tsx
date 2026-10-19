@@ -17,12 +17,12 @@ export const dynamic = "force-dynamic";
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 /**
- * ADMIN and STAFF: the history of every housekeeping status change, plus a per-day check of
+ * ADMIN only: the history of every housekeeping status change, plus a per-day check of
  * rooms that checked out against rooms housekeeping marked ready ("พร้อมขาย") that day.
  */
 export default async function HousekeepingLogPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
   const session = await auth();
-  if (!session?.user || session.user.role === "HOUSEKEEPER") redirect("/dashboard");
+  if (!session?.user || session.user.role !== "ADMIN") redirect("/dashboard");
 
   const { days } = await searchParams;
   const rangeDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;

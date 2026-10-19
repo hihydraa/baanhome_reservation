@@ -19,6 +19,8 @@ const STATUS_ORDER = { NEEDS_CLEANING: 0, OUT_OF_SERVICE: 1, READY: 2 } as const
 export default async function HousekeepingPage({ searchParams }: { searchParams: Promise<{ date?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  // Housekeepers do the work here; the admin can look. Front-desk staff use the log sheet instead.
+  if (session.user.role === "STAFF") redirect("/dashboard");
 
   const today = todayDateOnly();
   const { date: dateParam } = await searchParams;
