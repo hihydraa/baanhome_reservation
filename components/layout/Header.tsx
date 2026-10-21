@@ -24,11 +24,13 @@ export function Header({
   name,
   role,
   isAdmin,
+  canAudit,
   isHousekeeper,
 }: {
   name: string;
   role: string;
   isAdmin: boolean;
+  canAudit: boolean;
   isHousekeeper?: boolean;
 }) {
   const pathname = usePathname();
@@ -73,7 +75,7 @@ export function Header({
             </Link>
           );
         })}
-        {!isHousekeeper && isAdmin && (
+        {!isHousekeeper && canAudit && (
           <Link
             href="/housekeeping-log"
             className={cn(
@@ -97,7 +99,7 @@ export function Header({
             ผู้ใช้งาน
           </Link>
         )}
-        {!isHousekeeper && isAdmin && (
+        {!isHousekeeper && canAudit && (
           <Link
             href="/payment-log"
             className={cn(

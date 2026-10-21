@@ -40,6 +40,7 @@ export default async function HousekeepingDailyPage({
   if (!session?.user) redirect("/login");
   // Housekeepers see the same log read-only, without the amount column or the counter's sign-off.
   const isHousekeeper = session.user.role === "HOUSEKEEPER";
+  const isAuditor = session.user.role === "AUDITOR";
 
   const today = todayDateOnly();
   const sp = await searchParams;
@@ -127,7 +128,7 @@ export default async function HousekeepingDailyPage({
         </div>
       </form>
 
-      <DailySheetActions date={fromStr} reviewedLabel={reviewedLabel} canReview={!isHousekeeper && single} />
+      <DailySheetActions date={fromStr} reviewedLabel={reviewedLabel} canReview={!isHousekeeper && !isAuditor && single} />
 
       <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
         <Table>

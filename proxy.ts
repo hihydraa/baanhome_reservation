@@ -24,6 +24,12 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
   }
 
+  // The internal auditor sees everything staff see but can never change anything.
+  const isAuditor = req.auth?.user?.role === "AUDITOR";
+  if (isLoggedIn && isAuditor && isApiRoute && !["GET", "HEAD"].includes(req.method)) {
+    return NextResponse.json({ error: "บัญชีตรวจสอบภายในดูข้อมูลได้อย่างเดียว" }, { status: 403 });
+  }
+
   const isHousekeeper = req.auth?.user?.role === "HOUSEKEEPER";
   // Mutations housekeeping performs right from the daily grid card's popup.
   const housekeeperActionPatterns = [

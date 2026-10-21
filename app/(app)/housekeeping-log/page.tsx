@@ -6,26 +6,38 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
+import { HOUSEKEEPING_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
 import { formatShortThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
-import { BLOCKING_KINDS, ISSUE_LABELS, reconcileNights } from "@/lib/housekeeping-reconcile";
+import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
+import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, reconcileNights, type Severity } from "@/lib/housekeeping-reconcile";
 
 // Audit view — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
 
 const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 
-/**
- * ADMIN only: the history of every housekeeping status change, plus a per-day check of
- * rooms that checked out against rooms housekeeping marked ready ("พร้อมขาย") that day.
- */
-export default async function HousekeepingLogPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") redirect("/dashboard");
+const SEVERITY_BADGE: Record<Severity, "danger" | "warning" | "muted" | "outline"> = {
+  HIGH: "danger",
+  MEDIUM: "warning",
+  LOW: "muted",
+  INFO: "outline",
+};
 
-  const { days } = await searchParams;
+const baht = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
+
+/**
+ * ADMIN and AUDITOR only. Housekeeping's log is treated as independent evidence that a room was used, and every
+ * such room-night is checked against the cashier's records (booking, cancellation, payment). Also the history of
+ * every housekeeping status change.
+ */
+export default async function HousekeepingLogPage({ searchParams }: { searchParams: Promise<{ days?: string; level?: string }> }) {
+  const session = await auth();
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "AUDITOR")) redirect("/dashboard");
+
+  const { days, level } = await searchParams;
   const rangeDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;
+  const showAll = level === "all";
   const today = todayDateOnly();
   const firstDay = shiftDate(today, -(rangeDays - 1));
   // Nights being reconciled: the last `rangeDays` nights up to last night (whose cleaning is this morning's).
@@ -34,11 +46,12 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
   // Log timestamps are real instants; day buckets are Bangkok calendar days.
   const since = new Date(firstDay.getTime() - BANGKOK_OFFSET_MS);
 
-  const [logs, stays, records] = await Promise.all([
+  const [logs, stays, records, rooms] = await Promise.all([
     prisma.housekeepingLog.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 500 }),
-    // Every stay that overlaps the range — used to audit supplies against billed add-ons.
+    // Every booking that overlaps the range — cancelled ones included, since "cancelled" is exactly what a room
+    // that was really used might be hidden behind.
     prisma.accommodationBooking.findMany({
-      where: { checkIn: { lte: today }, checkOut: { gt: firstNight }, status: { not: "CANCELLED" } },
+      where: { checkIn: { lte: today }, checkOut: { gt: firstNight } },
       select: {
         id: true,
         status: true,
@@ -46,8 +59,14 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
         customerName: true,
         checkIn: true,
         checkOut: true,
-        resource: { select: { name: true } },
-        addons: { select: { quantity: true, description: true, service: { select: { name: true } } } },
+        roomPrice: true,
+        discountType: true,
+        discountValue: true,
+        updatedAt: true,
+        createdBy: { select: { name: true } },
+        resource: { select: { name: true, price: true } },
+        addons: { select: { quantity: true, price: true, description: true, service: { select: { name: true } } } },
+        payment: { select: { entries: { select: { amount: true, method: true } } } },
       },
       orderBy: { checkIn: "desc" },
     }),
@@ -56,38 +75,106 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
       orderBy: { createdAt: "desc" },
       include: { items: true },
     }),
+    prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, select: { id: true, price: true } }),
   ]);
 
-  // ----- room-night reconciliation: bookings vs cleaning records (by ledger date) -----
+  // Who cancelled each cancelled booking, when, and why (the booking row itself only keeps the status).
+  const cancelledIds = stays.filter((st) => st.status === "CANCELLED").map((st) => st.id);
+  const cancelLogs = cancelledIds.length
+    ? await prisma.cancellationLog.findMany({
+        where: { bookingType: "ACCOMMODATION", action: "CANCEL", bookingId: { in: cancelledIds } },
+        orderBy: { cancelledAt: "desc" },
+        select: { bookingId: true, cancelledAt: true, reason: true, cancelledBy: { select: { name: true } } },
+      })
+    : [];
+  const cancelByBooking = new Map<string, (typeof cancelLogs)[number]>();
+  for (const c of cancelLogs) if (!cancelByBooking.has(c.bookingId)) cancelByBooking.set(c.bookingId, c);
+
+  // ----- room-night reconciliation: housekeeping evidence vs the cashier's bookings, cancellations, payments -----
   const nights = Array.from({ length: rangeDays }, (_, i) => shiftDate(lastNight, -i));
   const recon = reconcileNights({
     nights,
     today,
-    bookings: stays.map((st) => ({
-      id: st.id,
-      resourceId: st.resourceId,
-      roomName: st.resource.name,
-      customerName: st.customerName,
-      checkIn: st.checkIn,
-      checkOut: st.checkOut,
-      status: st.status,
+    resourceRates: Object.fromEntries(rooms.map((r) => [r.id, r.price ? Number(r.price) : 0])),
+    bookings: stays.map((st) => {
+      const entries = st.payment?.entries ?? [];
+      const cancel = cancelByBooking.get(st.id);
+      const cancelled = st.status === "CANCELLED";
+      return {
+        id: st.id,
+        resourceId: st.resourceId,
+        roomName: st.resource.name,
+        customerName: st.customerName,
+        checkIn: st.checkIn,
+        checkOut: st.checkOut,
+        status: st.status,
+        roomRate: Number(st.roomPrice ?? st.resource.price ?? 0),
+        expectedTotal: accommodationExpectedTotal(st, st.addons).expectedTotal,
+        paid: sumPaid(entries),
+        payMethods: [...new Set(entries.map((e) => PAYMENT_METHOD_LABELS[e.method] ?? e.method))],
+        createdByName: st.createdBy?.name ?? null,
+        // A booking cancelled with no log row (older data) falls back to its last edit time.
+        cancelledAt: cancelled ? (cancel?.cancelledAt ?? st.updatedAt) : null,
+        cancelledByName: cancelled ? (cancel?.cancelledBy?.name ?? null) : null,
+        cancelReason: cancelled ? (cancel?.reason ?? null) : null,
+      };
+    }),
+    records: records.map((r) => ({
+      id: r.id,
+      resourceId: r.resourceId,
+      roomName: r.roomName,
+      type: r.type,
+      ledgerDate: r.ledgerDate,
+      createdAt: r.createdAt,
     })),
-    records: records.map((r) => ({ id: r.id, resourceId: r.resourceId, roomName: r.roomName, type: r.type, ledgerDate: r.ledgerDate })),
   });
-  const blocking = new Set<string>(BLOCKING_KINDS);
+
   const allIssues = recon.flatMap((n) => n.issues);
+  const rank = (s: Severity) => SEVERITY_ORDER.indexOf(s);
+  const shownIssues = allIssues
+    .filter((i) => showAll || i.severity === "HIGH" || i.severity === "MEDIUM")
+    .sort((a, b) => rank(a.severity) - rank(b.severity) || b.night.getTime() - a.night.getTime());
+  const countBy = (s: Severity) => allIssues.filter((i) => i.severity === s).length;
   const totals = {
-    occupied: recon.reduce((s2, n) => s2 + n.occupied, 0),
+    evidence: recon.reduce((s2, n) => s2 + n.evidence, 0),
+    backed: recon.reduce((s2, n) => s2 + n.backed, 0),
     checkouts: recon.reduce((s2, n) => s2 + n.checkouts, 0),
     cleaned: recon.reduce((s2, n) => s2 + n.checkoutCleaned, 0),
     stay: recon.reduce((s2, n) => s2 + n.stayCleans, 0),
-    problems: allIssues.filter((i) => blocking.has(i.kind)).length,
+    high: countBy("HIGH"),
+    medium: countBy("MEDIUM"),
+    low: countBy("LOW"),
+    atRisk: allIssues.filter((i) => i.severity === "HIGH" || i.severity === "MEDIUM").reduce((s2, i) => s2 + (i.amount ?? 0), 0),
   };
+
+  // ----- findings per staff member whose entry they trace back to -----
+  type StaffRow = { name: string; high: number; medium: number; low: number; atRisk: number; cancelled: number; usedCancelled: number };
+  const staff = new Map<string, StaffRow>();
+  const row = (name: string) => {
+    if (!staff.has(name)) staff.set(name, { name, high: 0, medium: 0, low: 0, atRisk: 0, cancelled: 0, usedCancelled: 0 });
+    return staff.get(name)!;
+  };
+  for (const i of allIssues) {
+    if (!i.responsible || i.severity === "INFO") continue;
+    const r = row(i.responsible);
+    if (i.severity === "HIGH") r.high++;
+    else if (i.severity === "MEDIUM") r.medium++;
+    else r.low++;
+    if (i.severity === "HIGH" || i.severity === "MEDIUM") r.atRisk += i.amount ?? 0;
+    if (i.kind === "USED_CANCELLED") r.usedCancelled++;
+  }
+  for (const st of stays) {
+    if (st.status !== "CANCELLED") continue;
+    const who = cancelByBooking.get(st.id)?.cancelledBy?.name ?? st.createdBy?.name;
+    if (who) row(who).cancelled++;
+  }
+  const staffRows = [...staff.values()].sort((a, b) => b.high - a.high || b.atRisk - a.atRisk || b.cancelled - a.cancelled);
 
   // ----- supplies taken out vs add-ons billed, per stay -----
   type Audit = { id: string; room: string; customer: string; from: Date; to: Date; label: string; billed: number; taken: number };
   const audits: Audit[] = [];
   for (const st of stays) {
+    if (st.status === "CANCELLED") continue;
     const billed = new Map<string, number>();
     for (const a of st.addons) {
       const key = trackedKeyForAddonName(a.service?.name ?? a.description);
@@ -131,41 +218,48 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
       <div>
         <h1 className="text-xl font-semibold text-forest-800">บันทึกการทำห้องของแม่บ้าน</h1>
         <p className="text-sm text-ink-400">
-          บันทึกการทำความสะอาดห้องและของที่แม่บ้านเบิก เพื่อทวนสอบกับการเช็คเอาท์และบริการเสริมในการจอง แก้ไขหรือลบไม่ได้
+          ใช้บันทึกของแม่บ้านเป็นหลักฐานว่าห้องถูกใช้ แล้วตรวจว่าแคชเชียร์บันทึกการจอง การยกเลิก และการรับเงินครบหรือไม่ แก้ไขหรือลบบันทึกแม่บ้านไม่ได้
         </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {[7, 14, 30].map((d) => (
-          <Link key={d} href={`/housekeeping-log?days=${d}`} className={chip(rangeDays === d)}>
+          <Link key={d} href={`/housekeeping-log?days=${d}${showAll ? "&level=all" : ""}`} className={chip(rangeDays === d)}>
             {d} วันล่าสุด
           </Link>
         ))}
+        <span className="mx-1 h-4 w-px bg-cream-200" />
+        <Link href={`/housekeeping-log?days=${rangeDays}`} className={chip(!showAll)}>
+          เฉพาะระดับสูง/กลาง
+        </Link>
+        <Link href={`/housekeeping-log?days=${rangeDays}&level=all`} className={chip(showAll)}>
+          รวมรายการเล็กน้อย
+        </Link>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>
-            กระทบยอดห้อง: การจอง เทียบกับการทำความสะอาด (ตามวันที่ลงบัญชี)
-            {totals.problems > 0 && <span className="ml-2 text-sm font-semibold text-red-700">ผิดปกติ {totals.problems} รายการ</span>}
+            ห้องที่ถูกใช้จริง เทียบกับรายได้ที่บันทึก
+            {totals.high > 0 && <span className="ml-2 text-sm font-semibold text-red-700">ระดับสูง {totals.high} รายการ</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <p className="text-xs text-ink-400">
-            วันที่ลงบัญชี D คือคืนที่ลูกค้าพัก (ทำความสะอาดตอนเช้าวัน D+1) ห้องที่ลูกค้าเช็คเอาท์เช้า D+1 ต้องมีบันทึก &quot;ลูกค้าเช็คเอาท์&quot; ลงบัญชีวัน D
-            ส่วน &quot;ลูกค้าพักต่อ&quot; ทำเฉพาะเมื่อลูกค้าขอ จึงไม่ถือว่าขาด ระบบตรวจแค่ว่าห้องนั้นมีคนพักจริง
+            วันที่ลงบัญชี D คือคืนที่ลูกค้าพัก (ทำความสะอาดตอนเช้าวัน D+1) ถ้าแม่บ้านบันทึกห้องไหนในวัน D ถือว่าห้องนั้นถูกใช้คืนนั้น ต้องมีการจองที่ไม่ถูกยกเลิก และเมื่อพักเสร็จแล้วต้องมีบันทึกรับเงิน
+            ระบบไม่เชื่อสถานะ &quot;จอง/เข้าพัก/เช็คเอาท์&quot; เพราะอาจไม่ได้อัปเดต สถานะค้างจึงเป็นแค่รายการเล็กน้อย
           </p>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {[
-              { label: "คืนที่มีคนพัก (ห้อง-คืน)", value: totals.occupied },
-              { label: "ห้องที่เช็คเอาท์", value: totals.checkouts },
-              { label: "ทำหลังเช็คเอาท์แล้ว", value: totals.cleaned },
-              { label: "ลูกค้าพักต่อ (ลูกค้าขอ)", value: totals.stay },
-              { label: "ผิดปกติ", value: totals.problems, bad: totals.problems > 0 },
+              { label: "ห้อง-คืนที่แม่บ้านบันทึกว่าใช้", value: totals.evidence },
+              { label: "มีการจองรองรับ (ไม่ยกเลิก)", value: totals.backed },
+              { label: "ระดับสูง", value: totals.high, bad: totals.high > 0 },
+              { label: "ระดับกลาง", value: totals.medium, warn: totals.medium > 0 },
+              { label: "มูลค่าที่ไม่มีบันทึกรับเงิน (บาท)", value: baht(totals.atRisk), bad: totals.atRisk > 0 },
             ].map((c) => (
-              <div key={c.label} className={cn("rounded-lg p-3 text-center", c.bad ? "bg-red-50" : "bg-cream-100")}>
-                <p className={cn("text-2xl font-semibold", c.bad ? "text-red-700" : "text-forest-800")}>{c.value}</p>
+              <div key={c.label} className={cn("rounded-lg p-3 text-center", c.bad ? "bg-red-50" : c.warn ? "bg-amber-50" : "bg-cream-100")}>
+                <p className={cn("text-2xl font-semibold", c.bad ? "text-red-700" : c.warn ? "text-amber-700" : "text-forest-800")}>{c.value}</p>
                 <p className="text-xs text-ink-600">{c.label}</p>
               </div>
             ))}
@@ -176,7 +270,8 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
               <TableHeader>
                 <TableRow>
                   <TableHead>วันที่ลงบัญชี</TableHead>
-                  <TableHead className="text-right">ห้องที่มีคนพัก</TableHead>
+                  <TableHead className="text-right">แม่บ้านบันทึกว่าใช้</TableHead>
+                  <TableHead className="text-right">มีการจองรองรับ</TableHead>
                   <TableHead className="text-right">เช็คเอาท์เช้าวันถัดไป</TableHead>
                   <TableHead className="text-right">ทำหลังเช็คเอาท์</TableHead>
                   <TableHead className="text-right">พักต่อ (ลูกค้าขอ)</TableHead>
@@ -185,24 +280,28 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
               </TableHeader>
               <TableBody>
                 {recon.map((n) => {
-                  const problems = n.issues.filter((i) => blocking.has(i.kind));
-                  const pending = n.issues.filter((i) => i.kind === "PENDING_CHECKOUT");
-                  const notes = n.issues.filter((i) => i.kind === "NEVER_CHECKED_IN");
+                  const n2 = (s: Severity) => n.issues.filter((i) => i.severity === s).length;
+                  const high = n2("HIGH");
+                  const medium = n2("MEDIUM");
+                  const low = n2("LOW");
+                  const pending = n.issues.filter((i) => i.kind === "PENDING_CHECKOUT").length;
                   return (
                     <TableRow key={toDateOnlyString(n.night)}>
                       <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(n.night)}</TableCell>
-                      <TableCell className="text-right text-sm">{n.occupied}</TableCell>
+                      <TableCell className="text-right text-sm">{n.evidence}</TableCell>
+                      <TableCell className="text-right text-sm">{n.backed}</TableCell>
                       <TableCell className="text-right text-sm">{n.checkouts}</TableCell>
                       <TableCell className="text-right text-sm">{n.checkoutCleaned}</TableCell>
                       <TableCell className="text-right text-sm">{n.stayCleans}</TableCell>
                       <TableCell className="text-sm">
-                        {problems.length === 0 && pending.length === 0 && notes.length === 0 ? (
+                        {high + medium + low + pending === 0 ? (
                           <span className="text-emerald-700">ตรงกัน</span>
                         ) : (
                           <span className="flex flex-col gap-0.5">
-                            {problems.length > 0 && <span className="font-medium text-red-700">ผิดปกติ {problems.length} รายการ</span>}
-                            {pending.length > 0 && <span className="text-amber-700">รอทำความสะอาด {pending.length} ห้อง</span>}
-                            {notes.length > 0 && <span className="text-ink-600">ยังไม่เช็คอิน {notes.length} ห้อง</span>}
+                            {high > 0 && <span className="font-medium text-red-700">สูง {high} รายการ</span>}
+                            {medium > 0 && <span className="font-medium text-amber-700">กลาง {medium} รายการ</span>}
+                            {low > 0 && <span className="text-ink-600">เล็กน้อย {low} รายการ</span>}
+                            {pending > 0 && <span className="text-ink-600">รอทำความสะอาด {pending} ห้อง</span>}
                           </span>
                         )}
                       </TableCell>
@@ -213,31 +312,33 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
             </Table>
           </div>
 
-          {allIssues.length > 0 && (
+          {shownIssues.length > 0 && (
             <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>ระดับ</TableHead>
                     <TableHead>วันที่ลงบัญชี</TableHead>
                     <TableHead>ห้อง</TableHead>
                     <TableHead>ปัญหา</TableHead>
+                    <TableHead>รายละเอียด</TableHead>
+                    <TableHead className="text-right">มูลค่า (บาท)</TableHead>
+                    <TableHead>ผู้ลงข้อมูล</TableHead>
                     <TableHead>การจอง</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {allIssues.map((i, idx) => (
+                  {shownIssues.map((i, idx) => (
                     <TableRow key={`${i.kind}-${i.resourceId}-${toDateOnlyString(i.night)}-${idx}`}>
+                      <TableCell>
+                        <Badge variant={SEVERITY_BADGE[i.severity]}>{SEVERITY_LABELS[i.severity]}</Badge>
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(i.night)}</TableCell>
                       <TableCell className="whitespace-nowrap text-sm font-medium">{i.roomName}</TableCell>
-                      <TableCell className="text-sm">
-                        <span
-                          className={cn(
-                            blocking.has(i.kind) ? "font-medium text-red-700" : i.kind === "PENDING_CHECKOUT" ? "text-amber-700" : "text-ink-600"
-                          )}
-                        >
-                          {ISSUE_LABELS[i.kind]}
-                        </span>
-                      </TableCell>
+                      <TableCell className={cn("min-w-48 text-sm", i.severity === "HIGH" && "font-medium text-red-700")}>{ISSUE_LABELS[i.kind]}</TableCell>
+                      <TableCell className="min-w-56 max-w-sm text-xs text-ink-600">{i.detail ?? "-"}</TableCell>
+                      <TableCell className="text-right text-sm">{i.amount ? baht(i.amount) : "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">{i.responsible ?? "-"}</TableCell>
                       <TableCell className="text-sm">
                         {i.bookingId ? (
                           <Link href={`/accommodation/${i.bookingId}`} className="text-forest-700 hover:underline">
@@ -249,6 +350,52 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
                           </Link>
                         )}
                       </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          <p className="text-xs text-ink-400">
+            ระบบเห็นเฉพาะห้องที่แม่บ้านมีบันทึก ห้องที่ถูกใช้แต่ไม่มีใครบันทึกจะไม่ถูกตรวจ มูลค่าคำนวณจากราคาห้องในการจอง (หรือราคาห้องตามรายการราคา ถ้าไม่มีการจอง)
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>สรุปตามผู้ลงข้อมูล (รายการที่ย้อนไปถึงพนักงานได้)</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-ink-400">
+            นับตามผู้สร้างการจอง และผู้ยกเลิกสำหรับกรณี &quot;ยกเลิกแต่ห้องถูกใช้&quot; ใช้ดูรูปแบบที่เกิดซ้ำกับคนเดิม รายการเดี่ยวอาจเป็นความผิดพลาดได้ ห้องที่ไม่มีการจองจะย้อนไปถึงใครไม่ได้
+          </p>
+          {staffRows.length === 0 ? (
+            <p className="text-sm text-ink-400">ไม่พบรายการในช่วงนี้</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ชื่อ</TableHead>
+                    <TableHead className="text-right">ระดับสูง</TableHead>
+                    <TableHead className="text-right">ระดับกลาง</TableHead>
+                    <TableHead className="text-right">เล็กน้อย</TableHead>
+                    <TableHead className="text-right">ยกเลิกแล้วห้องถูกใช้</TableHead>
+                    <TableHead className="text-right">ยกเลิกทั้งหมด</TableHead>
+                    <TableHead className="text-right">มูลค่า (บาท)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {staffRows.map((r) => (
+                    <TableRow key={r.name}>
+                      <TableCell className="text-sm font-medium">{r.name}</TableCell>
+                      <TableCell className={cn("text-right text-sm", r.high > 0 && "font-medium text-red-700")}>{r.high}</TableCell>
+                      <TableCell className="text-right text-sm">{r.medium}</TableCell>
+                      <TableCell className="text-right text-sm">{r.low}</TableCell>
+                      <TableCell className={cn("text-right text-sm", r.usedCancelled > 0 && "font-medium text-red-700")}>{r.usedCancelled}</TableCell>
+                      <TableCell className="text-right text-sm">{r.cancelled}</TableCell>
+                      <TableCell className="text-right text-sm">{r.atRisk ? baht(r.atRisk) : "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

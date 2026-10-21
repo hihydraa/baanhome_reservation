@@ -13,6 +13,8 @@ enum UserRole {
   ADMIN
   STAFF
   HOUSEKEEPER
+  /// Internal audit: read-only access to everything staff see, plus the audit pages.
+  AUDITOR
 }
 
 enum ResourceZone {

@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
 ];
 
-export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
+export function Sidebar({ isAdmin, canAudit, isHousekeeper }: { isAdmin: boolean; canAudit: boolean; isHousekeeper?: boolean }) {
   const pathname = usePathname();
   // The room-cleaning page is for housekeepers (and the admin); front-desk staff don't see it.
   const navItems = NAV_ITEMS.filter((item) => {
@@ -109,7 +109,7 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
           </>
         )}
 
-        {isAdmin && (
+        {canAudit && (
           <>
             <Link
               href="/housekeeping-log"
@@ -124,18 +124,6 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
               บันทึกการทำห้อง
             </Link>
             <Link
-              href="/users"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/users")
-                  ? "bg-gold-500 text-forest-900"
-                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
-              )}
-            >
-              <Users className="h-4 w-4" />
-              จัดการผู้ใช้งาน
-            </Link>
-            <Link
               href="/payment-log"
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
@@ -148,6 +136,21 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
               ประวัติแก้ไขการรับเงิน
             </Link>
           </>
+        )}
+
+        {isAdmin && (
+          <Link
+            href="/users"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/users")
+                ? "bg-gold-500 text-forest-900"
+                : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+            )}
+          >
+            <Users className="h-4 w-4" />
+            จัดการผู้ใช้งาน
+          </Link>
         )}
       </nav>
 

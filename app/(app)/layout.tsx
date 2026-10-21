@@ -7,16 +7,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const session = await auth();
   const isAdmin = session?.user.role === "ADMIN";
   const isHousekeeper = session?.user.role === "HOUSEKEEPER";
+  const canAudit = isAdmin || session?.user.role === "AUDITOR";
 
   return (
     <ToastProvider>
       <div className="flex min-h-screen w-full">
-        <Sidebar isAdmin={isAdmin} isHousekeeper={isHousekeeper} />
+        <Sidebar isAdmin={isAdmin} canAudit={canAudit} isHousekeeper={isHousekeeper} />
         <div className="flex min-h-screen flex-1 flex-col">
           <Header
             name={session?.user.name ?? ""}
             role={session?.user.role ?? "STAFF"}
             isAdmin={isAdmin}
+            canAudit={canAudit}
             isHousekeeper={isHousekeeper}
           />
           <main className="flex-1 bg-cream-100 p-4 md:p-6">{children}</main>

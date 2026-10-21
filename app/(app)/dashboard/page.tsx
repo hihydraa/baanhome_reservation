@@ -19,7 +19,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ date?: string }>;
 }) {
   const session = await auth();
-  const readOnly = session?.user.role === "HOUSEKEEPER";
+  const readOnly = session?.user.role === "HOUSEKEEPER" || session?.user.role === "AUDITOR";
   const { date: dateParam } = await searchParams;
   const date = dateParam ? parseDateOnly(dateParam) : todayDateOnly();
   const nextDay = new Date(date);
