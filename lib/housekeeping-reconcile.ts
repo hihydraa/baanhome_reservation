@@ -28,6 +28,8 @@ export type ReconBooking = {
   paid: number;
   payMethods: string[];
   createdByName: string | null;
+  /** Rooms booked together as one charter share this id; their payment sits on one room, so money is judged per group. */
+  groupId: string | null;
   /** Only for cancelled bookings. */
   cancelledAt: Date | null;
   cancelledByName: string | null;
@@ -57,7 +59,8 @@ export type IssueKind =
   | "STAY_BUT_CHECKOUT"
   | "DUPLICATE_CHECKOUT"
   | "PENDING_CHECKOUT"
-  | "NEVER_CHECKED_IN";
+  | "NEVER_CHECKED_IN"
+  | "UNBILLED_ADDON";
 
 export type Severity = "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
@@ -75,6 +78,7 @@ export const ISSUE_LABELS: Record<IssueKind, string> = {
   DUPLICATE_CHECKOUT: "บันทึกเช็คเอาท์ซ้ำหลายรายการ",
   PENDING_CHECKOUT: "เช็คเอาท์วันนี้ รอทำความสะอาด",
   NEVER_CHECKED_IN: "การจองยังเป็นสถานะ \"จอง\" และไม่มีหลักฐานการใช้ห้อง (ไม่มาพัก?)",
+  UNBILLED_ADDON: "แม่บ้านเบิก/พบบริการเสริม แต่ไม่ได้บันทึกในการจอง",
 };
 
 export const ISSUE_SEVERITY: Record<IssueKind, Severity> = {
@@ -91,6 +95,7 @@ export const ISSUE_SEVERITY: Record<IssueKind, Severity> = {
   DUPLICATE_CHECKOUT: "LOW",
   PENDING_CHECKOUT: "INFO",
   NEVER_CHECKED_IN: "INFO",
+  UNBILLED_ADDON: "MEDIUM",
 };
 
 export const SEVERITY_LABELS: Record<Severity, string> = {
@@ -116,6 +121,10 @@ export type NightIssue = {
   amount?: number;
   /** The staff member whose entry the finding traces back to; null when no booking exists to trace. */
   responsible?: string | null;
+  /** Charter group of the booking, so one payment shortfall is a single finding however many rooms it spans. */
+  groupId?: string | null;
+  /** Overrides the stable key (used by findings that are per booking and item rather than per night). */
+  key?: string;
 };
 
 export type NightResult = {
@@ -157,6 +166,19 @@ export function reconcileNights(input: {
   const active = input.bookings.filter((b) => b.status !== "CANCELLED");
   const cancelled = input.bookings.filter((b) => b.status === "CANCELLED");
   const todayKey = key(input.today);
+  // A charter is paid once, on one room: money is judged for the whole group, never room by room.
+  const nightsOf = (b: ReconBooking) => Math.max(1, key(b.checkOut) - key(b.checkIn));
+  const expectedOf = (b: ReconBooking) => (b.expectedTotal > 0 ? b.expectedTotal : b.roomRate * nightsOf(b));
+  const groups = new Map<string, { paid: number; expected: number; expectedKnown: boolean; rooms: number }>();
+  for (const b of active) {
+    if (!b.groupId) continue;
+    const g = groups.get(b.groupId) ?? { paid: 0, expected: 0, expectedKnown: false, rooms: 0 };
+    g.paid += b.paid;
+    g.expected += expectedOf(b);
+    g.expectedKnown ||= b.expectedTotal > 0;
+    g.rooms += 1;
+    groups.set(b.groupId, g);
+  }
   // Booking-level findings (payment, stale status) are raised once, not once per night of the stay.
   const flagged = new Set<string>();
 
@@ -177,6 +199,29 @@ export function reconcileNights(input: {
 
     const evidenceByRoom = new Map<string, ReconRecord[]>();
     for (const r of recs) evidenceByRoom.set(r.resourceId, [...(evidenceByRoom.get(r.resourceId) ?? []), r]);
+
+    // ----- payment: every finished stay must have been paid for, whether or not housekeeping logged a cleaning -----
+    for (const b of checkingOut) {
+      // Judged on the stay's last night, and only once the stay is over (the guest may still pay at checkout).
+      if (key(b.checkOut) >= todayKey) continue;
+      const g = b.groupId ? groups.get(b.groupId) : undefined;
+      const paid = g ? g.paid : b.paid;
+      const expected = g ? g.expected : expectedOf(b);
+      const expectedKnown = g ? g.expectedKnown : b.expectedTotal > 0;
+      const scope = g && g.rooms > 1 ? `ห้องเหมา ${g.rooms} ห้อง รวมยอด; ` : "";
+      const methods = b.payMethods.length > 0 ? ` (${b.payMethods.join(", ")})` : "";
+      const bBase = { night, resourceId: b.resourceId, roomName: b.roomName, bookingId: b.id, customerName: b.customerName, responsible: b.createdByName, groupId: b.groupId };
+      const onceKey = (kind: IssueKind) => `${b.groupId ?? b.id}:${kind}`;
+      if (paid <= 0) {
+        if (!flagged.has(onceKey("NO_PAYMENT"))) {
+          flagged.add(onceKey("NO_PAYMENT"));
+          push({ ...bBase, kind: "NO_PAYMENT", detail: `${scope}ยอดที่ควรได้ ${expected > 0 ? baht(expected) : "ไม่ระบุ"}; รับแล้ว 0`, amount: expected });
+        }
+      } else if (expectedKnown && paid < expected - 0.5 && !flagged.has(onceKey("UNDERPAID"))) {
+        flagged.add(onceKey("UNDERPAID"));
+        push({ ...bBase, kind: "UNDERPAID", detail: `${scope}ยอดที่ควรได้ ${baht(expected)}; รับแล้ว ${baht(paid)}${methods}`, amount: expected - paid });
+      }
+    }
 
     // ----- evidence first: every room the housekeeper says was used must be backed by revenue records -----
     let backed = 0;
@@ -241,22 +286,6 @@ export function reconcileNights(input: {
           flagged.add(k);
           return true;
         };
-
-        // Payment is judged only once the stay is over (the guest may still pay at checkout).
-        if (key(b.checkOut) < todayKey) {
-          const methods = b.payMethods.length > 0 ? ` (${b.payMethods.join(", ")})` : "";
-          const expected = b.expectedTotal > 0 ? b.expectedTotal : b.roomRate * Math.max(1, key(b.checkOut) - key(b.checkIn));
-          if (b.paid <= 0 && once("NO_PAYMENT")) {
-            push({ ...bBase, kind: "NO_PAYMENT", detail: `ยอดที่ควรได้ ${expected > 0 ? baht(expected) : "ไม่ระบุ"}; รับแล้ว 0`, amount: expected });
-          } else if (b.paid > 0 && b.expectedTotal > 0 && b.paid < b.expectedTotal - 0.5 && once("UNDERPAID")) {
-            push({
-              ...bBase,
-              kind: "UNDERPAID",
-              detail: `ยอดที่ควรได้ ${baht(b.expectedTotal)}; รับแล้ว ${baht(b.paid)}${methods}`,
-              amount: b.expectedTotal - b.paid,
-            });
-          }
-        }
 
         if (b.status === "RESERVED" && once("STATUS_LAG_RESERVED")) {
           push({ ...bBase, kind: "STATUS_LAG_RESERVED" });

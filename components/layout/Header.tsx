@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck, SprayCan, ClipboardList } from "lucide-react";
+import { LogOut, LayoutGrid, BedDouble, CalendarClock, Users, History, BarChart3, Tag, BookUser, ShieldCheck, SprayCan, ClipboardList, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ROLE_LABELS } from "@/lib/labels";
@@ -79,6 +79,19 @@ export function Header({
         })}
         {!isHousekeeper && canAudit && (
           <Link
+            href="/audit"
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
+              pathname.startsWith("/audit") ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600"
+            )}
+          >
+            <Search className="h-3.5 w-3.5" />
+            ตรวจสอบภายใน
+            {openFindings > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">{openFindings}</span>}
+          </Link>
+        )}
+        {!isHousekeeper && isAdmin && (
+          <Link
             href="/housekeeping-log"
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium",
@@ -87,7 +100,6 @@ export function Header({
           >
             <SprayCan className="h-3.5 w-3.5" />
             บันทึกทำห้อง
-            {openFindings > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">{openFindings}</span>}
           </Link>
         )}
         {!isHousekeeper && isAdmin && (

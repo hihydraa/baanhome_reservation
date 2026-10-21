@@ -74,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const booking = await prisma.$transaction(async (tx) => {
     await tx.accommodationAddon.deleteMany({ where: { bookingId: id } });
-    return tx.accommodationBooking.update({
+    const updated = await tx.accommodationBooking.update({
       where: { id },
       data: {
         resourceId: data.resourceId,
@@ -105,6 +105,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
       },
     });
+    if (existing.status !== data.status) {
+      await logBookingStatus({ bookingIds: [id], fromStatus: existing.status, toStatus: data.status, user: session!.user }, tx);
+    }
+    return updated;
   });
 
   const [newResource, newServices] = await Promise.all([
@@ -161,10 +165,6 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     userName: session!.user.name ?? session!.user.username,
     changes: diffAccommodationQuotation(before, after),
   });
-
-  if (existing.status !== data.status) {
-    await logBookingStatus({ bookingIds: [id], fromStatus: existing.status, toStatus: data.status, user: session!.user });
-  }
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {
     await logAccommodationCancellation({

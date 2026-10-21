@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan, ClipboardList } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan, ClipboardList, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -122,20 +122,34 @@ export function Sidebar({
         {canAudit && (
           <>
             <Link
-              href="/housekeeping-log"
+              href="/audit"
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/housekeeping-log")
+                pathname.startsWith("/audit")
                   ? "bg-gold-500 text-forest-900"
                   : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
               )}
             >
-              <SprayCan className="h-4 w-4" />
-              บันทึกการทำห้อง
+              <Search className="h-4 w-4" />
+              ตรวจสอบภายใน
               {openFindings > 0 && (
                 <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">{openFindings}</span>
               )}
             </Link>
+            {isAdmin && (
+              <Link
+                href="/housekeeping-log"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname.startsWith("/housekeeping-log")
+                    ? "bg-gold-500 text-forest-900"
+                    : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+                )}
+              >
+                <SprayCan className="h-4 w-4" />
+                บันทึกการทำห้อง
+              </Link>
+            )}
             <Link
               href="/payment-log"
               className={cn(

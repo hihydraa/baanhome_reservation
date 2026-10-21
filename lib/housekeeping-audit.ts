@@ -1,9 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { TRACKED_ITEMS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
 import { shiftDate, todayDateOnly, toDateOnlyString } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
-import { reconcileNights, type NightIssue } from "@/lib/housekeeping-reconcile";
+import { ISSUE_SEVERITY, reconcileNights, type NightIssue } from "@/lib/housekeeping-reconcile";
 
 /** Loads the last `rangeDays` nights of bookings and cleaning records and reconciles them. */
 export async function loadReconciliation(rangeDays: number) {
@@ -19,6 +20,7 @@ export async function loadReconciliation(rangeDays: number) {
       select: {
         id: true,
         status: true,
+        charterGroupId: true,
         resourceId: true,
         customerName: true,
         checkIn: true,
@@ -77,6 +79,7 @@ export async function loadReconciliation(rangeDays: number) {
         paid: sumPaid(entries),
         payMethods: [...new Set(entries.map((e) => PAYMENT_METHOD_LABELS[e.method] ?? e.method))],
         createdByName: st.createdBy?.name ?? null,
+        groupId: st.charterGroupId,
         // A booking cancelled with no log row (older data) falls back to its last edit time.
         cancelledAt: cancelled ? (cancel?.cancelledAt ?? st.updatedAt) : null,
         cancelledByName: cancelled ? (cancel?.cancelledBy?.name ?? null) : null,
@@ -93,14 +96,69 @@ export async function loadReconciliation(rangeDays: number) {
     })),
   });
 
+  // Services the housekeeper saw delivered (extra bed, blanket, pillow, pet) that the booking was never charged for.
+  const services = await prisma.specialService.findMany({ where: { scope: "ACCOMMODATION" }, select: { name: true, price: true } });
+  const priceFor = (cat: string) => {
+    const t = TRACKED_ITEMS.find((x) => x.key === cat);
+    const sv = t && services.find((v) => t.keywords.some((k) => v.name.includes(k)));
+    return sv ? Number(sv.price) : 0;
+  };
+  const finished = stays.filter((st) => st.status !== "CANCELLED" && st.checkOut < today);
+  const units = new Map<string, typeof finished>();
+  for (const st of finished) units.set(st.charterGroupId ?? st.id, [...(units.get(st.charterGroupId ?? st.id) ?? []), st]);
+  for (const [unitKey, members] of units) {
+    // A charter is billed on one room but served in many: add-ons are compared across the whole group.
+    const billed = new Map<string, number>();
+    const taken = new Map<string, { qty: number; resourceId: string; roomName: string }>();
+    for (const st of members) {
+      for (const a of st.addons) {
+        const cat = trackedKeyForAddonName(a.service?.name ?? a.description);
+        if (cat) billed.set(cat, (billed.get(cat) ?? 0) + a.quantity);
+      }
+      for (const r of records) {
+        if (r.resourceId !== st.resourceId || r.ledgerDate < st.checkIn || r.ledgerDate >= st.checkOut) continue;
+        for (const i of r.items) {
+          if (!i.category) continue;
+          const cur = taken.get(i.category) ?? { qty: 0, resourceId: st.resourceId, roomName: st.resource.name };
+          cur.qty += i.quantity;
+          taken.set(i.category, cur);
+        }
+      }
+    }
+    const anchor = members[0];
+    const night = shiftDate(anchor.checkOut, -1);
+    const target = recon.find((n) => n.night.getTime() === night.getTime());
+    if (!target) continue;
+    for (const [cat, t] of taken) {
+      const missing = t.qty - (billed.get(cat) ?? 0);
+      if (missing <= 0) continue;
+      const price = priceFor(cat);
+      target.issues.push({
+        kind: "UNBILLED_ADDON",
+        severity: ISSUE_SEVERITY.UNBILLED_ADDON,
+        night,
+        resourceId: t.resourceId,
+        roomName: t.roomName,
+        bookingId: anchor.id,
+        customerName: anchor.customerName,
+        detail: `${TRACKED_LABELS[cat] ?? cat}: แม่บ้านเบิก ${t.qty} บันทึกในการจอง ${billed.get(cat) ?? 0}${price ? ` (บริการละ ${price.toLocaleString("th-TH")} บาท)` : ""}`,
+        amount: missing * price,
+        responsible: anchor.createdBy?.name ?? null,
+        groupId: anchor.charterGroupId,
+        key: `UNBILLED_ADDON:${unitKey}:${cat}`,
+      });
+    }
+  }
+
   return { today, lastNight, firstNight, nights, stays, records, cancelByBooking, recon };
 }
 
 /** Payment findings belong to the booking, not to a night — the night they were attached to depends on the window. */
 const BOOKING_LEVEL_KINDS = new Set(["NO_PAYMENT", "UNDERPAID"]);
 
-export function findingKey(i: Pick<NightIssue, "kind" | "bookingId" | "resourceId" | "night">): string {
-  if (BOOKING_LEVEL_KINDS.has(i.kind) && i.bookingId) return `${i.kind}:${i.bookingId}`;
+export function findingKey(i: Pick<NightIssue, "kind" | "bookingId" | "resourceId" | "night" | "groupId" | "key">): string {
+  if (i.key) return i.key;
+  if (BOOKING_LEVEL_KINDS.has(i.kind) && (i.groupId ?? i.bookingId)) return `${i.kind}:${i.groupId ?? i.bookingId}`;
   return `${i.kind}:${i.bookingId ?? i.resourceId}:${toDateOnlyString(i.night)}`;
 }
 
