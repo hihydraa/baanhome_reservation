@@ -7,6 +7,7 @@ import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
 import { logCreatedEntries } from "@/lib/payment-entry-log";
+import { statusLogRows } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 const CHARTER_SCOPE_LABELS: Record<string, string> = {
@@ -61,10 +62,13 @@ export async function POST(req: NextRequest) {
   const receiptNumber = hasInitialDeposit ? await generateReceiptNumber(prisma, paidAt) : null;
   const charterGroupId = crypto.randomUUID();
 
-  const bookings = await prisma.$transaction(
-    resources.map((r, index) =>
+  // Ids are chosen up front so the status history rows commit in the same transaction as the bookings.
+  const bookingIds = resources.map(() => crypto.randomUUID());
+  const results = await prisma.$transaction([
+    ...resources.map((r, index) =>
       prisma.accommodationBooking.create({
         data: {
+          id: bookingIds[index],
           resourceId: r.id,
           customerName: data.customerName,
           phone: data.phone,
@@ -101,8 +105,12 @@ export async function POST(req: NextRequest) {
           },
         },
       })
-    )
-  );
+    ),
+    prisma.bookingStatusLog.createMany({
+      data: statusLogRows({ bookingIds, fromStatus: null, toStatus: data.status, user: session!.user }),
+    }),
+  ]);
+  const bookings = results.slice(0, resources.length) as Awaited<ReturnType<typeof prisma.accommodationBooking.create>>[];
 
   if (hasInitialDeposit) {
     const entries = await prisma.paymentEntry.findMany({

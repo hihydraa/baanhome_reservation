@@ -5,6 +5,7 @@ import { accommodationBookingInputSchema, deleteReasonInputSchema } from "@/lib/
 import { parseDateOnly } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { logAccommodationCancellation, softDeleteAccommodationBooking } from "@/lib/cancellation-log";
+import { logBookingStatus } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 import { accommodationExpectedTotal } from "@/lib/payment-calc";
 import { diffAccommodationQuotation, logQuotationChange, type AccommodationQuotationSnapshot } from "@/lib/quotation-log";
@@ -73,7 +74,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const booking = await prisma.$transaction(async (tx) => {
     await tx.accommodationAddon.deleteMany({ where: { bookingId: id } });
-    return tx.accommodationBooking.update({
+    const updated = await tx.accommodationBooking.update({
       where: { id },
       data: {
         resourceId: data.resourceId,
@@ -104,6 +105,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         payment: { include: { entries: { include: { receivedBy: true }, orderBy: { paidAt: "asc" } } } },
       },
     });
+    if (existing.status !== data.status) {
+      await logBookingStatus({ bookingIds: [id], fromStatus: existing.status, toStatus: data.status, user: session!.user }, tx);
+    }
+    return updated;
   });
 
   const [newResource, newServices] = await Promise.all([

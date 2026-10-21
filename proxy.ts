@@ -6,6 +6,9 @@ import { authConfig } from "@/auth.config";
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
+  // Cron calls carry no session; the route checks its own bearer secret.
+  if (req.nextUrl.pathname.startsWith("/api/cron/")) return NextResponse.next();
+
   const isLoggedIn = !!req.auth;
   const isLoginPage = req.nextUrl.pathname.startsWith("/login");
   const isApiRoute = req.nextUrl.pathname.startsWith("/api");
@@ -22,6 +25,14 @@ export default auth((req) => {
 
   if (isLoggedIn && isLoginPage) {
     return NextResponse.redirect(new URL("/dashboard", req.nextUrl.origin));
+  }
+
+  // The internal auditor sees everything staff see but can never change anything.
+  const isAuditor = req.auth?.user?.role === "AUDITOR";
+  // Recording the outcome of an audit finding is the auditor's job; that route checks the role itself.
+  const isAuditWrite = /^\/api\/audit-findings\/[^/]+$/.test(req.nextUrl.pathname);
+  if (isLoggedIn && isAuditor && isApiRoute && !isAuditWrite && !["GET", "HEAD"].includes(req.method)) {
+    return NextResponse.json({ error: "บัญชีตรวจสอบภายในดูข้อมูลได้อย่างเดียว" }, { status: 403 });
   }
 
   const isHousekeeper = req.auth?.user?.role === "HOUSEKEEPER";

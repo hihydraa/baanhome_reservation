@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan, ClipboardList } from "lucide-react";
+import { LayoutGrid, BedDouble, CalendarClock, Users, ChefHat, History, BarChart3, Tag, BookUser, TrendingUp, ShieldCheck, SprayCan, ClipboardList, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -14,7 +14,17 @@ const NAV_ITEMS = [
   { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
 ];
 
-export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousekeeper?: boolean }) {
+export function Sidebar({
+  isAdmin,
+  canAudit,
+  openFindings = 0,
+  isHousekeeper,
+}: {
+  isAdmin: boolean;
+  canAudit: boolean;
+  openFindings?: number;
+  isHousekeeper?: boolean;
+}) {
   const pathname = usePathname();
   // The room-cleaning page is for housekeepers (and the admin); front-desk staff don't see it.
   const navItems = NAV_ITEMS.filter((item) => {
@@ -109,32 +119,37 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
           </>
         )}
 
-        {isAdmin && (
+        {canAudit && (
           <>
             <Link
-              href="/housekeeping-log"
+              href="/audit"
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/housekeeping-log")
+                pathname.startsWith("/audit")
                   ? "bg-gold-500 text-forest-900"
                   : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
               )}
             >
-              <SprayCan className="h-4 w-4" />
-              บันทึกการทำห้อง
-            </Link>
-            <Link
-              href="/users"
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                pathname.startsWith("/users")
-                  ? "bg-gold-500 text-forest-900"
-                  : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+              <Search className="h-4 w-4" />
+              ตรวจสอบภายใน
+              {openFindings > 0 && (
+                <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">{openFindings}</span>
               )}
-            >
-              <Users className="h-4 w-4" />
-              จัดการผู้ใช้งาน
             </Link>
+            {isAdmin && (
+              <Link
+                href="/housekeeping-log"
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  pathname.startsWith("/housekeeping-log")
+                    ? "bg-gold-500 text-forest-900"
+                    : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+                )}
+              >
+                <SprayCan className="h-4 w-4" />
+                บันทึกการทำห้อง
+              </Link>
+            )}
             <Link
               href="/payment-log"
               className={cn(
@@ -148,6 +163,21 @@ export function Sidebar({ isAdmin, isHousekeeper }: { isAdmin: boolean; isHousek
               ประวัติแก้ไขการรับเงิน
             </Link>
           </>
+        )}
+
+        {isAdmin && (
+          <Link
+            href="/users"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              pathname.startsWith("/users")
+                ? "bg-gold-500 text-forest-900"
+                : "text-cream-100/80 hover:bg-forest-700 hover:text-cream-50"
+            )}
+          >
+            <Users className="h-4 w-4" />
+            จัดการผู้ใช้งาน
+          </Link>
         )}
       </nav>
 

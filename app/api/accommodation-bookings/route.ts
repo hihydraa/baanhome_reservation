@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSession, requireWriteAccess, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
@@ -7,6 +8,7 @@ import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
 import { logCreatedEntries } from "@/lib/payment-entry-log";
 import { logQuotationChange } from "@/lib/quotation-log";
+import { statusLogRows } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 export async function GET(req: NextRequest) {
@@ -59,8 +61,12 @@ export async function POST(req: NextRequest) {
   const paidAt = nowBangkok();
   const receiptNumber = hasInitialDeposit ? await generateReceiptNumber(prisma, paidAt) : null;
 
-  const booking = await prisma.accommodationBooking.create({
+  // The id is chosen up front so the status history row commits in the same transaction as the booking.
+  const bookingId = crypto.randomUUID();
+  const [booking] = await prisma.$transaction([
+    prisma.accommodationBooking.create({
     data: {
+      id: bookingId,
       resourceId: data.resourceId,
       customerName: data.customerName,
       phone: data.phone,
@@ -101,7 +107,11 @@ export async function POST(req: NextRequest) {
       },
     },
     include: { resource: true, addons: true, payment: { include: { entries: true } } },
-  });
+    }),
+    prisma.bookingStatusLog.createMany({
+      data: statusLogRows({ bookingIds: [bookingId], fromStatus: null, toStatus: data.status, user: session!.user }),
+    }),
+  ]);
 
   await logCreatedEntries(prisma, booking.payment?.entries ?? [], session!.user);
 

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
 import { formatShortThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
-import { BLOCKING_KINDS, ISSUE_LABELS, reconcileNights } from "@/lib/housekeeping-reconcile";
+import { BLOCKING_KINDS, ISSUE_LABELS, reconcileNights } from "@/lib/housekeeping-checkout-recon";
 
 // Audit view — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
@@ -95,8 +95,8 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
     }
     const taken = new Map<string, number>();
     for (const r of records) {
-      // The stay's nights run check-in day through the day before check-out.
-      if (r.resourceId !== st.resourceId || r.serviceDate < st.checkIn || r.serviceDate >= st.checkOut) continue;
+      // A cleaning is logged under the night it cleans up after, and a stay's nights run from check-in through the day before check-out.
+      if (r.resourceId !== st.resourceId || r.ledgerDate < st.checkIn || r.ledgerDate >= st.checkOut) continue;
       for (const i of r.items) if (i.category) taken.set(i.category, (taken.get(i.category) ?? 0) + i.quantity);
     }
     for (const key of new Set([...billed.keys(), ...taken.keys()])) {
