@@ -1,4 +1,5 @@
 {
   "regions": ["sin1"],
+  "crons": [{ "path": "/api/cron/audit-snapshot", "schedule": "0 6 * * *" }],
   "ignoreCommand": "bash -c 'if [[ \"$VERCEL_GIT_COMMIT_REF\" == claude/* ]]; then exit 0; else exit 1; fi'"
 }

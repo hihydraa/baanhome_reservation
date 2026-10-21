@@ -14,7 +14,17 @@ const NAV_ITEMS = [
   { href: "/cancellations", label: "ประวัติการยกเลิก/ลบ", icon: History },
 ];
 
-export function Sidebar({ isAdmin, canAudit, isHousekeeper }: { isAdmin: boolean; canAudit: boolean; isHousekeeper?: boolean }) {
+export function Sidebar({
+  isAdmin,
+  canAudit,
+  openFindings = 0,
+  isHousekeeper,
+}: {
+  isAdmin: boolean;
+  canAudit: boolean;
+  openFindings?: number;
+  isHousekeeper?: boolean;
+}) {
   const pathname = usePathname();
   // The room-cleaning page is for housekeepers (and the admin); front-desk staff don't see it.
   const navItems = NAV_ITEMS.filter((item) => {
@@ -122,6 +132,9 @@ export function Sidebar({ isAdmin, canAudit, isHousekeeper }: { isAdmin: boolean
             >
               <SprayCan className="h-4 w-4" />
               บันทึกการทำห้อง
+              {openFindings > 0 && (
+                <span className="ml-auto rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">{openFindings}</span>
+              )}
             </Link>
             <Link
               href="/payment-log"

@@ -5,6 +5,7 @@ import { accommodationBookingInputSchema, deleteReasonInputSchema } from "@/lib/
 import { parseDateOnly } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { logAccommodationCancellation, softDeleteAccommodationBooking } from "@/lib/cancellation-log";
+import { logBookingStatus } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 import { accommodationExpectedTotal } from "@/lib/payment-calc";
 import { diffAccommodationQuotation, logQuotationChange, type AccommodationQuotationSnapshot } from "@/lib/quotation-log";
@@ -160,6 +161,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     userName: session!.user.name ?? session!.user.username,
     changes: diffAccommodationQuotation(before, after),
   });
+
+  if (existing.status !== data.status) {
+    await logBookingStatus({ bookingIds: [id], fromStatus: existing.status, toStatus: data.status, user: session!.user });
+  }
 
   if (existing.status !== "CANCELLED" && data.status === "CANCELLED") {
     await logAccommodationCancellation({

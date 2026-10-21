@@ -7,6 +7,7 @@ import { parseDateOnly, nowBangkok } from "@/lib/dates";
 import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
 import { logCreatedEntries } from "@/lib/payment-entry-log";
+import { logBookingStatus } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 const CHARTER_SCOPE_LABELS: Record<string, string> = {
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest) {
       })
     )
   );
+
+  await logBookingStatus({ bookingIds: bookings.map((b) => b.id), fromStatus: null, toStatus: data.status, user: session!.user });
 
   if (hasInitialDeposit) {
     const entries = await prisma.paymentEntry.findMany({

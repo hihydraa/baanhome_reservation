@@ -25,12 +25,14 @@ export function Header({
   role,
   isAdmin,
   canAudit,
+  openFindings = 0,
   isHousekeeper,
 }: {
   name: string;
   role: string;
   isAdmin: boolean;
   canAudit: boolean;
+  openFindings?: number;
   isHousekeeper?: boolean;
 }) {
   const pathname = usePathname();
@@ -85,6 +87,7 @@ export function Header({
           >
             <SprayCan className="h-3.5 w-3.5" />
             บันทึกทำห้อง
+            {openFindings > 0 && <span className="rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">{openFindings}</span>}
           </Link>
         )}
         {!isHousekeeper && isAdmin && (

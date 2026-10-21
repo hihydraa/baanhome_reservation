@@ -6,11 +6,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { HOUSEKEEPING_STATUS_LABELS, PAYMENT_METHOD_LABELS } from "@/lib/labels";
+import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
-import { formatShortThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
-import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
-import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, reconcileNights, type Severity } from "@/lib/housekeeping-reconcile";
+import { formatShortThaiDate, shiftDate, toDateOnlyString } from "@/lib/dates";
+import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, type IssueKind, type Severity } from "@/lib/housekeeping-reconcile";
+import { loadReconciliation, syncAuditFindings } from "@/lib/housekeeping-audit";
+import { FindingReview } from "@/components/housekeeping/FindingReview";
 
 // Audit view — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
@@ -38,113 +39,41 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
   const { days, level } = await searchParams;
   const rangeDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;
   const showAll = level === "all";
-  const today = todayDateOnly();
+  const { today, lastNight, firstNight, nights, stays, records, cancelByBooking, recon } = await loadReconciliation(rangeDays);
   const firstDay = shiftDate(today, -(rangeDays - 1));
-  // Nights being reconciled: the last `rangeDays` nights up to last night (whose cleaning is this morning's).
-  const lastNight = shiftDate(today, -1);
-  const firstNight = shiftDate(today, -rangeDays);
   // Log timestamps are real instants; day buckets are Bangkok calendar days.
   const since = new Date(firstDay.getTime() - BANGKOK_OFFSET_MS);
 
-  const [logs, stays, records, rooms] = await Promise.all([
+  // Save what this check found before anything else can edit the bookings, then read back the saved findings.
+  await syncAuditFindings(recon, nights);
+  const [logs, findings] = await Promise.all([
     prisma.housekeepingLog.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 500 }),
-    // Every booking that overlaps the range — cancelled ones included, since "cancelled" is exactly what a room
-    // that was really used might be hidden behind.
-    prisma.accommodationBooking.findMany({
-      where: { checkIn: { lte: today }, checkOut: { gt: firstNight } },
-      select: {
-        id: true,
-        status: true,
-        resourceId: true,
-        customerName: true,
-        checkIn: true,
-        checkOut: true,
-        roomPrice: true,
-        discountType: true,
-        discountValue: true,
-        updatedAt: true,
-        createdBy: { select: { name: true } },
-        resource: { select: { name: true, price: true } },
-        addons: { select: { quantity: true, price: true, description: true, service: { select: { name: true } } } },
-        payment: { select: { entries: { select: { amount: true, method: true } } } },
-      },
-      orderBy: { checkIn: "desc" },
-    }),
-    prisma.cleaningRecord.findMany({
-      where: { OR: [{ serviceDate: { gte: shiftDate(firstNight, -30), lte: today } }, { ledgerDate: { gte: firstNight, lte: today } }] },
-      orderBy: { createdAt: "desc" },
-      include: { items: true },
-    }),
-    prisma.resource.findMany({ where: { type: "ACCOMMODATION" }, select: { id: true, price: true } }),
+    prisma.auditFinding.findMany({ where: { night: { gte: firstNight, lte: lastNight } }, orderBy: [{ night: "desc" }, { detectedAt: "desc" }] }),
   ]);
 
-  // Who cancelled each cancelled booking, when, and why (the booking row itself only keeps the status).
-  const cancelledIds = stays.filter((st) => st.status === "CANCELLED").map((st) => st.id);
-  const cancelLogs = cancelledIds.length
-    ? await prisma.cancellationLog.findMany({
-        where: { bookingType: "ACCOMMODATION", action: "CANCEL", bookingId: { in: cancelledIds } },
-        orderBy: { cancelledAt: "desc" },
-        select: { bookingId: true, cancelledAt: true, reason: true, cancelledBy: { select: { name: true } } },
-      })
-    : [];
-  const cancelByBooking = new Map<string, (typeof cancelLogs)[number]>();
-  for (const c of cancelLogs) if (!cancelByBooking.has(c.bookingId)) cancelByBooking.set(c.bookingId, c);
-
-  // ----- room-night reconciliation: housekeeping evidence vs the cashier's bookings, cancellations, payments -----
-  const nights = Array.from({ length: rangeDays }, (_, i) => shiftDate(lastNight, -i));
-  const recon = reconcileNights({
-    nights,
-    today,
-    resourceRates: Object.fromEntries(rooms.map((r) => [r.id, r.price ? Number(r.price) : 0])),
-    bookings: stays.map((st) => {
-      const entries = st.payment?.entries ?? [];
-      const cancel = cancelByBooking.get(st.id);
-      const cancelled = st.status === "CANCELLED";
-      return {
-        id: st.id,
-        resourceId: st.resourceId,
-        roomName: st.resource.name,
-        customerName: st.customerName,
-        checkIn: st.checkIn,
-        checkOut: st.checkOut,
-        status: st.status,
-        roomRate: Number(st.roomPrice ?? st.resource.price ?? 0),
-        expectedTotal: accommodationExpectedTotal(st, st.addons).expectedTotal,
-        paid: sumPaid(entries),
-        payMethods: [...new Set(entries.map((e) => PAYMENT_METHOD_LABELS[e.method] ?? e.method))],
-        createdByName: st.createdBy?.name ?? null,
-        // A booking cancelled with no log row (older data) falls back to its last edit time.
-        cancelledAt: cancelled ? (cancel?.cancelledAt ?? st.updatedAt) : null,
-        cancelledByName: cancelled ? (cancel?.cancelledBy?.name ?? null) : null,
-        cancelReason: cancelled ? (cancel?.reason ?? null) : null,
-      };
-    }),
-    records: records.map((r) => ({
-      id: r.id,
-      resourceId: r.resourceId,
-      roomName: r.roomName,
-      type: r.type,
-      ledgerDate: r.ledgerDate,
-      createdAt: r.createdAt,
-    })),
-  });
-
   const allIssues = recon.flatMap((n) => n.issues);
-  const rank = (s: Severity) => SEVERITY_ORDER.indexOf(s);
-  const shownIssues = allIssues
-    .filter((i) => showAll || i.severity === "HIGH" || i.severity === "MEDIUM")
+  const rank = (sev: Severity) => SEVERITY_ORDER.indexOf(sev);
+  // Minor and informational items are only recomputed live; high/medium ones are the saved findings below.
+  const minorIssues = allIssues
+    .filter((i) => i.severity === "LOW" || i.severity === "INFO")
     .sort((a, b) => rank(a.severity) - rank(b.severity) || b.night.getTime() - a.night.getTime());
-  const countBy = (s: Severity) => allIssues.filter((i) => i.severity === s).length;
+  // Cleared by the auditor = looked at and fine, so no longer counted against anyone.
+  const counted = findings.filter((f) => f.status !== "CLEARED");
+  const fSeverity = (f: { severity: string }) => f.severity as Severity;
+  const sortedFindings = [...findings].sort(
+    (a, b) =>
+      Number(a.status !== "OPEN") - Number(b.status !== "OPEN") ||
+      rank(fSeverity(a)) - rank(fSeverity(b)) ||
+      b.night.getTime() - a.night.getTime()
+  );
   const totals = {
     evidence: recon.reduce((s2, n) => s2 + n.evidence, 0),
     backed: recon.reduce((s2, n) => s2 + n.backed, 0),
-    checkouts: recon.reduce((s2, n) => s2 + n.checkouts, 0),
-    cleaned: recon.reduce((s2, n) => s2 + n.checkoutCleaned, 0),
-    stay: recon.reduce((s2, n) => s2 + n.stayCleans, 0),
-    high: countBy("HIGH"),
-    medium: countBy("MEDIUM"),
-    low: countBy("LOW"),
-    atRisk: allIssues.filter((i) => i.severity === "HIGH" || i.severity === "MEDIUM").reduce((s2, i) => s2 + (i.amount ?? 0), 0),
+    high: counted.filter((f) => f.severity === "HIGH").length,
+    medium: counted.filter((f) => f.severity === "MEDIUM").length,
+    open: findings.filter((f) => f.status === "OPEN").length,
+    // A finding the data no longer reproduces (vanishedAt) was fixed after the fact, so it is not unpaid any more.
+    atRisk: counted.filter((f) => !f.vanishedAt).reduce((s2, f) => s2 + Number(f.amount ?? 0), 0),
   };
 
   // ----- findings per staff member whose entry they trace back to -----
@@ -154,14 +83,16 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
     if (!staff.has(name)) staff.set(name, { name, high: 0, medium: 0, low: 0, atRisk: 0, cancelled: 0, usedCancelled: 0 });
     return staff.get(name)!;
   };
-  for (const i of allIssues) {
-    if (!i.responsible || i.severity === "INFO") continue;
-    const r = row(i.responsible);
-    if (i.severity === "HIGH") r.high++;
-    else if (i.severity === "MEDIUM") r.medium++;
-    else r.low++;
-    if (i.severity === "HIGH" || i.severity === "MEDIUM") r.atRisk += i.amount ?? 0;
-    if (i.kind === "USED_CANCELLED") r.usedCancelled++;
+  for (const f of counted) {
+    if (!f.responsible) continue;
+    const r = row(f.responsible);
+    if (f.severity === "HIGH") r.high++;
+    else r.medium++;
+    if (!f.vanishedAt) r.atRisk += Number(f.amount ?? 0);
+    if (f.kind === "USED_CANCELLED") r.usedCancelled++;
+  }
+  for (const i of minorIssues) {
+    if (i.responsible && i.severity === "LOW") row(i.responsible).low++;
   }
   for (const st of stays) {
     if (st.status !== "CANCELLED") continue;
@@ -241,7 +172,7 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
         <CardHeader>
           <CardTitle>
             ห้องที่ถูกใช้จริง เทียบกับรายได้ที่บันทึก
-            {totals.high > 0 && <span className="ml-2 text-sm font-semibold text-red-700">ระดับสูง {totals.high} รายการ</span>}
+            {totals.open > 0 && <span className="ml-2 text-sm font-semibold text-red-700">รอตรวจ {totals.open} รายการ</span>}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -250,13 +181,14 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
             ระบบไม่เชื่อสถานะ &quot;จอง/เข้าพัก/เช็คเอาท์&quot; เพราะอาจไม่ได้อัปเดต สถานะค้างจึงเป็นแค่รายการเล็กน้อย
           </p>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
             {[
               { label: "ห้อง-คืนที่แม่บ้านบันทึกว่าใช้", value: totals.evidence },
               { label: "มีการจองรองรับ (ไม่ยกเลิก)", value: totals.backed },
-              { label: "ระดับสูง", value: totals.high, bad: totals.high > 0 },
+              { label: "ระดับสูง (ไม่นับที่ตรวจว่าปกติ)", value: totals.high, bad: totals.high > 0 },
+              { label: "รอผู้ตรวจ", value: totals.open, warn: totals.open > 0 },
               { label: "ระดับกลาง", value: totals.medium, warn: totals.medium > 0 },
-              { label: "มูลค่าที่ไม่มีบันทึกรับเงิน (บาท)", value: baht(totals.atRisk), bad: totals.atRisk > 0 },
+              { label: "มูลค่าที่ยังไม่มีบันทึกรับเงิน (บาท)", value: baht(totals.atRisk), bad: totals.atRisk > 0 },
             ].map((c) => (
               <div key={c.label} className={cn("rounded-lg p-3 text-center", c.bad ? "bg-red-50" : c.warn ? "bg-amber-50" : "bg-cream-100")}>
                 <p className={cn("text-2xl font-semibold", c.bad ? "text-red-700" : c.warn ? "text-amber-700" : "text-forest-800")}>{c.value}</p>
@@ -312,48 +244,127 @@ export default async function HousekeepingLogPage({ searchParams }: { searchPara
             </Table>
           </div>
 
-          {shownIssues.length > 0 && (
-            <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ระดับ</TableHead>
-                    <TableHead>วันที่ลงบัญชี</TableHead>
-                    <TableHead>ห้อง</TableHead>
-                    <TableHead>ปัญหา</TableHead>
-                    <TableHead>รายละเอียด</TableHead>
-                    <TableHead className="text-right">มูลค่า (บาท)</TableHead>
-                    <TableHead>ผู้ลงข้อมูล</TableHead>
-                    <TableHead>การจอง</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shownIssues.map((i, idx) => (
-                    <TableRow key={`${i.kind}-${i.resourceId}-${toDateOnlyString(i.night)}-${idx}`}>
-                      <TableCell>
-                        <Badge variant={SEVERITY_BADGE[i.severity]}>{SEVERITY_LABELS[i.severity]}</Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(i.night)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-sm font-medium">{i.roomName}</TableCell>
-                      <TableCell className={cn("min-w-48 text-sm", i.severity === "HIGH" && "font-medium text-red-700")}>{ISSUE_LABELS[i.kind]}</TableCell>
-                      <TableCell className="min-w-56 max-w-sm text-xs text-ink-600">{i.detail ?? "-"}</TableCell>
-                      <TableCell className="text-right text-sm">{i.amount ? baht(i.amount) : "-"}</TableCell>
-                      <TableCell className="whitespace-nowrap text-sm">{i.responsible ?? "-"}</TableCell>
-                      <TableCell className="text-sm">
-                        {i.bookingId ? (
-                          <Link href={`/accommodation/${i.bookingId}`} className="text-forest-700 hover:underline">
-                            {i.customerName}
-                          </Link>
-                        ) : (
-                          <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
-                            ดูบันทึกในบัญชีคุมฯ
-                          </Link>
-                        )}
-                      </TableCell>
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-forest-800">รายการที่ต้องตรวจ (ระดับสูง/กลาง) — บันทึกไว้ตั้งแต่ตรวจพบครั้งแรก</h3>
+            <p className="text-xs text-ink-400">
+              ระบบเก็บรายการไว้ แม้แคชเชียร์จะแก้ข้อมูลการจองหลังจากนั้น รายการที่แก้แล้วจะติดป้าย &quot;ข้อมูลถูกแก้ไขหลังตรวจพบ&quot; และยังต้องมีผู้ตรวจกดผลว่าปกติหรือผิดปกติพร้อมเหตุผล
+            </p>
+            {sortedFindings.length === 0 ? (
+              <p className="text-sm text-emerald-700">ไม่พบรายการในช่วงนี้</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ผลตรวจ</TableHead>
+                      <TableHead>ระดับ</TableHead>
+                      <TableHead>วันที่ลงบัญชี</TableHead>
+                      <TableHead>ห้อง</TableHead>
+                      <TableHead>ปัญหา</TableHead>
+                      <TableHead>รายละเอียด</TableHead>
+                      <TableHead className="text-right">มูลค่า (บาท)</TableHead>
+                      <TableHead>ผู้ลงข้อมูล</TableHead>
+                      <TableHead>การจอง</TableHead>
+                      <TableHead>บันทึกผล</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedFindings.map((f) => (
+                      <TableRow key={f.id} className={cn(f.status === "CLEARED" && "opacity-60")}>
+                        <TableCell className="min-w-32 text-xs">
+                          {f.status === "OPEN" && <Badge variant="warning">รอตรวจ</Badge>}
+                          {f.status === "CLEARED" && <Badge variant="success">ปกติ</Badge>}
+                          {f.status === "CONFIRMED" && <Badge variant="danger">ยืนยันผิดปกติ</Badge>}
+                          {f.status !== "OPEN" && (
+                            <p className="mt-1 text-ink-600">
+                              {f.reviewedByName} · {f.reviewedAt?.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" })}
+                              {f.note ? ` — ${f.note}` : ""}
+                            </p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={SEVERITY_BADGE[fSeverity(f)]}>{SEVERITY_LABELS[fSeverity(f)]}</Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(f.night)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm font-medium">{f.roomName}</TableCell>
+                        <TableCell className={cn("min-w-48 text-sm", f.severity === "HIGH" && "font-medium text-red-700")}>
+                          {ISSUE_LABELS[f.kind as IssueKind] ?? f.kind}
+                        </TableCell>
+                        <TableCell className="min-w-56 max-w-sm text-xs text-ink-600">
+                          {f.detail ?? "-"}
+                          <span className="mt-1 block text-ink-400">
+                            ตรวจพบ {f.detectedAt.toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })}
+                          </span>
+                          {f.vanishedAt && (
+                            <span className="mt-1 block font-medium text-amber-700">
+                              ข้อมูลถูกแก้ไขหลังตรวจพบ (ตรวจครั้งล่าสุดไม่พบแล้ว เมื่อ{" "}
+                              {f.vanishedAt.toLocaleString("th-TH", { timeZone: "Asia/Bangkok", dateStyle: "medium", timeStyle: "short" })})
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right text-sm">{f.amount ? baht(Number(f.amount)) : "-"}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">{f.responsible ?? "-"}</TableCell>
+                        <TableCell className="text-sm">
+                          {f.bookingId ? (
+                            <Link href={`/accommodation/${f.bookingId}`} className="text-forest-700 hover:underline">
+                              {f.customerName}
+                            </Link>
+                          ) : (
+                            <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
+                              ดูบันทึกในบัญชีคุมฯ
+                            </Link>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <FindingReview id={f.id} status={f.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+
+          {showAll && minorIssues.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold text-forest-800">รายการเล็กน้อย / ข้อมูลทั่วไป (คำนวณสด ไม่ได้บันทึกไว้)</h3>
+              <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ระดับ</TableHead>
+                      <TableHead>วันที่ลงบัญชี</TableHead>
+                      <TableHead>ห้อง</TableHead>
+                      <TableHead>ปัญหา</TableHead>
+                      <TableHead>การจอง</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {minorIssues.map((i, idx) => (
+                      <TableRow key={`${i.kind}-${i.resourceId}-${toDateOnlyString(i.night)}-${idx}`}>
+                        <TableCell>
+                          <Badge variant={SEVERITY_BADGE[i.severity]}>{SEVERITY_LABELS[i.severity]}</Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">{formatShortThaiDate(i.night)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-sm font-medium">{i.roomName}</TableCell>
+                        <TableCell className="text-sm">{ISSUE_LABELS[i.kind]}</TableCell>
+                        <TableCell className="text-sm">
+                          {i.bookingId ? (
+                            <Link href={`/accommodation/${i.bookingId}`} className="text-forest-700 hover:underline">
+                              {i.customerName}
+                            </Link>
+                          ) : (
+                            <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
+                              ดูบันทึกในบัญชีคุมฯ
+                            </Link>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
           <p className="text-xs text-ink-400">
