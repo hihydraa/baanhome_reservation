@@ -6,11 +6,16 @@ import { shiftDate, todayDateOnly, toDateOnlyString } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { ISSUE_SEVERITY, reconcileNights, type NightIssue } from "@/lib/housekeeping-reconcile";
 
-/** Loads the last `rangeDays` nights of bookings and cleaning records and reconciles them. */
-export async function loadReconciliation(rangeDays: number) {
+/**
+ * Loads bookings and cleaning records for a range of nights and reconciles them. The range is either the last
+ * `n` nights, or an explicit first and last night (ledger dates; the last night can't be later than last night).
+ */
+export async function loadReconciliation(range: number | { from: Date; to: Date }) {
   const today = todayDateOnly();
-  const lastNight = shiftDate(today, -1);
-  const firstNight = shiftDate(today, -rangeDays);
+  const yesterday = shiftDate(today, -1);
+  const lastNight = typeof range === "number" ? yesterday : range.to > yesterday ? yesterday : range.to;
+  const firstNight = typeof range === "number" ? shiftDate(today, -range) : range.from > lastNight ? lastNight : range.from;
+  const rangeDays = Math.round((lastNight.getTime() - firstNight.getTime()) / 86_400_000) + 1;
 
   const [stays, records, rooms] = await Promise.all([
     // Every booking that overlaps the range — cancelled ones included, since "cancelled" is exactly what a room
