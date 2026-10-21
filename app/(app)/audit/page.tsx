@@ -8,7 +8,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { cn } from "@/lib/utils";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
-import { formatShortThaiDate, shiftDate, toDateOnlyString } from "@/lib/dates";
+import { formatShortThaiDate, formatThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
 import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, type IssueKind, type Severity } from "@/lib/housekeeping-reconcile";
 import { loadReconciliation, syncAuditFindings } from "@/lib/housekeeping-audit";
 import { FindingReview } from "@/components/housekeeping/FindingReview";
@@ -32,22 +32,47 @@ const baht = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 0
  * such room-night is checked against the cashier's records (booking, cancellation, payment). Also the history of
  * every housekeeping status change.
  */
-export default async function AuditPage({ searchParams }: { searchParams: Promise<{ days?: string; level?: string }> }) {
+const MAX_RANGE_DAYS = 92;
+
+function parseDay(v: string | undefined): Date | null {
+  if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export default async function AuditPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ days?: string; from?: string; to?: string; level?: string }>;
+}) {
   const session = await auth();
   if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "AUDITOR")) redirect("/dashboard");
 
-  const { days, level } = await searchParams;
-  const rangeDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;
+  const { days, from: fromParam, to: toParam, level } = await searchParams;
   const showAll = level === "all";
-  const { today, lastNight, firstNight, nights, stays, records, cancelByBooking, recon } = await loadReconciliation(rangeDays);
-  const firstDay = shiftDate(today, -(rangeDays - 1));
+  // The range is in ledger dates (the night a guest stayed). It ends at last night at the latest, because the
+  // cleaning that proves a night is logged the next morning; ?days=N is kept for old links.
+  const today = todayDateOnly();
+  const yesterday = shiftDate(today, -1);
+  const legacyDays = [7, 14, 30].includes(Number(days)) ? Number(days) : 7;
+  let reqFrom = parseDay(fromParam) ?? shiftDate(today, -legacyDays);
+  let reqTo = parseDay(toParam) ?? yesterday;
+  if (reqFrom > reqTo) [reqFrom, reqTo] = [reqTo, reqFrom];
+  if (reqTo > yesterday) reqTo = yesterday;
+  if (reqFrom > reqTo) reqFrom = reqTo;
+  if (reqFrom < shiftDate(reqTo, -(MAX_RANGE_DAYS - 1))) reqFrom = shiftDate(reqTo, -(MAX_RANGE_DAYS - 1));
+  const { lastNight, firstNight, nights, stays, records, cancelByBooking, recon } = await loadReconciliation({ from: reqFrom, to: reqTo });
+  const rangeDays = nights.length;
+  const firstDay = firstNight;
   // Log timestamps are real instants; day buckets are Bangkok calendar days.
   const since = new Date(firstDay.getTime() - BANGKOK_OFFSET_MS);
+  // The cleaning that proves night D happens on the morning of D+1, so status changes run a day or two past it.
+  const until = new Date(shiftDate(lastNight, 2).getTime() - BANGKOK_OFFSET_MS);
 
   // Save what this check found before anything else can edit the bookings, then read back the saved findings.
   await syncAuditFindings(recon, nights);
   const [logs, findings] = await Promise.all([
-    prisma.housekeepingLog.findMany({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 500 }),
+    prisma.housekeepingLog.findMany({ where: { createdAt: { gte: since, lt: until } }, orderBy: { createdAt: "desc" }, take: 500 }),
     prisma.auditFinding.findMany({ where: { night: { gte: firstNight, lte: lastNight } }, orderBy: [{ night: "desc" }, { detectedAt: "desc" }] }),
   ]);
 
@@ -134,10 +159,23 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   const perUser = new Map<string, number>();
   for (const r of records) {
-    if (r.serviceDate >= firstDay) perUser.set(r.userName, (perUser.get(r.userName) ?? 0) + 1);
+    if (r.ledgerDate >= firstDay && r.ledgerDate <= lastNight) perUser.set(r.userName, (perUser.get(r.userName) ?? 0) + 1);
   }
-  const recentRecords = records.filter((r) => r.serviceDate >= firstDay).slice(0, 300);
+  const recentRecords = records.filter((r) => r.ledgerDate >= firstDay && r.ledgerDate <= lastNight).slice(0, 300);
 
+  const rangeHref = (f: Date, t: Date, all = showAll) =>
+    `/audit?from=${toDateOnlyString(f)}&to=${toDateOnlyString(t)}${all ? "&level=all" : ""}`;
+  const isSameRange = (f: Date, t: Date) => f.getTime() === firstNight.getTime() && t.getTime() === lastNight.getTime();
+  const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const prevMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  const prevMonthEnd = shiftDate(monthStart, -1);
+  const presets = [
+    { label: "เมื่อคืน", from: yesterday, to: yesterday },
+    { label: "7 คืนล่าสุด", from: shiftDate(today, -7), to: yesterday },
+    { label: "30 คืนล่าสุด", from: shiftDate(today, -30), to: yesterday },
+    ...(monthStart <= yesterday ? [{ label: "เดือนนี้", from: monthStart, to: yesterday }] : []),
+    { label: "เดือนที่แล้ว", from: prevMonthStart, to: prevMonthEnd },
+  ];
   const chip = (active: boolean) =>
     cn(
       "rounded-full px-3 py-1.5 text-xs font-medium",
@@ -153,19 +191,37 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </p>
       </div>
 
+      <form method="get" className="flex flex-wrap items-end gap-2">
+        {showAll && <input type="hidden" name="level" value="all" />}
+        <label className="flex flex-col gap-1 text-xs text-ink-600">
+          ตั้งแต่คืนวันที่
+          <input type="date" name="from" defaultValue={toDateOnlyString(firstNight)} max={toDateOnlyString(yesterday)} className="h-9 rounded-md border border-cream-200 bg-white px-2 text-sm" />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-ink-600">
+          ถึงคืนวันที่
+          <input type="date" name="to" defaultValue={toDateOnlyString(lastNight)} max={toDateOnlyString(yesterday)} className="h-9 rounded-md border border-cream-200 bg-white px-2 text-sm" />
+        </label>
+        <button type="submit" className="h-9 rounded-md bg-forest-700 px-4 text-sm font-medium text-cream-50 hover:bg-forest-600">
+          ดูรายการ
+        </button>
+      </form>
+
       <div className="flex flex-wrap items-center gap-2">
-        {[7, 14, 30].map((d) => (
-          <Link key={d} href={`/audit?days=${d}${showAll ? "&level=all" : ""}`} className={chip(rangeDays === d)}>
-            {d} วันล่าสุด
+        {presets.map((pr) => (
+          <Link key={pr.label} href={rangeHref(pr.from, pr.to)} className={chip(isSameRange(pr.from, pr.to))}>
+            {pr.label}
           </Link>
         ))}
         <span className="mx-1 h-4 w-px bg-cream-200" />
-        <Link href={`/audit?days=${rangeDays}`} className={chip(!showAll)}>
+        <Link href={rangeHref(firstNight, lastNight)} className={chip(!showAll)}>
           เฉพาะระดับสูง/กลาง
         </Link>
-        <Link href={`/audit?days=${rangeDays}&level=all`} className={chip(showAll)}>
+        <Link href={rangeHref(firstNight, lastNight, true)} className={chip(showAll)}>
           รวมรายการเล็กน้อย
         </Link>
+        <span className="text-xs text-ink-400">
+          ช่วง {formatThaiDate(firstNight)} – {formatThaiDate(lastNight)} ({rangeDays} คืน, ย้อนหลังได้สูงสุด {MAX_RANGE_DAYS} คืนต่อครั้ง)
+        </span>
       </div>
 
       <Card>
@@ -474,7 +530,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
       <Card>
         <CardHeader>
-          <CardTitle>จำนวนครั้งที่ทำความสะอาด แยกตามผู้ทำ ({rangeDays} วันล่าสุด)</CardTitle>
+          <CardTitle>จำนวนครั้งที่ทำความสะอาด แยกตามผู้ทำ ({rangeDays} คืน)</CardTitle>
         </CardHeader>
         <CardContent>
           {perUser.size === 0 ? (
