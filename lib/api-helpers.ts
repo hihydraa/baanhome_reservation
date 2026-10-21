@@ -21,16 +21,16 @@ export async function requireAdmin() {
   return { session, response: null };
 }
 
-/** Like requireSession, but rejects the read-only HOUSEKEEPER role — use on every booking/payment mutation route. */
+/** Like requireSession, but rejects the read-only HOUSEKEEPER and AUDITOR roles — use on every booking/payment mutation route. */
 export async function requireWriteAccess() {
   const session = await auth();
   if (!session?.user) {
     return { session: null, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  if (session.user.role === "HOUSEKEEPER") {
+  if (session.user.role === "HOUSEKEEPER" || session.user.role === "AUDITOR") {
     return {
       session: null,
-      response: NextResponse.json({ error: "บัญชีแม่บ้านดูข้อมูลได้อย่างเดียว ไม่สามารถแก้ไขได้" }, { status: 403 }),
+      response: NextResponse.json({ error: "บัญชีนี้ดูข้อมูลได้อย่างเดียว ไม่สามารถแก้ไขได้" }, { status: 403 }),
     };
   }
   return { session, response: null };

@@ -22,7 +22,7 @@ function daysAgo(days: number): Date {
 }
 
 /**
- * ADMIN only: every payment recorded, edited or deleted, newest first. Defaults to edits/deletes
+ * ADMIN and AUDITOR only: every payment recorded, edited or deleted, newest first. Defaults to edits/deletes
  * (the rows that change money already received); "ทั้งหมด" also shows normal receipts.
  */
 export default async function PaymentLogPage({
@@ -31,7 +31,7 @@ export default async function PaymentLogPage({
   searchParams: Promise<{ show?: string; days?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "AUDITOR")) {
     redirect("/dashboard");
   }
 

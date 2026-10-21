@@ -13,6 +13,8 @@ enum UserRole {
   ADMIN
   STAFF
   HOUSEKEEPER
+  /// Internal audit: read-only access to everything staff see, plus the audit pages.
+  AUDITOR
 }
 
 enum ResourceZone {
@@ -490,4 +492,62 @@ model CleaningDayReview {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   userName  String
   createdAt DateTime @default(now())
+}
+
+enum AuditFindingStatus {
+  OPEN
+  /// The auditor looked and it is fine (a reason is kept in note).
+  CLEARED
+  /// The auditor confirmed it is a real irregularity.
+  CONFIRMED
+}
+
+/**
+ * A high/medium finding from the housekeeping-vs-bookings reconciliation, saved the first time it is seen so it
+ * outlives later edits to the bookings. The reconciliation is recomputed live, so a cashier who fixes a record
+ * after the fact would otherwise erase the trail: instead vanishedAt records that a later check no longer
+ * reproduces it, and the detail/amount below stay as first detected. key is stable across recomputation.
+ * Names are copied so rows stay readable if a user or booking changes.
+ */
+model AuditFinding {
+  id             String             @id @default(cuid())
+  key            String             @unique
+  kind           String
+  severity       String
+  /// The night (Bangkok calendar day, naive UTC) the finding is about.
+  night          DateTime
+  resourceId     String
+  roomName       String
+  bookingId      String?
+  customerName   String?
+  detail         String?
+  amount         Decimal?           @db.Decimal(10, 2)
+  responsible    String?
+  detectedAt     DateTime           @default(now())
+  vanishedAt     DateTime?
+  status         AuditFindingStatus @default(OPEN)
+  note           String?
+  reviewedById   String?
+  reviewedByName String?
+  reviewedAt     DateTime?
+
+  @@index([status, severity])
+  @@index([night])
+}
+
+/**
+ * Append-only history of an accommodation booking's status (reserved / checked in / checked out / cancelled):
+ * who set it and when. Booking statuses are often left stale, so this shows what was actually recorded and by whom.
+ */
+model BookingStatusLog {
+  id         String               @id @default(cuid())
+  bookingId  String
+  /// Null for the status a booking is created with.
+  fromStatus AccommodationStatus?
+  toStatus   AccommodationStatus
+  userId     String?
+  userName   String
+  createdAt  DateTime             @default(now())
+
+  @@index([bookingId, createdAt])
 }

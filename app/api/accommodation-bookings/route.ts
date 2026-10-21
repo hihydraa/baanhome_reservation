@@ -7,6 +7,7 @@ import { findAccommodationConflict } from "@/lib/booking-conflicts";
 import { generateReceiptNumber } from "@/lib/receipt";
 import { logCreatedEntries } from "@/lib/payment-entry-log";
 import { logQuotationChange } from "@/lib/quotation-log";
+import { logBookingStatus } from "@/lib/booking-status-log";
 import { upsertCustomerFromBooking } from "@/lib/customers";
 
 export async function GET(req: NextRequest) {
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
   });
 
   await logCreatedEntries(prisma, booking.payment?.entries ?? [], session!.user);
+  await logBookingStatus({ bookingIds: [booking.id], fromStatus: null, toStatus: booking.status, user: session!.user });
 
   await logQuotationChange({
     accommodationBookingId: booking.id,

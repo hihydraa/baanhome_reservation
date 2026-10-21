@@ -53,6 +53,7 @@ export const ROLE_LABELS: Record<string, string> = {
   ADMIN: "ผู้ดูแลระบบ",
   STAFF: "พนักงาน",
   HOUSEKEEPER: "แม่บ้าน",
+  AUDITOR: "ตรวจสอบภายใน",
 };
 
 export const HOUSEKEEPING_STATUS_LABELS: Record<string, string> = {

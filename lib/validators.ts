@@ -169,7 +169,7 @@ export const userInputSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   username: usernameField,
   password: z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร"),
-  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]).default("STAFF"),
+  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER", "AUDITOR"]).default("STAFF"),
 });
 
 /** `password` is optional — leaving it blank keeps the user's existing password. */
@@ -177,7 +177,7 @@ export const userUpdateInputSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อ"),
   username: usernameField,
   password: z.union([z.literal(""), z.string().min(6, "รหัสผ่านอย่างน้อย 6 ตัวอักษร")]).optional(),
-  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER"]),
+  role: z.enum(["ADMIN", "STAFF", "HOUSEKEEPER", "AUDITOR"]),
 });
 
 export const attachmentBookingTypeEnum = z.enum(["ACCOMMODATION", "BANQUET"]);

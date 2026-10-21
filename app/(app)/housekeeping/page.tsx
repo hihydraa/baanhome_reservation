@@ -20,7 +20,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
   const session = await auth();
   if (!session?.user) redirect("/login");
   // Housekeepers do the work here; the admin can look. Front-desk staff use the log sheet instead.
-  if (session.user.role === "STAFF") redirect("/dashboard");
+  if (session.user.role === "STAFF" || session.user.role === "AUDITOR") redirect("/dashboard");
 
   const today = todayDateOnly();
   const { date: dateParam } = await searchParams;

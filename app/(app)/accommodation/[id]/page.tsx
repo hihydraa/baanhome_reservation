@@ -10,6 +10,7 @@ import { DeleteBookingButton } from "@/components/accommodation/DeleteBookingBut
 import { AttachmentManager } from "@/components/attachments/AttachmentManager";
 import { listAttachments } from "@/lib/attachments";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
+import { BookingStatusLogList } from "@/components/accommodation/BookingStatusLogList";
 import { PaymentEntryLogList } from "@/components/payment/PaymentEntryLogList";
 
 export default async function AccommodationDetailPage({
@@ -118,6 +119,7 @@ export default async function AccommodationDetailPage({
         />
         <QuotationLogList accommodationBookingId={booking.id} />
         <PaymentEntryLogList bookingId={booking.id} />
+        {(session?.user.role === "ADMIN" || session?.user.role === "AUDITOR") && <BookingStatusLogList bookingId={booking.id} />}
         <AttachmentManager bookingType="ACCOMMODATION" bookingId={booking.id} initial={attachments} />
       </div>
     </div>

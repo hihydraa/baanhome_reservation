@@ -28,7 +28,7 @@ type UserRow = {
   id: string;
   name: string;
   username: string;
-  role: "ADMIN" | "STAFF" | "HOUSEKEEPER";
+  role: "ADMIN" | "STAFF" | "HOUSEKEEPER" | "AUDITOR";
   createdAt: string;
 };
 
@@ -36,6 +36,7 @@ const ROLE_BADGE_VARIANT: Record<string, "gold" | "muted" | "outline"> = {
   ADMIN: "gold",
   STAFF: "muted",
   HOUSEKEEPER: "outline",
+  AUDITOR: "outline",
 };
 
 type FormState = { name: string; username: string; password: string; role: string };
@@ -169,6 +170,7 @@ export function UserManager({ users, currentUserId }: { users: UserRow[]; curren
               <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
                 <option value="STAFF">พนักงาน</option>
                 <option value="HOUSEKEEPER">แม่บ้าน</option>
+                <option value="AUDITOR">ตรวจสอบภายใน (ดูได้อย่างเดียว)</option>
                 <option value="ADMIN">ผู้ดูแลระบบ</option>
               </Select>
             </div>
