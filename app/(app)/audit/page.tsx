@@ -205,7 +205,9 @@ export default async function AuditPage({
         </p>
       </div>
 
-      <form method="get" className="flex flex-wrap items-end gap-2">
+      {/* Keyed by the range so the date boxes reset to it when a preset link changes the range (uncontrolled inputs
+          otherwise keep what they showed, and "ดูรายการ" would re-submit those stale dates). */}
+      <form key={`${toDateOnlyString(firstNight)}_${toDateOnlyString(lastNight)}_${showAll}`} method="get" action="/audit" className="flex flex-wrap items-end gap-2">
         {showAll && <input type="hidden" name="level" value="all" />}
         <label className="flex flex-col gap-1 text-xs text-ink-600">
           ตั้งแต่คืนวันที่
