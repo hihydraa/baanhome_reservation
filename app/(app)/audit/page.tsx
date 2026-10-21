@@ -183,6 +183,8 @@ export default async function AuditPage({
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
   const prevMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
   const prevMonthEnd = shiftDate(monthStart, -1);
+  // The view you get with no filters: the last 7 nights, high and medium findings only.
+  const isDefaultView = !showAll && isSameRange(shiftDate(today, -7), yesterday);
   const presets = [
     { label: "เมื่อคืน", from: yesterday, to: yesterday },
     { label: "7 คืนล่าสุด", from: shiftDate(today, -7), to: yesterday },
@@ -229,11 +231,20 @@ export default async function AuditPage({
           </Link>
         ))}
         <span className="mx-1 h-4 w-px bg-cream-200" />
-        <Link href={rangeHref(firstNight, lastNight)} className={chip(!showAll)}>
+        <Link href={rangeHref(firstNight, lastNight, false)} className={chip(!showAll)}>
           เฉพาะระดับสูง/กลาง
         </Link>
         <Link href={rangeHref(firstNight, lastNight, true)} className={chip(showAll)}>
           รวมรายการเล็กน้อย
+        </Link>
+        <Link
+          href="/audit"
+          className={cn(
+            "rounded-full border px-3 py-1.5 text-xs font-medium",
+            isDefaultView ? "border-cream-200 text-ink-400" : "border-forest-700 text-forest-700 hover:bg-forest-700/5"
+          )}
+        >
+          รีเซ็ตตัวกรอง
         </Link>
         <span className="text-xs text-ink-400">
           ช่วง {formatThaiDate(firstNight)} – {formatThaiDate(lastNight)} ({rangeDays} คืน, ย้อนหลังได้สูงสุด {MAX_RANGE_DAYS} คืนต่อครั้ง)
