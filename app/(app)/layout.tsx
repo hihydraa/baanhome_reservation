@@ -11,7 +11,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const canAudit = isAdmin || session?.user.role === "AUDITOR";
 
   // High-severity audit findings no one has ruled on yet — a badge on the audit link.
-  const openFindings = canAudit ? await prisma.auditFinding.count({ where: { status: "OPEN", severity: "HIGH" } }) : 0;
+  // A failure here (e.g. the audit tables not migrated yet) must never take the whole app down — just hide the badge.
+  const openFindings = canAudit
+    ? await prisma.auditFinding.count({ where: { status: "OPEN", severity: "HIGH" } }).catch(() => 0)
+    : 0;
 
   return (
     <ToastProvider>
