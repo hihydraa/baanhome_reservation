@@ -12,6 +12,7 @@ import { formatShortThaiDate, formatThaiDate, shiftDate, toDateOnlyString, today
 import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, type IssueKind, type Severity } from "@/lib/housekeeping-reconcile";
 import { loadReconciliation, syncAuditFindings } from "@/lib/housekeeping-audit";
 import { FindingReview } from "@/components/housekeeping/FindingReview";
+import { BookingLinks, type BookingInfo } from "@/components/audit/BookingLinks";
 
 // Audit view — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
@@ -127,7 +128,7 @@ export default async function AuditPage({
   const staffRows = [...staff.values()].sort((a, b) => b.high - a.high || b.atRisk - a.atRisk || b.cancelled - a.cancelled);
 
   // ----- supplies taken out vs add-ons billed, per stay -----
-  type Audit = { id: string; room: string; customer: string; from: Date; to: Date; label: string; billed: number; taken: number };
+  type Audit = { id: string; bookingId: string; room: string; customer: string; from: Date; to: Date; label: string; billed: number; taken: number };
   const audits: Audit[] = [];
   for (const st of stays) {
     if (st.status === "CANCELLED") continue;
@@ -145,6 +146,7 @@ export default async function AuditPage({
     for (const key of new Set([...billed.keys(), ...taken.keys()])) {
       audits.push({
         id: `${st.id}-${key}`,
+        bookingId: st.id,
         room: st.resource.name,
         customer: st.customerName,
         from: st.checkIn,
@@ -162,6 +164,18 @@ export default async function AuditPage({
     if (r.ledgerDate >= firstDay && r.ledgerDate <= lastNight) perUser.set(r.userName, (perUser.get(r.userName) ?? 0) + 1);
   }
   const recentRecords = records.filter((r) => r.ledgerDate >= firstDay && r.ledgerDate <= lastNight).slice(0, 300);
+
+  // Which referenced bookings can still be opened, and the banquet bookings they are linked to.
+  const referencedIds = [
+    ...new Set([...findings.map((f) => f.bookingId), ...minorIssues.map((i) => i.bookingId), ...audits.map((a) => a.bookingId)].filter((x): x is string => !!x)),
+  ];
+  const bookingRows = referencedIds.length
+    ? await prisma.accommodationBooking.findMany({
+        where: { id: { in: referencedIds } },
+        select: { id: true, linkedBanquetBookings: { select: { id: true, customerName: true, eventDate: true } } },
+      })
+    : [];
+  const bookingInfo = new Map<string, BookingInfo>(bookingRows.map((b) => [b.id, { banquets: b.linkedBanquetBookings }]));
 
   const rangeHref = (f: Date, t: Date, all = showAll) =>
     `/audit?from=${toDateOnlyString(f)}&to=${toDateOnlyString(t)}${all ? "&level=all" : ""}`;
@@ -361,15 +375,7 @@ export default async function AuditPage({
                         <TableCell className="text-right text-sm">{f.amount ? baht(Number(f.amount)) : "-"}</TableCell>
                         <TableCell className="whitespace-nowrap text-sm">{f.responsible ?? "-"}</TableCell>
                         <TableCell className="text-sm">
-                          {f.bookingId ? (
-                            <Link href={`/accommodation/${f.bookingId}`} className="text-forest-700 hover:underline">
-                              {f.customerName}
-                            </Link>
-                          ) : (
-                            <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
-                              ดูบันทึกในบัญชีคุมฯ
-                            </Link>
-                          )}
+                          <BookingLinks bookingId={f.bookingId} customerName={f.customerName} info={f.bookingId ? bookingInfo.get(f.bookingId) : undefined} />
                         </TableCell>
                         <TableCell>
                           <FindingReview id={f.id} status={f.status} />
@@ -406,15 +412,7 @@ export default async function AuditPage({
                         <TableCell className="whitespace-nowrap text-sm font-medium">{i.roomName}</TableCell>
                         <TableCell className="text-sm">{ISSUE_LABELS[i.kind]}</TableCell>
                         <TableCell className="text-sm">
-                          {i.bookingId ? (
-                            <Link href={`/accommodation/${i.bookingId}`} className="text-forest-700 hover:underline">
-                              {i.customerName}
-                            </Link>
-                          ) : (
-                            <Link href="/housekeeping-daily" className="text-forest-700 hover:underline">
-                              ดูบันทึกในบัญชีคุมฯ
-                            </Link>
-                          )}
+                          <BookingLinks bookingId={i.bookingId} customerName={i.customerName} info={i.bookingId ? bookingInfo.get(i.bookingId) : undefined} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -502,7 +500,8 @@ export default async function AuditPage({
                   {audits.map((a) => (
                     <TableRow key={a.id}>
                       <TableCell className="text-sm">
-                        <span className="font-medium">{a.room}</span> · {a.customer}
+                        <div className="font-medium">{a.room}</div>
+                        <BookingLinks bookingId={a.bookingId} customerName={a.customer} info={bookingInfo.get(a.bookingId)} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-sm">
                         {formatShortThaiDate(a.from)} – {formatShortThaiDate(a.to)}
