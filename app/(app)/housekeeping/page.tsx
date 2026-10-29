@@ -6,7 +6,7 @@ import { ZONE_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS } from "@/lib/housekeeping";
 import { todayDateOnly, formatThaiDate, shiftDate, toDateOnlyString } from "@/lib/dates";
 import { summarizeCleaning } from "@/lib/cleaning-summary";
-import { SUPPLY_ITEMS, TRACKED_ITEMS } from "@/lib/housekeeping";
+import { AMOUNT_KEYS, SUPPLY_ITEMS, TRACKED_ITEMS } from "@/lib/housekeeping";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HousekeepingRoomCard, type HousekeepingRoom } from "@/components/housekeeping/HousekeepingRoomCard";
 
@@ -60,7 +60,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
   const todayStr = toDateOnlyString(today);
   const recordLines = new Map<string, HousekeepingRoom["todayRecords"]>();
   for (const r of records) {
-    const supplies = r.items.map((i) => `${i.name} ×${i.quantity}`).join(", ");
+    const supplies = r.items.map((i) => (i.category && AMOUNT_KEYS.includes(i.category) ? `${i.name} ${i.quantity.toLocaleString("th-TH")} บาท` : `${i.name} ×${i.quantity}`)).join(", ");
     recordLines.set(r.resourceId, [
       ...(recordLines.get(r.resourceId) ?? []),
       {

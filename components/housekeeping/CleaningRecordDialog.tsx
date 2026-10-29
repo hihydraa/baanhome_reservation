@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast-provider";
-import { CLEANING_TYPE_LABELS, SUPPLY_ITEMS, TRACKED_ITEMS } from "@/lib/housekeeping";
+import { AMOUNT_KEYS, CLEANING_TYPE_LABELS, SUPPLY_ITEMS, TRACKED_ITEMS } from "@/lib/housekeeping";
 import { cn } from "@/lib/utils";
 
 export type CleaningType = "CHECKOUT" | "STAY";
@@ -116,15 +116,29 @@ export function CleaningRecordDialog({
         {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
         {c.hint && <span className="block text-xs font-normal text-ink-400">{c.hint}</span>}
       </span>
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="icon" aria-label={`ลด ${c.name}`} onClick={() => bump(c.name, -1)}>
-          <Minus className="h-4 w-4" />
-        </Button>
-        <span className="w-6 text-center text-base font-semibold">{qty[c.name] ?? 0}</span>
-        <Button type="button" variant="outline" size="icon" aria-label={`เพิ่ม ${c.name}`} onClick={() => bump(c.name, 1)}>
-          <Plus className="h-4 w-4" />
-        </Button>
-      </div>
+      {c.category && AMOUNT_KEYS.includes(c.category) ? (
+        <Input
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={100000}
+          placeholder="0"
+          aria-label={`${c.name} (บาท)`}
+          className="w-28 text-right"
+          value={qty[c.name] ? qty[c.name] : ""}
+          onChange={(e) => setQty((q) => ({ ...q, [c.name]: Math.max(0, Math.min(100000, Math.floor(Number(e.target.value) || 0))) }))}
+        />
+      ) : (
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="icon" aria-label={`ลด ${c.name}`} onClick={() => bump(c.name, -1)}>
+            <Minus className="h-4 w-4" />
+          </Button>
+          <span className="w-6 text-center text-base font-semibold">{qty[c.name] ?? 0}</span>
+          <Button type="button" variant="outline" size="icon" aria-label={`เพิ่ม ${c.name}`} onClick={() => bump(c.name, 1)}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 

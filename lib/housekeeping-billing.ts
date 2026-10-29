@@ -1,8 +1,8 @@
 import type { prisma } from "@/lib/prisma";
-import { TRACKED_ITEMS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
+import { AMOUNT_KEYS, TRACKED_ITEMS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
 
 /** Services the housekeeper's record turns into a charge on the booking. */
-const BILLED_KEYS: TrackedKey[] = ["EXTRA_BED", "BLANKET", "PILLOW", "PET", "HOURLY"];
+const BILLED_KEYS: TrackedKey[] = ["EXTRA_BED", "BLANKET", "PILLOW", "PET", "HOURLY", "LAUNDRY"];
 
 /** Marks an add-on the system created from a housekeeper's record; the label after it says which service. */
 const AUTO_PREFIX = "แม่บ้านบันทึก";
@@ -12,10 +12,10 @@ const isAuto = (description: string | null) => !!description && description.star
 /**
  * Units to bill for a service across the stay's cleaning records. Hours are added up; every other service is charged
  * once per stay, so the most units recorded on any one cleaning count — the housekeeper may list the same bed or pet
- * on every night's record without it being billed again.
+ * on every night's record without it being billed again. Laundry is an amount in baht, added up like hours.
  */
 export function takenUnits(key: TrackedKey, rows: { recordId?: string; quantity: number }[]): number {
-  if (key === "HOURLY") return rows.reduce((s, r) => s + r.quantity, 0);
+  if (key === "HOURLY" || AMOUNT_KEYS.includes(key)) return rows.reduce((s, r) => s + r.quantity, 0);
   const perRecord = new Map<string, number>();
   rows.forEach((r, i) => perRecord.set(r.recordId ?? String(i), (perRecord.get(r.recordId ?? String(i)) ?? 0) + r.quantity));
   return Math.max(0, ...perRecord.values());
@@ -56,10 +56,13 @@ export async function syncHousekeepingBilling(db: Db, resourceId: string, ledger
   for (const key of BILLED_KEYS) {
     const taken = takenUnits(key, items.filter((i) => i.category === key));
     const billed = booking.addons.filter((a) => trackedKeyForAddonName(a.service?.name ?? a.description) === key);
-    const manual = billed.filter((a) => !isAuto(a.description)).reduce((s, a) => s + a.quantity, 0);
+    // Laundry is billed as one add-on whose price is the amount; every other service as a quantity.
+    const asAmount = AMOUNT_KEYS.includes(key);
+    const worth = (a: (typeof billed)[number]) => (asAmount ? Number(a.price) * a.quantity : a.quantity);
+    const manual = billed.filter((a) => !isAuto(a.description)).reduce((s, a) => s + worth(a), 0);
     const autoAddons = billed.filter((a) => isAuto(a.description));
     const target = Math.max(0, taken - manual);
-    if (autoAddons.reduce((s, a) => s + a.quantity, 0) === target) continue;
+    if (autoAddons.reduce((s, a) => s + worth(a), 0) === target) continue;
 
     if (target === 0) {
       await db.accommodationAddon.deleteMany({ where: { id: { in: autoAddons.map((a) => a.id) } } });
@@ -67,7 +70,7 @@ export async function syncHousekeepingBilling(db: Db, resourceId: string, ledger
     }
     if (autoAddons.length > 0) {
       const [keep, ...extra] = autoAddons;
-      await db.accommodationAddon.update({ where: { id: keep.id }, data: { quantity: target } });
+      await db.accommodationAddon.update({ where: { id: keep.id }, data: asAmount ? { quantity: 1, price: target } : { quantity: target } });
       if (extra.length > 0) await db.accommodationAddon.deleteMany({ where: { id: { in: extra.map((a) => a.id) } } });
       continue;
     }
@@ -80,8 +83,8 @@ export async function syncHousekeepingBilling(db: Db, resourceId: string, ledger
         bookingId: booking.id,
         serviceId: service?.id ?? null,
         description: `${AUTO_PREFIX}: ${label}`,
-        quantity: target,
-        price: service ? service.price : 0,
+        quantity: asAmount ? 1 : target,
+        price: asAmount ? target : service ? service.price : 0,
       },
     });
   }

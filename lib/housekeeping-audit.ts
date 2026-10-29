@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
-import { TRACKED_ITEMS, TRACKED_LABELS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
+import { AMOUNT_KEYS, TRACKED_ITEMS, TRACKED_LABELS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
 import { takenUnits } from "@/lib/housekeeping-billing";
 import { shiftDate, todayDateOnly, toDateOnlyString } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
@@ -119,7 +119,7 @@ export async function loadReconciliation(range: number | { from: Date; to: Date 
     for (const st of members) {
       for (const a of st.addons) {
         const cat = trackedKeyForAddonName(a.service?.name ?? a.description);
-        if (cat) billed.set(cat, (billed.get(cat) ?? 0) + a.quantity);
+        if (cat) billed.set(cat, (billed.get(cat) ?? 0) + (AMOUNT_KEYS.includes(cat) ? Number(a.price) * a.quantity : a.quantity));
       }
       // Per room: services are charged once per stay (hours are added up), so count units as the billing does.
       const rows = new Map<string, { recordId: string; quantity: number }[]>();
@@ -143,7 +143,8 @@ export async function loadReconciliation(range: number | { from: Date; to: Date 
     for (const [cat, t] of taken) {
       const missing = t.qty - (billed.get(cat) ?? 0);
       if (missing <= 0) continue;
-      const price = priceFor(cat);
+      const asAmount = AMOUNT_KEYS.includes(cat);
+      const price = asAmount ? 1 : priceFor(cat);
       target.issues.push({
         kind: "UNBILLED_ADDON",
         severity: ISSUE_SEVERITY.UNBILLED_ADDON,
@@ -152,7 +153,9 @@ export async function loadReconciliation(range: number | { from: Date; to: Date 
         roomName: t.roomName,
         bookingId: anchor.id,
         customerName: anchor.customerName,
-        detail: `${TRACKED_LABELS[cat] ?? cat}: แม่บ้านเบิก ${t.qty} บันทึกในการจอง ${billed.get(cat) ?? 0}${price ? ` (บริการละ ${price.toLocaleString("th-TH")} บาท)` : ""}`,
+        detail: asAmount
+          ? `${TRACKED_LABELS[cat] ?? cat}: แม่บ้านบันทึก ${t.qty.toLocaleString("th-TH")} บาท บันทึกในการจอง ${(billed.get(cat) ?? 0).toLocaleString("th-TH")} บาท`
+          : `${TRACKED_LABELS[cat] ?? cat}: แม่บ้านเบิก ${t.qty} บันทึกในการจอง ${billed.get(cat) ?? 0}${price ? ` (บริการละ ${price.toLocaleString("th-TH")} บาท)` : ""}`,
         amount: missing * price,
         responsible: anchor.createdBy?.name ?? null,
         groupId: anchor.charterGroupId,
