@@ -4,7 +4,7 @@ import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpe
 import { cleaningRecordInputSchema } from "@/lib/validators";
 import { parseDateOnly, shiftDate, todayDateOnly } from "@/lib/dates";
 import { TRACKED_KEYS } from "@/lib/housekeeping";
-import { syncLateCheckoutBilling } from "@/lib/housekeeping-billing";
+import { syncHousekeepingBilling } from "@/lib/housekeeping-billing";
 
 /**
  * Any logged-in role (including housekeeping) records a room cleaning and the supplies taken out.
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   const userName = session!.user.name ?? "-";
   const markReady = data.type === "CHECKOUT" && room.housekeepingStatus === "NEEDS_CLEANING";
 
-  // The cleaning record, its items, the room's status change and any late-checkout billing commit together.
+  // The cleaning record, its items, the room's status change and any billing of what she recorded commit together.
   const record = await prisma.$transaction(async (tx) => {
     const created = await tx.cleaningRecord.create({
       data: {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-    await syncLateCheckoutBilling(tx, room.id, ledgerDate);
+    await syncHousekeepingBilling(tx, room.id, ledgerDate);
     return created;
   });
 
