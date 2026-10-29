@@ -10,7 +10,7 @@ export const TRACKED_ITEMS = [
   { key: "PILLOW", label: "หมอนเพิ่ม", unit: "", hint: "", keywords: ["หมอน"] },
   { key: "PET", label: "สัตว์เลี้ยง", unit: "", hint: "", keywords: ["สัตว์เลี้ยง", "สุนัข", "แมว"] },
   // Late checkout found by the housekeeper: the quantity is the hours over, billed per hour (see the "ค่าต่อชั่วโมง…" services).
-  { key: "HOURLY", label: "ค่าต่อชั่วโมง", unit: "ชั่วโมง", hint: "ลูกค้าเช็คเอาท์เลท — ใส่จำนวนชั่วโมงที่เกินเวลา เพื่อให้แคชเชียร์เก็บเงิน", keywords: ["ต่อชั่วโมง"] },
+  { key: "HOURLY", label: "ค่าต่อชั่วโมง", unit: "ชั่วโมง", hint: "ลูกค้าเช็คเอาท์เลท — ใส่จำนวนชั่วโมงที่เกินเวลา ระบบจะเพิ่มเข้ายอดของการจองให้แคชเชียร์เก็บเงินอัตโนมัติ", keywords: ["ต่อชั่วโมง"] },
 ] as const;
 
 export type TrackedKey = (typeof TRACKED_ITEMS)[number]["key"];

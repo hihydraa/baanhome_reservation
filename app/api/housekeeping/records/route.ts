@@ -4,6 +4,7 @@ import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpe
 import { cleaningRecordInputSchema } from "@/lib/validators";
 import { parseDateOnly, shiftDate, todayDateOnly } from "@/lib/dates";
 import { TRACKED_KEYS } from "@/lib/housekeeping";
+import { syncLateCheckoutBilling } from "@/lib/housekeeping-billing";
 
 /**
  * Any logged-in role (including housekeeping) records a room cleaning and the supplies taken out.
@@ -28,9 +29,9 @@ export async function POST(req: NextRequest) {
   const userName = session!.user.name ?? "-";
   const markReady = data.type === "CHECKOUT" && room.housekeepingStatus === "NEEDS_CLEANING";
 
-  // The cleaning record, its items and the room's status change commit together.
-  const [record] = await prisma.$transaction([
-    prisma.cleaningRecord.create({
+  // The cleaning record, its items, the room's status change and any late-checkout billing commit together.
+  const record = await prisma.$transaction(async (tx) => {
+    const created = await tx.cleaningRecord.create({
       data: {
         resourceId: room.id,
         roomName: room.name,
@@ -50,23 +51,23 @@ export async function POST(req: NextRequest) {
         },
       },
       include: { items: true },
-    }),
-    ...(markReady
-      ? [
-          prisma.resource.update({ where: { id: room.id }, data: { housekeepingStatus: "READY" } }),
-          prisma.housekeepingLog.create({
-            data: {
-              resourceId: room.id,
-              roomName: room.name,
-              fromStatus: room.housekeepingStatus,
-              toStatus: "READY",
-              userId: session!.user.id,
-              userName,
-            },
-          }),
-        ]
-      : []),
-  ]);
+    });
+    if (markReady) {
+      await tx.resource.update({ where: { id: room.id }, data: { housekeepingStatus: "READY" } });
+      await tx.housekeepingLog.create({
+        data: {
+          resourceId: room.id,
+          roomName: room.name,
+          fromStatus: room.housekeepingStatus,
+          toStatus: "READY",
+          userId: session!.user.id,
+          userName,
+        },
+      });
+    }
+    await syncLateCheckoutBilling(tx, room.id, ledgerDate);
+    return created;
+  });
 
   return NextResponse.json(record, { status: 201 });
 }
