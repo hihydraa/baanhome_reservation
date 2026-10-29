@@ -1,8 +1,8 @@
 import type { prisma } from "@/lib/prisma";
 import { TRACKED_ITEMS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
 
-/** Services the housekeeper's record turns into a charge on the booking (the pet fee is still left to the cashier). */
-const BILLED_KEYS: TrackedKey[] = ["EXTRA_BED", "BLANKET", "PILLOW", "HOURLY"];
+/** Services the housekeeper's record turns into a charge on the booking. */
+const BILLED_KEYS: TrackedKey[] = ["EXTRA_BED", "BLANKET", "PILLOW", "PET", "HOURLY"];
 
 /** Marks an add-on the system created from a housekeeper's record; the label after it says which service. */
 const AUTO_PREFIX = "แม่บ้านบันทึก";
@@ -13,7 +13,7 @@ type Db = Pick<typeof prisma, "accommodationBooking" | "accommodationAddon" | "c
 
 /**
  * Brings the booking's add-ons in line with what the housekeeper recorded for the stay covering (room, ledger date):
- * extra bed, blanket, pillow and late-checkout hours. What she finds or hands out shows up in the booking total the
+ * extra bed, blanket, pillow, pet and late-checkout hours. What she finds or hands out shows up in the booking total the
  * cashier collects.
  *
  * The stay is the one with checkIn <= ledgerDate < checkOut — the same rule the audit uses — and each record row counts
