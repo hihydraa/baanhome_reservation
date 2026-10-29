@@ -1,7 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PAYMENT_METHOD_LABELS } from "@/lib/labels";
-import { TRACKED_ITEMS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
+import { TRACKED_ITEMS, TRACKED_LABELS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
+import { takenUnits } from "@/lib/housekeeping-billing";
 import { shiftDate, todayDateOnly, toDateOnlyString } from "@/lib/dates";
 import { accommodationExpectedTotal, sumPaid } from "@/lib/payment-calc";
 import { ISSUE_SEVERITY, reconcileNights, type NightIssue } from "@/lib/housekeeping-reconcile";
@@ -120,14 +121,19 @@ export async function loadReconciliation(range: number | { from: Date; to: Date 
         const cat = trackedKeyForAddonName(a.service?.name ?? a.description);
         if (cat) billed.set(cat, (billed.get(cat) ?? 0) + a.quantity);
       }
+      // Per room: services are charged once per stay (hours are added up), so count units as the billing does.
+      const rows = new Map<string, { recordId: string; quantity: number }[]>();
       for (const r of records) {
         if (r.resourceId !== st.resourceId || r.ledgerDate < st.checkIn || r.ledgerDate >= st.checkOut) continue;
         for (const i of r.items) {
           if (!i.category) continue;
-          const cur = taken.get(i.category) ?? { qty: 0, resourceId: st.resourceId, roomName: st.resource.name };
-          cur.qty += i.quantity;
-          taken.set(i.category, cur);
+          rows.set(i.category, [...(rows.get(i.category) ?? []), { recordId: r.id, quantity: i.quantity }]);
         }
+      }
+      for (const [cat, list] of rows) {
+        const cur = taken.get(cat) ?? { qty: 0, resourceId: st.resourceId, roomName: st.resource.name };
+        cur.qty += takenUnits(cat as TrackedKey, list);
+        taken.set(cat, cur);
       }
     }
     const anchor = members[0];
