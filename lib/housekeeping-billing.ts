@@ -9,6 +9,18 @@ const AUTO_PREFIX = "แม่บ้านบันทึก";
 
 const isAuto = (description: string | null) => !!description && description.startsWith(AUTO_PREFIX);
 
+/**
+ * Units to bill for a service across the stay's cleaning records. Hours are added up; every other service is charged
+ * once per stay, so the most units recorded on any one cleaning count — the housekeeper may list the same bed or pet
+ * on every night's record without it being billed again.
+ */
+export function takenUnits(key: TrackedKey, rows: { recordId?: string; quantity: number }[]): number {
+  if (key === "HOURLY") return rows.reduce((s, r) => s + r.quantity, 0);
+  const perRecord = new Map<string, number>();
+  rows.forEach((r, i) => perRecord.set(r.recordId ?? String(i), (perRecord.get(r.recordId ?? String(i)) ?? 0) + r.quantity));
+  return Math.max(0, ...perRecord.values());
+}
+
 type Db = Pick<typeof prisma, "accommodationBooking" | "accommodationAddon" | "cleaningRecordItem" | "specialService">;
 
 /**
@@ -16,8 +28,8 @@ type Db = Pick<typeof prisma, "accommodationBooking" | "accommodationAddon" | "c
  * extra bed, blanket, pillow, pet and late-checkout hours. What she finds or hands out shows up in the booking total the
  * cashier collects.
  *
- * The stay is the one with checkIn <= ledgerDate < checkOut — the same rule the audit uses — and each record row counts
- * once (an extra bed recorded on three nights' cleanings is three), as the paper log's amount column does. Units the
+ * The stay is the one with checkIn <= ledgerDate < checkOut — the same rule the audit uses. Services are charged per
+ * stay, not per night (see takenUnits); late-checkout hours are added up. Units the
  * cashier already billed by hand are left alone and only the shortfall is added, as a separate add-on tagged with
  * AUTO_PREFIX; that one is raised, lowered or removed when the housekeeper's record is corrected. If the tag is lost
  * (the booking form re-saves its add-ons) the add-on simply counts as billed by hand, so nothing is ever charged twice.
@@ -35,14 +47,14 @@ export async function syncHousekeepingBilling(db: Db, resourceId: string, ledger
       category: { in: BILLED_KEYS },
       record: { resourceId, ledgerDate: { gte: booking.checkIn, lt: booking.checkOut } },
     },
-    select: { category: true, quantity: true },
+    select: { recordId: true, category: true, quantity: true },
   });
   const services = await db.specialService.findMany({ where: { scope: "ACCOMMODATION" } });
   // The resort and the pool villas have their own hourly services; prefer the one for this room's zone.
   const zoneWord = booking.resource.zone === "POOL_VILLA" ? "พูลวิลล่า" : "รีสอร์ท";
 
   for (const key of BILLED_KEYS) {
-    const taken = items.filter((i) => i.category === key).reduce((s, i) => s + i.quantity, 0);
+    const taken = takenUnits(key, items.filter((i) => i.category === key));
     const billed = booking.addons.filter((a) => trackedKeyForAddonName(a.service?.name ?? a.description) === key);
     const manual = billed.filter((a) => !isAuto(a.description)).reduce((s, a) => s + a.quantity, 0);
     const autoAddons = billed.filter((a) => isAuto(a.description));
