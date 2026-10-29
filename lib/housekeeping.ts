@@ -5,10 +5,12 @@
  * since add-on names are free text the admin can edit.
  */
 export const TRACKED_ITEMS = [
-  { key: "EXTRA_BED", label: "เตียงเสริม", keywords: ["เตียงเสริม", "ที่นอนเสริม"] },
-  { key: "BLANKET", label: "ผ้าห่มเพิ่ม", keywords: ["ผ้าห่ม"] },
-  { key: "PILLOW", label: "หมอนเพิ่ม", keywords: ["หมอน"] },
-  { key: "PET", label: "สัตว์เลี้ยง", keywords: ["สัตว์เลี้ยง", "สุนัข", "แมว"] },
+  { key: "EXTRA_BED", label: "เตียงเสริม", unit: "", hint: "", keywords: ["เตียงเสริม", "ที่นอนเสริม"] },
+  { key: "BLANKET", label: "ผ้าห่มเพิ่ม", unit: "", hint: "", keywords: ["ผ้าห่ม"] },
+  { key: "PILLOW", label: "หมอนเพิ่ม", unit: "", hint: "", keywords: ["หมอน"] },
+  { key: "PET", label: "สัตว์เลี้ยง", unit: "", hint: "", keywords: ["สัตว์เลี้ยง", "สุนัข", "แมว"] },
+  // Late checkout found by the housekeeper: the quantity is the hours over, billed per hour (see the "ค่าต่อชั่วโมง…" services).
+  { key: "HOURLY", label: "ค่าต่อชั่วโมง", unit: "ชั่วโมง", hint: "ลูกค้าเช็คเอาท์เลท — ใส่จำนวนชั่วโมงที่เกินเวลา เพื่อให้แคชเชียร์เก็บเงิน", keywords: ["ต่อชั่วโมง"] },
 ] as const;
 
 export type TrackedKey = (typeof TRACKED_ITEMS)[number]["key"];

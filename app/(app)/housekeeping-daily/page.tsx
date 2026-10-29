@@ -7,13 +7,22 @@ import { DailySheetActions } from "@/components/housekeeping/DailySheetActions";
 import { EditCleaningButton } from "@/components/housekeeping/EditCleaningButton";
 import { CLEANING_TYPE_LABELS } from "@/lib/housekeeping";
 import { summarizeCleaning } from "@/lib/cleaning-summary";
-import { SUPPLY_ITEMS, roomShortName, roomSizeOf } from "@/lib/housekeeping";
+import { SUPPLY_ITEMS, TRACKED_ITEMS, roomShortName, roomSizeOf } from "@/lib/housekeeping";
 import { formatShortThaiDate, formatThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
 
 // Reviewed live by the counter — never serve a cached snapshot.
 export const dynamic = "force-dynamic";
 
 const EXTRA_BED = "เตียงเสริม";
+/** Other billable services the housekeeper can record (blanket, pillow, pet, late-checkout hours), shown for the counter. */
+const OTHER_SERVICES = TRACKED_ITEMS.filter((t) => t.label !== EXTRA_BED);
+
+function otherServices(items: { name: string; quantity: number }[]): string {
+  return OTHER_SERVICES.flatMap((s) => {
+    const q = qtyOf(items, s.label);
+    return q ? [`${s.label} ${q}${s.unit ? ` ${s.unit}` : ""}`] : [];
+  }).join(", ");
+}
 
 function qtyOf(items: { name: string; quantity: number }[], name: string): number {
   return items.filter((i) => i.name === name).reduce((s, i) => s + i.quantity, 0);
@@ -148,6 +157,7 @@ export default async function HousekeepingDailyPage({
                   <span className="text-xs font-normal">({i.unit})</span>
                 </TableHead>
               ))}
+              <TableHead>บริการเสริมอื่นๆ</TableHead>
               <TableHead>รายการแจ้งซ่อม</TableHead>
               <TableHead>หมายเหตุ</TableHead>
               <TableHead>ผู้ทำ</TableHead>
@@ -157,7 +167,7 @@ export default async function HousekeepingDailyPage({
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={(isHousekeeper ? 6 : 7) + SUPPLY_ITEMS.length + 4} className="py-8 text-center text-sm text-ink-400">
+                <TableCell colSpan={(isHousekeeper ? 6 : 7) + SUPPLY_ITEMS.length + 5} className="py-8 text-center text-sm text-ink-400">
                   ไม่มีบันทึกการทำความสะอาดในวันนี้
                 </TableCell>
               </TableRow>
@@ -187,6 +197,7 @@ export default async function HousekeepingDailyPage({
                       {qtyOf(r.items, i.name) || ""}
                     </TableCell>
                   ))}
+                  <TableCell className="min-w-32 text-sm font-medium text-forest-800">{otherServices(r.items)}</TableCell>
                   <TableCell className="min-w-40 text-sm">{r.repairNote ?? ""}</TableCell>
                   <TableCell className="min-w-32 text-sm">{r.notes ?? ""}</TableCell>
                   <TableCell className="whitespace-nowrap text-sm">
@@ -230,7 +241,7 @@ export default async function HousekeepingDailyPage({
                     {summary.supplies[i.name] || ""}
                   </TableCell>
                 ))}
-                <TableCell colSpan={4} className="text-sm">{single ? (reviewedLabel ?? "เคาน์เตอร์ยังไม่ได้ตรวจ") : ""}</TableCell>
+                <TableCell colSpan={5} className="text-sm">{single ? (reviewedLabel ?? "เคาน์เตอร์ยังไม่ได้ตรวจ") : ""}</TableCell>
               </TableRow>
             )}
           </TableBody>

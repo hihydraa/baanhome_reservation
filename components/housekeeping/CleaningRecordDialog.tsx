@@ -27,9 +27,9 @@ export type CleaningRecordFormValue = {
 };
 
 /** One selectable supply: tracked ones carry a category so the review page can audit them against billing. */
-const CHOICES: { name: string; category: string | null; unit: string }[] = [
-  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null, unit: "" })),
-  ...SUPPLY_ITEMS.map((i) => ({ name: i.name, category: null as string | null, unit: i.unit })),
+const CHOICES: { name: string; category: string | null; unit: string; hint: string }[] = [
+  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null, unit: t.unit as string, hint: t.hint as string })),
+  ...SUPPLY_ITEMS.map((i) => ({ name: i.name, category: null as string | null, unit: i.unit, hint: "" })),
 ];
 
 /**
@@ -172,6 +172,7 @@ export function CleaningRecordDialog({
                     {c.name}
                     {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
                     {c.category && <span className="ml-1 text-xs font-normal text-gold-700">(บริการเสริม)</span>}
+                    {c.hint && <span className="block text-xs font-normal text-ink-400">{c.hint}</span>}
                   </span>
                   <div className="flex items-center gap-2">
                     <Button type="button" variant="outline" size="icon" aria-label={`ลด ${c.name}`} onClick={() => bump(c.name, -1)}>
