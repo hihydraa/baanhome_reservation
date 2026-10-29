@@ -6,7 +6,7 @@ import { ZONE_LABELS } from "@/lib/labels";
 import { CLEANING_TYPE_LABELS } from "@/lib/housekeeping";
 import { todayDateOnly, formatThaiDate, shiftDate, toDateOnlyString } from "@/lib/dates";
 import { summarizeCleaning } from "@/lib/cleaning-summary";
-import { SUPPLY_ITEMS } from "@/lib/housekeeping";
+import { SUPPLY_ITEMS, TRACKED_ITEMS } from "@/lib/housekeeping";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HousekeepingRoomCard, type HousekeepingRoom } from "@/components/housekeeping/HousekeepingRoomCard";
 
@@ -166,7 +166,7 @@ export default async function HousekeepingPage({ searchParams }: { searchParams:
               <div>
                 <p className="mb-1 text-sm font-medium text-ink-900">เบิกไปทั้งหมด</p>
                 <div className="flex flex-wrap gap-2">
-                  {[...SUPPLY_ITEMS.map((i) => ({ name: i.name, unit: i.unit })), ...Object.keys(summary.supplies).filter((n) => !SUPPLY_ITEMS.some((i) => i.name === n)).map((name) => ({ name, unit: "" }))]
+                  {[...SUPPLY_ITEMS.map((i) => ({ name: i.name, unit: i.unit })), ...Object.keys(summary.supplies).filter((n) => !SUPPLY_ITEMS.some((i) => i.name === n)).map((name) => ({ name, unit: TRACKED_ITEMS.find((t) => t.label === name)?.unit ?? "" }))]
                     .filter((i) => (summary.supplies[i.name] ?? 0) > 0)
                     .map((i) => (
                       <span key={i.name} className="rounded-full border border-cream-200 bg-white px-3 py-1 text-sm">
