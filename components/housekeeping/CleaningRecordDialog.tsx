@@ -114,7 +114,6 @@ export function CleaningRecordDialog({
       <span className={cn(c.category && "font-medium text-forest-800")}>
         {c.name}
         {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
-        {c.category && <span className="ml-1 text-xs font-normal text-gold-700">(บริการเสริม)</span>}
         {c.hint && <span className="block text-xs font-normal text-ink-400">{c.hint}</span>}
       </span>
       <div className="flex items-center gap-2">
