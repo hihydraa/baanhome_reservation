@@ -4,6 +4,7 @@ import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpe
 import { cleaningRecordUpdateSchema } from "@/lib/validators";
 import { parseDateOnly, todayDateOnly } from "@/lib/dates";
 import { TRACKED_KEYS } from "@/lib/housekeeping";
+import { syncLateCheckoutBilling } from "@/lib/housekeeping-billing";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -32,9 +33,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (ledgerDate > todayDateOnly()) return errorResponse("เลือกวันที่ลงบัญชีหลังวันนี้ไม่ได้", 400);
 
   // Replace the items and update the record together so a failed edit never leaves a half-edited record.
-  const [, record] = await prisma.$transaction([
-    prisma.cleaningRecordItem.deleteMany({ where: { recordId: id } }),
-    prisma.cleaningRecord.update({
+  const record = await prisma.$transaction(async (tx) => {
+    await tx.cleaningRecordItem.deleteMany({ where: { recordId: id } });
+    const updated = await tx.cleaningRecord.update({
       where: { id },
       data: {
         resourceId: room.id,
@@ -55,8 +56,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         },
       },
       include: { items: true },
-    }),
-  ]);
+    });
+    // The hours may now belong to a different room or stay, so settle both the old and the new one.
+    await syncLateCheckoutBilling(tx, existing.resourceId, existing.ledgerDate);
+    if (room.id !== existing.resourceId || ledgerDate.getTime() !== existing.ledgerDate.getTime()) {
+      await syncLateCheckoutBilling(tx, room.id, ledgerDate);
+    }
+    return updated;
+  });
 
   return NextResponse.json(record);
 }
