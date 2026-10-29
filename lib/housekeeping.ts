@@ -11,7 +11,12 @@ export const TRACKED_ITEMS = [
   { key: "PET", label: "สัตว์เลี้ยง", unit: "", hint: "ระบบจะเพิ่มเข้ายอดของการจองให้อัตโนมัติ (คิดครั้งเดียวต่อการเข้าพัก)", keywords: ["สัตว์เลี้ยง", "สุนัข", "แมว"] },
   // Late checkout found by the housekeeper: the quantity is the hours over, billed per hour (see the "ค่าต่อชั่วโมง…" services).
   { key: "HOURLY", label: "ค่าต่อชั่วโมง", unit: "ชั่วโมง", hint: "ลูกค้าเช็คเอาท์เลท — ใส่จำนวนชั่วโมงที่เกินเวลา ระบบจะเพิ่มเข้ายอดของการจองให้แคชเชียร์เก็บเงินอัตโนมัติ", keywords: ["ต่อชั่วโมง"] },
+  // Laundry has no unit count, so the housekeeper enters the amount in baht (stored in the item's quantity).
+  { key: "LAUNDRY", label: "บริการซักผ้า", unit: "บาท", hint: "ใส่จำนวนเงิน (บาท) ระบบจะเพิ่มเข้ายอดของการจองให้อัตโนมัติ", keywords: ["ซักผ้า"] },
 ] as const;
+
+/** Services whose recorded quantity is an amount in baht rather than a count. */
+export const AMOUNT_KEYS: string[] = ["LAUNDRY"];
 
 export type TrackedKey = (typeof TRACKED_ITEMS)[number]["key"];
 
