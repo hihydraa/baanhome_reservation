@@ -26,11 +26,14 @@ export type CleaningRecordFormValue = {
   repairNote: string;
 };
 
-/** One selectable supply: tracked ones carry a category so the review page can audit them against billing. */
+/** One selectable item, consumables first and then the billable services: tracked ones carry a category so the review page can audit them against billing. */
 const CHOICES: { name: string; category: string | null; unit: string; hint: string }[] = [
-  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null, unit: t.unit as string, hint: t.hint as string })),
   ...SUPPLY_ITEMS.map((i) => ({ name: i.name, category: null as string | null, unit: i.unit, hint: "" })),
+  ...TRACKED_ITEMS.map((t) => ({ name: t.label, category: t.key as string | null, unit: t.unit as string, hint: t.hint as string })),
 ];
+
+const SUPPLY_CHOICES = CHOICES.filter((c) => !c.category);
+const SERVICE_CHOICES = CHOICES.filter((c) => c.category);
 
 /**
  * Record a room cleaning (type + supplies taken out) or correct an existing record. In edit mode the
@@ -57,6 +60,7 @@ export function CleaningRecordDialog({
   const { showToast } = useToast();
   const isEdit = !!initial.id;
   const known = new Set(CHOICES.map((c) => c.name));
+
 
   const [resourceId, setResourceId] = useState(initial.resourceId);
   const [type, setType] = useState<CleaningType | null>(initial.type);
@@ -104,6 +108,25 @@ export function CleaningRecordDialog({
       showToast(body.error ?? `บันทึกไม่สำเร็จ (${res.status})`);
     }
   }
+
+  const renderChoice = (c: (typeof CHOICES)[number]) => (
+    <div key={c.name} className="flex items-center justify-between gap-2 px-3 py-2">
+      <span className={cn(c.category && "font-medium text-forest-800")}>
+        {c.name}
+        {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
+        {c.hint && <span className="block text-xs font-normal text-ink-400">{c.hint}</span>}
+      </span>
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" size="icon" aria-label={`ลด ${c.name}`} onClick={() => bump(c.name, -1)}>
+          <Minus className="h-4 w-4" />
+        </Button>
+        <span className="w-6 text-center text-base font-semibold">{qty[c.name] ?? 0}</span>
+        <Button type="button" variant="outline" size="icon" aria-label={`เพิ่ม ${c.name}`} onClick={() => bump(c.name, 1)}>
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,25 +189,7 @@ export function CleaningRecordDialog({
           <div className="flex flex-col gap-2">
             <p className="font-medium text-ink-900">2. เบิกอะไรไปบ้าง (ไม่เบิกให้ข้าม)</p>
             <div className="flex flex-col divide-y divide-cream-100 rounded-lg border border-cream-200">
-              {CHOICES.map((c) => (
-                <div key={c.name} className="flex items-center justify-between gap-2 px-3 py-2">
-                  <span className={cn(c.category && "font-medium text-forest-800")}>
-                    {c.name}
-                    {c.unit && <span className="ml-1 text-xs font-normal text-ink-400">({c.unit})</span>}
-                    {c.category && <span className="ml-1 text-xs font-normal text-gold-700">(บริการเสริม)</span>}
-                    {c.hint && <span className="block text-xs font-normal text-ink-400">{c.hint}</span>}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="outline" size="icon" aria-label={`ลด ${c.name}`} onClick={() => bump(c.name, -1)}>
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="w-6 text-center text-base font-semibold">{qty[c.name] ?? 0}</span>
-                    <Button type="button" variant="outline" size="icon" aria-label={`เพิ่ม ${c.name}`} onClick={() => bump(c.name, 1)}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              {SUPPLY_CHOICES.map(renderChoice)}
               {others.map((o, i) => (
                 <div key={i} className="flex items-center gap-2 px-3 py-2">
                   <Input
@@ -213,6 +218,8 @@ export function CleaningRecordDialog({
                   เพิ่มรายการอื่นๆ
                 </Button>
               </div>
+              <p className="bg-cream-50 px-3 py-2 text-sm font-semibold text-forest-800">บริการเสริม (เพิ่มเข้ายอดของการจอง)</p>
+              {SERVICE_CHOICES.map(renderChoice)}
             </div>
           </div>
 
