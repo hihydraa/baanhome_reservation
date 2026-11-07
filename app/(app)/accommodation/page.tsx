@@ -1,9 +1,12 @@
 import { Suspense } from "react";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { BookingTable } from "@/components/accommodation/BookingTable";
 import { AccommodationPageClient } from "./AccommodationPageClient";
 
 export default async function AccommodationPage() {
+  const session = await auth();
+  const canCancel = session?.user?.role === "ADMIN" || session?.user?.role === "STAFF";
   const [resources, bookings, services, customers] = await Promise.all([
     prisma.resource.findMany({
       where: { type: "ACCOMMODATION" },
@@ -31,7 +34,7 @@ export default async function AccommodationPage() {
         </Suspense>
       </div>
 
-      <BookingTable bookings={bookings} />
+      <BookingTable bookings={bookings} canCancel={canCancel} />
     </div>
   );
 }

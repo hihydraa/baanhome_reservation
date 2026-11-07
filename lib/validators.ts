@@ -61,6 +61,11 @@ export const paymentEntryUpdateInputSchema = paymentEntryInputSchema.extend({
 });
 
 /** Body of a DELETE that needs a reason (payment entry, or an ADMIN deleting a booking). */
+export const bulkCancelInputSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1, "เลือกห้องอย่างน้อย 1 ห้อง").max(100),
+  reason: z.string().trim().min(3, "กรุณาระบุเหตุผลการยกเลิก (อย่างน้อย 3 ตัวอักษร)"),
+});
+
 export const deleteReasonInputSchema = z.object({
   reason: z.string().trim().min(3, "กรุณาระบุเหตุผลการลบ (อย่างน้อย 3 ตัวอักษร)"),
 });
