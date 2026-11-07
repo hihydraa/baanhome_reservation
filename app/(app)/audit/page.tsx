@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { HOUSEKEEPING_STATUS_LABELS } from "@/lib/labels";
-import { CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName } from "@/lib/housekeeping";
+import { AMOUNT_KEYS, CLEANING_TYPE_LABELS, TRACKED_LABELS, trackedKeyForAddonName, type TrackedKey } from "@/lib/housekeeping";
+import { takenUnits } from "@/lib/housekeeping-billing";
+import { summarizeSupplies } from "@/lib/supply-summary";
 import { formatShortThaiDate, formatThaiDate, shiftDate, toDateOnlyString, todayDateOnly } from "@/lib/dates";
 import { ISSUE_LABELS, SEVERITY_LABELS, SEVERITY_ORDER, type IssueKind, type Severity } from "@/lib/housekeeping-reconcile";
 import { loadReconciliation, syncAuditFindings } from "@/lib/housekeeping-audit";
@@ -135,14 +137,16 @@ export default async function AuditPage({
     const billed = new Map<string, number>();
     for (const a of st.addons) {
       const key = trackedKeyForAddonName(a.service?.name ?? a.description);
-      if (key) billed.set(key, (billed.get(key) ?? 0) + a.quantity);
+      if (key) billed.set(key, (billed.get(key) ?? 0) + (AMOUNT_KEYS.includes(key) ? Number(a.price) * a.quantity : a.quantity));
     }
-    const taken = new Map<string, number>();
+    // Services are charged once per stay (hours and laundry baht are added up), so count units the way billing does.
+    const rows = new Map<string, { recordId: string; quantity: number }[]>();
     for (const r of records) {
       // A cleaning is logged under the night it cleans up after, and a stay's nights run from check-in through the day before check-out.
       if (r.resourceId !== st.resourceId || r.ledgerDate < st.checkIn || r.ledgerDate >= st.checkOut) continue;
-      for (const i of r.items) if (i.category) taken.set(i.category, (taken.get(i.category) ?? 0) + i.quantity);
+      for (const i of r.items) if (i.category) rows.set(i.category, [...(rows.get(i.category) ?? []), { recordId: r.id, quantity: i.quantity }]);
     }
+    const taken = new Map<string, number>([...rows].map(([cat, list]) => [cat, takenUnits(cat as TrackedKey, list)]));
     for (const key of new Set([...billed.keys(), ...taken.keys()])) {
       audits.push({
         id: `${st.id}-${key}`,
@@ -164,6 +168,9 @@ export default async function AuditPage({
     if (r.ledgerDate >= firstDay && r.ledgerDate <= lastNight) perUser.set(r.userName, (perUser.get(r.userName) ?? 0) + 1);
   }
   const recentRecords = records.filter((r) => r.ledgerDate >= firstDay && r.ledgerDate <= lastNight).slice(0, 300);
+  // What was taken out over the whole range (not capped like the per-room list below).
+  const inRange = records.filter((r) => r.ledgerDate >= firstDay && r.ledgerDate <= lastNight);
+  const supplyRows = summarizeSupplies(inRange);
 
   // Which referenced bookings can still be opened, and the banquet bookings they are linked to.
   const referencedIds = [
@@ -557,6 +564,48 @@ export default async function AuditPage({
                     <p className="text-xs text-ink-600">{count} ครั้ง</p>
                   </div>
                 ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>สรุปการเบิกวัสดุและบริการเสริม ({formatThaiDate(firstNight)} – {formatThaiDate(lastNight)})</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-xs text-ink-400">
+            รวมจากบันทึกทำความสะอาด {inRange.length} ครั้งในช่วงวันที่ที่เลือก (ตามวันที่ลงบัญชี) เปลี่ยนช่วงด้วยตัวกรองด้านบน
+          </p>
+          {supplyRows.length === 0 ? (
+            <p className="text-sm text-ink-400">ไม่มีการเบิกในช่วงนี้</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>รายการ</TableHead>
+                    <TableHead className="text-right">จำนวนรวม</TableHead>
+                    <TableHead>หน่วย</TableHead>
+                    <TableHead className="text-right">จำนวนครั้งที่เบิก</TableHead>
+                    <TableHead className="text-right">จำนวนห้อง</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {supplyRows.map((r, i) => (
+                    <TableRow key={r.name} className={cn(i > 0 && supplyRows[i - 1].kind !== r.kind && "border-t-2 border-cream-200")}>
+                      <TableCell className="text-sm font-medium">
+                        {r.name}
+                        {r.kind === "SERVICE" && <span className="ml-1 text-xs font-normal text-gold-700">(บริการเสริม)</span>}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-semibold">{r.total.toLocaleString("th-TH")}</TableCell>
+                      <TableCell className="text-sm text-ink-600">{r.unit}</TableCell>
+                      <TableCell className="text-right text-sm">{r.cleanings}</TableCell>
+                      <TableCell className="text-right text-sm">{r.rooms}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
