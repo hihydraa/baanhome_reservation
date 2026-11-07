@@ -252,6 +252,9 @@ export function RoomCard({
           )}
 
           {b && !isCancelled && <div className="text-sm font-semibold text-ink-900">{expectedTotal.toLocaleString("th-TH")} บาท</div>}
+          {b && !isCancelled && isCharter && (
+            <div className="-mt-1 text-xs text-ink-500">ห้องนี้ {ownExpectedTotal.toLocaleString("th-TH")} บาท</div>
+          )}
 
           <div className="mt-auto flex items-center justify-between border-t border-cream-100 pt-1.5">
             {isCancelled && b ? (
@@ -309,7 +312,7 @@ export function RoomCard({
               {isCharter && (
                 <div className="rounded-md bg-violet-50 px-3 py-2 text-xs text-violet-800">
                   ห้องนี้เป็นส่วนหนึ่งของการ<strong>เหมา {resource.charterGroup!.roomCount} ห้อง</strong> ยอดเงินและการชำระด้านล่างคือ
-                  <strong> ยอดรวมของทั้งกลุ่ม</strong> ไม่ใช่ของห้องนี้ห้องเดียว
+                  <strong> ยอดรวมของทั้งกลุ่ม</strong> ไม่ใช่ของห้องนี้ห้องเดียว (ราคาของห้องนี้ {ownExpectedTotal.toLocaleString("th-TH")} บาท)
                 </div>
               )}
               <div className="flex items-center justify-between">
