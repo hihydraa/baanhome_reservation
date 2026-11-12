@@ -20,7 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <ToastProvider>
       <div className="flex min-h-screen w-full">
         <Sidebar isAdmin={isAdmin} canAudit={canAudit} openFindings={openFindings} isHousekeeper={isHousekeeper} />
-        <div className="flex min-h-screen flex-1 flex-col">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <Header
             name={session?.user.name ?? ""}
             role={session?.user.role ?? "STAFF"}
