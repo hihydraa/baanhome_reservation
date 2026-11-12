@@ -12,6 +12,7 @@ import {
   SprayCan,
   ClipboardList,
   Search,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export function buildNav({ isAdmin, canAudit, isHousekeeper, openFindings }: Fla
       title: "งานประจำวัน",
       items: [
         { href: "/dashboard", label: "ภาพรวมรายวัน", shortLabel: "ภาพรวม", icon: LayoutGrid },
+        ...(staff ? [{ href: "/availability", label: "ปฏิทินห้องว่าง", shortLabel: "ห้องว่าง", icon: CalendarDays }] : []),
         ...(staff
           ? [
               { href: "/accommodation", label: "จองห้องพัก", shortLabel: "ห้องพัก", icon: BedDouble },
