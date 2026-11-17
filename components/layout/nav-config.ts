@@ -13,6 +13,7 @@ import {
   ClipboardList,
   Search,
   CalendarDays,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,7 @@ export function buildNav({ isAdmin, canAudit, isHousekeeper, openFindings }: Fla
       title: "ข้อมูลและรายงาน",
       items: staff
         ? [
+            ...(canAudit ? [{ href: "/kpi", label: "KPI Dashboard", shortLabel: "KPI", icon: Gauge }] : []),
             { href: "/reports", label: "รายงาน", shortLabel: "รายงาน", icon: BarChart3 },
             { href: "/sales-dashboard", label: "ยอดขายร้านอาหาร", shortLabel: "ยอดขาย", icon: TrendingUp },
             { href: "/customers", label: "ฐานข้อมูลลูกค้า", shortLabel: "ลูกค้า", icon: BookUser },

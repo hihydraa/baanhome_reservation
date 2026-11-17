@@ -551,3 +551,17 @@ model BookingStatusLog {
 
   @@index([bookingId, createdAt])
 }
+
+/**
+ * Figures for the KPI dashboard that the system cannot compute by itself, typed in per month ("2026-11"):
+ * the banquet cost behind "GP - งานจอง", the restaurant GP % and the evaluation score %.
+ */
+model KpiMonthlyInput {
+  month         String   @id
+  banquetCost   Decimal? @db.Decimal(12, 2)
+  restaurantGp  Decimal? @db.Decimal(5, 2)
+  evaluationPct Decimal? @db.Decimal(5, 2)
+  updatedById   String?
+  updatedByName String?
+  updatedAt     DateTime @updatedAt
+}
