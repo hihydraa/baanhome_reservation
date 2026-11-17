@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
+import { Loader2, Plus, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,9 @@ type ImportRow = { name: string; phone?: string; taxId?: string };
 
 const EMPTY_FORM = { name: "", phone: "", taxId: "", address: "" };
 
+/** Lower-cased, and phone/ID numbers without spaces or dashes, so "081 234" finds "081-234-5678". */
+const normalize = (s: string) => s.toLowerCase().replace(/[\s-]+/g, "");
+
 function detectColumn(header: string[], candidates: string[]): number {
   const lower = header.map((h) => h.trim().toLowerCase());
   for (const candidate of candidates) {
@@ -48,6 +51,13 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const shown = useMemo(() => {
+    const q = normalize(query.trim());
+    if (!q) return customers;
+    return customers.filter((c) => [c.name, c.phone, c.taxId, c.address].some((v) => v && normalize(v).includes(q)));
+  }, [customers, query]);
 
   const [importRows, setImportRows] = useState<ImportRow[] | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -163,7 +173,24 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+          <Input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="ค้นหาชื่อ เบอร์โทร เลขประจำตัว หรือที่อยู่"
+            aria-label="ค้นหาลูกค้า"
+            className="pl-9 pr-9"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery("")} aria-label="ล้างคำค้นหา" className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-400 hover:text-ink-900">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <div className="flex gap-2">
         <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden" onChange={handleFileSelected} />
         <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
           <Upload className="h-4 w-4" />
@@ -173,12 +200,20 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
           <Plus className="h-4 w-4" />
           เพิ่มลูกค้า
         </Button>
+        </div>
       </div>
+      {customers.length > 0 && query.trim() && (
+        <p className="text-xs text-ink-500">
+          พบ {shown.length} จาก {customers.length} ราย
+        </p>
+      )}
 
       {customers.length === 0 ? (
         <p className="rounded-lg border border-dashed border-cream-200 p-8 text-center text-sm text-ink-400">
           ยังไม่มีข้อมูลลูกค้า — จะถูกบันทึกอัตโนมัติเมื่อมีการจองครั้งถัดไป หรือเพิ่ม/นำเข้าได้ที่นี่
         </p>
+      ) : shown.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-cream-200 p-8 text-center text-sm text-ink-400">ไม่พบลูกค้าที่ตรงกับ &quot;{query.trim()}&quot;</p>
       ) : (
         <Table>
           <TableHeader>
@@ -191,7 +226,7 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.map((c) => (
+            {shown.map((c) => (
               <TableRow key={c.id}>
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell>{c.phone || "-"}</TableCell>
