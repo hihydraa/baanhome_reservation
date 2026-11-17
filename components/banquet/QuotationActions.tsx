@@ -35,6 +35,9 @@ export function QuotationActions({ backHref, showRoomPrices = true }: { backHref
       </Link>
       {!showRoomPrices && <span className="text-xs text-ink-400">ไม่แสดงรายการค่าห้อง และยอดรวมด้านล่างไม่รวมค่าห้อง</span>}
     </div>
+    <p className="px-1 text-xs text-ink-500">
+      แตะที่ข้อความ <strong>ที่อยู่ / เลขประจำตัว / Project</strong> ในใบเสนอราคาเพื่อแก้ไขได้เลย (แก้เฉพาะใบนี้ในเครื่องนี้ ไม่เปลี่ยนข้อมูลการจองหรือฐานข้อมูลลูกค้า)
+    </p>
     </div>
   );
 }

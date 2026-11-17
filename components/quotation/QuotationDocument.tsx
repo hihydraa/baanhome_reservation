@@ -1,5 +1,6 @@
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { VAT_RATE } from "@/lib/payment-calc";
+import { EditableText } from "@/components/quotation/EditableText";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
 import { PreparedByField } from "@/components/banquet/PreparedByField";
 
@@ -117,7 +118,7 @@ export function QuotationDocument({
                 <tr>
                   <td className="border border-ink-900/20 px-2 py-1.5 font-medium">ที่อยู่</td>
                   <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
-                    {address}
+                    <EditableText field="address" value={address} />
                   </td>
                 </tr>
               )}
@@ -125,14 +126,14 @@ export function QuotationDocument({
                 <tr>
                   <td className="border border-ink-900/20 px-2 py-1.5 font-medium">เลขประจำตัว/นิติบุคคล</td>
                   <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
-                    {taxId}
+                    <EditableText field="taxId" value={taxId} />
                   </td>
                 </tr>
               )}
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-medium">Project</td>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-semibold text-red-700" colSpan={3}>
-                  {projectLine}
+                  <EditableText field="project" value={projectLine} />
                 </td>
               </tr>
             </tbody>
