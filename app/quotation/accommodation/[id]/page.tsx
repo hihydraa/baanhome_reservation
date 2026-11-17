@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { formatShortThaiDate, formatThaiDate, todayDateOnly } from "@/lib/dates";
 import { accommodationExpectedTotal, extractVat } from "@/lib/payment-calc";
+import { projectText } from "@/lib/quotation-project";
 import { QuotationDocument } from "@/components/quotation/QuotationDocument";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 
@@ -11,10 +12,11 @@ export default async function AccommodationQuotationPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rooms?: string }>;
+  searchParams: Promise<{ rooms?: string; project?: string }>;
 }) {
   const { id } = await params;
-  const showRoomPrices = (await searchParams).rooms !== "hide";
+  const query = await searchParams;
+  const showRoomPrices = query.rooms !== "hide";
 
   const session = await auth();
 
@@ -57,6 +59,8 @@ export default async function AccommodationQuotationPage({
   const quotationNumber = `QT${formatShortThaiDate(booking.checkIn).replace(/-/g, "")}-${booking.id.slice(-5).toUpperCase()}`;
   const projectLine = `${formatShortThaiDate(booking.checkIn)} ถึง ${formatShortThaiDate(booking.checkOut)} ห้อง ${booking.resource.name} ${booking.guestCount} ท่าน ${nights} คืน`;
 
+  const project = projectText(query.project, projectLine, booking.notes);
+
   return (
     <QuotationDocument
       backHref={`/accommodation/${booking.id}`}
@@ -66,7 +70,9 @@ export default async function AccommodationQuotationPage({
       phone={booking.phone}
       taxId={customer?.taxId}
       address={customer?.address}
-      projectLine={projectLine}
+      projectLine={project.text}
+      projectSource={project.source}
+      hasNotes={!!booking.notes?.trim()}
       lineItems={lineItems}
       showRoomPrices={showRoomPrices}
       emptyHint="ยังไม่มีรายการ"

@@ -24,7 +24,7 @@ export function EditableText({ field, value, className }: { field: string; value
   }, [key]);
 
   function save() {
-    const text = ref.current?.textContent ?? "";
+    const text = ref.current?.innerText ?? "";
     try {
       if (text === value) window.localStorage.removeItem(key);
       else window.localStorage.setItem(key, text);
