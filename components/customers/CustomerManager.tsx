@@ -6,6 +6,7 @@ import { Loader2, Plus, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableHeader,
@@ -23,10 +24,10 @@ import {
 import { useToast } from "@/components/ui/toast-provider";
 import { parseCsv } from "@/lib/csv";
 
-type CustomerRow = { id: string; name: string; phone: string | null; taxId: string | null };
+type CustomerRow = { id: string; name: string; phone: string | null; taxId: string | null; address: string | null };
 type ImportRow = { name: string; phone?: string; taxId?: string };
 
-const EMPTY_FORM = { name: "", phone: "", taxId: "" };
+const EMPTY_FORM = { name: "", phone: "", taxId: "", address: "" };
 
 function detectColumn(header: string[], candidates: string[]): number {
   const lower = header.map((h) => h.trim().toLowerCase());
@@ -61,7 +62,7 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
 
   function openEdit(customer: CustomerRow) {
     setEditing(customer);
-    setForm({ name: customer.name, phone: customer.phone ?? "", taxId: customer.taxId ?? "" });
+    setForm({ name: customer.name, phone: customer.phone ?? "", taxId: customer.taxId ?? "", address: customer.address ?? "" });
     setError(null);
     setOpen(true);
   }
@@ -184,7 +185,8 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
             <TableRow>
               <TableHead>ชื่อ-นามสกุล</TableHead>
               <TableHead>เบอร์โทร</TableHead>
-              <TableHead>เลขนิติบุคคล</TableHead>
+              <TableHead>เลขประจำตัว/เลขนิติบุคคล</TableHead>
+              <TableHead>ที่อยู่</TableHead>
               <TableHead className="text-right">จัดการ</TableHead>
             </TableRow>
           </TableHeader>
@@ -194,6 +196,7 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
                 <TableCell className="font-medium">{c.name}</TableCell>
                 <TableCell>{c.phone || "-"}</TableCell>
                 <TableCell>{c.taxId || "-"}</TableCell>
+                <TableCell className="max-w-xs truncate" title={c.address ?? undefined}>{c.address || "-"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
                     <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
@@ -225,8 +228,12 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>เลขนิติบุคคล (ถ้ามี)</Label>
+              <Label>เลขประจำตัวประชาชน / เลขนิติบุคคล (ถ้ามี)</Label>
               <Input value={form.taxId} onChange={(e) => setForm({ ...form, taxId: e.target.value })} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>ที่อยู่ (ถ้ามี)</Label>
+              <Textarea rows={2} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
             {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             <Button type="submit" variant="gold" disabled={saving}>

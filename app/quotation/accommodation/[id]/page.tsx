@@ -54,6 +54,7 @@ export default async function AccommodationQuotationPage({ params }: { params: P
       customerName={booking.customerName}
       phone={booking.phone}
       taxId={customer?.taxId}
+      address={customer?.address}
       projectLine={projectLine}
       lineItems={lineItems}
       emptyHint="ยังไม่มีรายการ"

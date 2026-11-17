@@ -14,6 +14,7 @@ import {
   type InitialDepositValue,
 } from "@/components/payment/InitialDepositInput";
 import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
+import { CustomerDetailsSection, customerDetailsPayload, detailsFromCustomer, EMPTY_CUSTOMER_DETAILS } from "@/components/customers/CustomerDetailsSection";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -45,6 +46,7 @@ export function CharterBookingForm({
   const [scope, setScope] = useState<ChargeScope>("RESORT");
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
+  const [details, setDetails] = useState(EMPTY_CUSTOMER_DETAILS);
   const [source, setSource] = useState("WALK_IN");
   const [checkIn, setCheckIn] = useState(initialCheckIn ?? today);
   const [checkOut, setCheckOut] = useState(initialCheckIn ?? today);
@@ -67,6 +69,7 @@ export function CharterBookingForm({
         scope,
         customerName,
         phone,
+        customerDetails: customerDetailsPayload(details),
         source,
         checkIn,
         checkOut,
@@ -124,6 +127,7 @@ export function CharterBookingForm({
             onSelectCustomer={(c) => {
               setCustomerName(c.name);
               if (c.phone) setPhone(c.phone);
+              setDetails(detailsFromCustomer(c));
             }}
             customers={customers}
           />
@@ -132,6 +136,7 @@ export function CharterBookingForm({
           <Label>เบอร์โทรศัพท์</Label>
           <Input required value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
+        <CustomerDetailsSection value={details} onChange={setDetails} />
 
         <div className="flex flex-col gap-1.5">
           <Label>ช่องทางการจอง</Label>

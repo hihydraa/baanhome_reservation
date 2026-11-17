@@ -72,6 +72,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
       customerName={booking.customerName}
       phone={booking.phone}
       taxId={customer?.taxId}
+      address={customer?.address}
       projectLine={projectLine}
       lineItems={lineItems}
       emptyHint='ยังไม่มีรายการ — เลือกห้องที่ระบุราคา หรือเพิ่ม "บริการเพิ่มเติม" ในหน้ารายละเอียดการจอง'

@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
     await logCreatedEntries(prisma, entries, session!.user);
   }
 
-  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone, ...data.customerDetails });
 
   return NextResponse.json({ count: bookings.length, bookings }, { status: 201 });
 }

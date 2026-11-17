@@ -19,6 +19,14 @@ export const customerInputSchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
   phone: z.string().optional(),
   taxId: z.string().optional(),
+  address: z.string().optional(),
+});
+
+/** Optional customer details a booking form can send; saved to the customer directory and printed on the quotation. */
+export const customerDetailsSchema = z.object({
+  address: z.string().trim().max(500, "ที่อยู่ยาวเกินไป").optional(),
+  /** Thai national ID or juristic person number. */
+  taxId: z.string().trim().max(30, "เลขประจำตัวยาวเกินไป").optional(),
 });
 
 export const addonInputSchema = z.object({
@@ -75,6 +83,7 @@ export const accommodationBookingInputSchema = z
     resourceId: z.string().min(1, "กรุณาเลือกห้อง"),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
     phone: z.string().min(1, "กรุณากรอกเบอร์โทรศัพท์"),
+    customerDetails: customerDetailsSchema.optional(),
     source: bookingSourceEnum.default("WALK_IN"),
     checkIn: dateOnly,
     checkOut: dateOnly,
@@ -105,6 +114,7 @@ export const accommodationBulkBookingInputSchema = z
     scope: accommodationChargeScopeEnum,
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า"),
     phone: z.string().min(1, "กรุณากรอกเบอร์โทรศัพท์"),
+    customerDetails: customerDetailsSchema.optional(),
     source: bookingSourceEnum.default("WALK_IN"),
     checkIn: dateOnly,
     checkOut: dateOnly,
@@ -132,6 +142,7 @@ export const banquetBookingInputSchema = z
     cancelReason: z.string().optional(),
     customerName: z.string().min(1, "กรุณากรอกชื่อลูกค้า/ผู้ติดต่อ"),
     phone: z.string().optional(),
+    customerDetails: customerDetailsSchema.optional(),
     addons: z.array(addonInputSchema).default([]),
     discountType: z.enum(["BAHT", "PERCENT"]).default("BAHT"),
     discountValue: z.coerce.number().min(0, "ส่วนลดต้องไม่ติดลบ").default(0),

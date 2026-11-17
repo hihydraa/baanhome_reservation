@@ -30,6 +30,7 @@ export function QuotationDocument({
   customerName,
   phone,
   taxId,
+  address,
   projectLine,
   lineItems,
   emptyHint,
@@ -51,6 +52,8 @@ export function QuotationDocument({
   customerName: string;
   phone: string | null;
   taxId?: string | null;
+  /** The customer's address and national ID / juristic ID, printed when the customer directory has them. */
+  address?: string | null;
   projectLine: string;
   lineItems: QuotationLineItem[];
   emptyHint: string;
@@ -107,9 +110,17 @@ export function QuotationDocument({
                 <td className="w-20 border border-ink-900/20 px-2 py-1.5 font-medium">เลขที่ / No.</td>
                 <td className="border border-ink-900/20 px-2 py-1.5">{quotationNumber}</td>
               </tr>
+              {address && (
+                <tr>
+                  <td className="border border-ink-900/20 px-2 py-1.5 font-medium">ที่อยู่</td>
+                  <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
+                    {address}
+                  </td>
+                </tr>
+              )}
               {taxId && (
                 <tr>
-                  <td className="border border-ink-900/20 px-2 py-1.5 font-medium">เลขนิติบุคคล</td>
+                  <td className="border border-ink-900/20 px-2 py-1.5 font-medium">เลขประจำตัว/นิติบุคคล</td>
                   <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
                     {taxId}
                   </td>

@@ -114,6 +114,7 @@ model Customer {
   name      String
   phone     String?
   taxId     String?
+  address   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

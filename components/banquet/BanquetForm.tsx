@@ -16,6 +16,7 @@ import {
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { AddonEditor, type AddonFormValue, type ServiceOption } from "@/components/accommodation/AddonEditor";
 import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
+import { CustomerDetailsSection, customerDetailsPayload, detailsFromCustomer } from "@/components/customers/CustomerDetailsSection";
 import { DiscountField } from "@/components/quotation/DiscountField";
 import { ConflictBanner } from "@/components/banquet/ConflictBanner";
 import { useToast } from "@/components/ui/toast-provider";
@@ -105,6 +106,10 @@ export function BanquetForm({
   const { showToast } = useToast();
   const [value, setValue] = useState(() => defaultBanquetFormValue(initialOverrides));
   const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
+  // Optional address / ID number, opened already filled in when the directory knows them for this customer.
+  const [details, setDetails] = useState(() =>
+    detailsFromCustomer(value.customerName ? customers.find((c) => c.name === value.customerName.trim()) : null)
+  );
   const [saving, setSaving] = useState(false);
   // A reason is only required when this save is what cancels the booking (server enforces the same).
   const cancelReasonRequired = !(initialOverrides?.status === "CANCELLED");
@@ -160,7 +165,7 @@ export function BanquetForm({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(value.id ? value : { ...value, initialPayment: initialDeposit }),
+      body: JSON.stringify({ ...(value.id ? value : { ...value, initialPayment: initialDeposit }), customerDetails: customerDetailsPayload(details) }),
     });
 
     setSaving(false);
@@ -198,7 +203,10 @@ export function BanquetForm({
             required
             value={value.customerName}
             onChange={(customerName) => setValue({ ...value, customerName })}
-            onSelectCustomer={(c) => setValue({ ...value, customerName: c.name, phone: c.phone || value.phone })}
+            onSelectCustomer={(c) => {
+              setValue({ ...value, customerName: c.name, phone: c.phone || value.phone });
+              setDetails(detailsFromCustomer(c));
+            }}
             customers={customers}
           />
         </div>
@@ -206,6 +214,7 @@ export function BanquetForm({
           <Label>เบอร์โทรศัพท์</Label>
           <Input value={value.phone} onChange={(e) => setValue({ ...value, phone: e.target.value })} />
         </div>
+        <CustomerDetailsSection value={details} onChange={setDetails} />
 
         <div className="flex flex-col gap-1.5">
           <Label>วันที่ใช้งาน</Label>

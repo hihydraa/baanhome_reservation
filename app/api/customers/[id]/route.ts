@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const customer = await prisma.customer.update({
     where: { id },
-    data: { name: data.name.trim(), phone: data.phone || null, taxId: data.taxId || null },
+    data: { name: data.name.trim(), phone: data.phone || null, taxId: data.taxId || null, address: data.address?.trim() || null },
   });
   return NextResponse.json(customer);
 }
