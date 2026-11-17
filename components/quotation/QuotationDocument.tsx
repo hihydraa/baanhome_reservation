@@ -20,8 +20,6 @@ export type QuotationLineItem = {
   quantity: number;
   unitPrice: number;
   amount: number;
-  /** A room charge (accommodation room, banquet room, linked stay): its price can be left off the printed quotation. */
-  isRoom?: boolean;
 };
 
 /** The printable A4 quotation shared by banquet and accommodation bookings. */
@@ -59,7 +57,7 @@ export function QuotationDocument({
   address?: string | null;
   projectLine: string;
   lineItems: QuotationLineItem[];
-  /** Off: room lines keep their description and quantity but show no price; the totals below still include them. */
+  /** Off: the page leaves the room charges out of the lines and the totals; the document says so under the lines. */
   showRoomPrices?: boolean;
   emptyHint: string;
   subtotal: number;
@@ -164,21 +162,15 @@ export function QuotationDocument({
                     <td className="border border-ink-900/20 px-2 py-1.5 text-center">{i + 1}</td>
                     <td className="border border-ink-900/20 px-2 py-1.5">{item.description}</td>
                     <td className="border border-ink-900/20 px-2 py-1.5 text-center">{item.quantity}</td>
-                    {item.isRoom && !showRoomPrices ? (
-                      <td colSpan={2} className="border border-ink-900/20 px-2 py-1.5 text-center text-ink-600">
-                        รวมอยู่ในยอดรวม
-                      </td>
-                    ) : (
-                      <>
-                        <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
-                        <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
-                      </>
-                    )}
+                    <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                    <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+
+          {!showRoomPrices && <p className="-mt-1 text-xs text-ink-600">* ใบเสนอราคานี้ไม่รวมค่าห้องพัก/ห้องจัดเลี้ยง</p>}
 
           {/* Totals */}
           <table className="w-full border-collapse text-xs">

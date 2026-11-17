@@ -40,11 +40,13 @@ export default async function QuotationPage({
     return line ? [{ id: b.id, description: line.name, quantity: line.quantity, unitPrice: line.price }] : [];
   });
 
+  // Without the room price the quotation covers only the add-ons (no room, no linked stays); a percentage discount applies to that.
+  const quotedStays = showRoomPrices ? stays : [];
   const { roomTotal, subtotal, discountAmount, expectedTotal: netTotal } = quotationTotals(
     booking,
-    booking.resource,
+    showRoomPrices ? booking.resource : { hourlyPrice: null, dailyPrice: null },
     booking.addons,
-    stays.map((st) => ({ nights: st.quantity, price: st.unitPrice })),
+    quotedStays.map((st) => ({ nights: st.quantity, price: st.unitPrice })),
     { type: booking.discountType, value: booking.discountValue }
   );
   const { exVat, vat } = extractVat(netTotal);
@@ -52,9 +54,9 @@ export default async function QuotationPage({
 
   const lineItems = [
     ...(roomTotal > 0
-      ? [{ id: "room", isRoom: true, description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
+      ? [{ id: "room", description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
       : []),
-    ...stays.map((st) => ({ ...st, isRoom: true, amount: st.quantity * st.unitPrice })),
+    ...quotedStays.map((st) => ({ ...st, amount: st.quantity * st.unitPrice })),
     ...booking.addons.map((a) => ({
       id: a.id,
       description: a.service?.name || a.description || "-",
