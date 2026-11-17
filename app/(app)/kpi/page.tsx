@@ -11,6 +11,8 @@ import { KpiInputForm } from "@/components/kpi/KpiInputForm";
 
 // Always read the latest bookings and POS sales.
 export const dynamic = "force-dynamic";
+// Reading the POS sheet can take a few seconds.
+export const maxDuration = 30;
 
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 const monthTitle = (m: string) => `${THAI_MONTHS[Number(m.slice(5, 7)) - 1]} ${Number(m.slice(0, 4)) + 543}`;

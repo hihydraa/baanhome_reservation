@@ -85,10 +85,12 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
     loadPerformance(month + "-01", toDateOnlyString(monthEnd)),
     future ? Promise.resolve(null) : loadPosMonth(month),
     countBigBookings(monthStart, nextStart),
-    prisma.kpiMonthlyInput.findUnique({ where: { month } }),
+    // The typed-in figures live in a table added by a migration: until it has been applied, show the page without them.
+    prisma.kpiMonthlyInput.findUnique({ where: { month } }).catch(() => "NO_TABLE" as const),
   ]);
 
   const warnings: string[] = [];
+  if (input === "NO_TABLE") warnings.push("ยังไม่ได้อัปเดตฐานข้อมูล (ต้องรัน npm run db:deploy) จึงยังกรอกและแสดงตัวเลข GP/คะแนนประเมินไม่ได้");
   let posData: PosMonth | null = null;
   if (pos) {
     if ("error" in pos) warnings.push(`อ่านยอดขายร้านอาหารจาก Google Sheet ไม่สำเร็จ: ${pos.error}`);
@@ -100,9 +102,10 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
   const zone = (z: string) => perf.accommodationOcc.byZone.find((r) => r.zone === z)?.rate ?? null;
   const banquetRevenue = perf.revenue.banquet;
   const num = (v: unknown) => (v == null ? null : Number(v));
-  const banquetCost = num(input?.banquetCost);
-  const restaurantGp = num(input?.restaurantGp);
-  const evaluationPct = num(input?.evaluationPct);
+  const saved = input === "NO_TABLE" ? null : input;
+  const banquetCost = num(saved?.banquetCost);
+  const restaurantGp = num(saved?.restaurantGp);
+  const evaluationPct = num(saved?.evaluationPct);
 
   const accommodationSales = perf.revenue.recognized.accommodation;
   const banquetSales = perf.revenue.recognized.banquet;
@@ -166,8 +169,8 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
       banquetCost,
       restaurantGp,
       evaluationPct,
-      updatedByName: input?.updatedByName ?? null,
-      updatedAt: input?.updatedAt ?? null,
+      updatedByName: saved?.updatedByName ?? null,
+      updatedAt: saved?.updatedAt ?? null,
     },
     warnings,
   };

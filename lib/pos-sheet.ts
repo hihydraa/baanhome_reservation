@@ -112,7 +112,7 @@ async function fetchTable(query?: string): Promise<GvizTable> {
   const url =
     `${SHEETS_BASE}/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(DETAIL_TAB)}` +
     (query ? `&tq=${encodeURIComponent(query)}` : "");
-  const res = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(25_000) });
+  const res = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(9_000) });
   if (!res.ok) throw new Error(`Google Sheets ตอบกลับสถานะ ${res.status}`);
   return parseGviz(await res.text());
 }
