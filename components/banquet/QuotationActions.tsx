@@ -33,7 +33,7 @@ export function QuotationActions({ backHref, showRoomPrices = true }: { backHref
       <Link href={`${pathname}?rooms=hide`} replace className={chip(!showRoomPrices)}>
         ไม่ระบุราคา
       </Link>
-      {!showRoomPrices && <span className="text-xs text-ink-400">ราคาห้องรวมอยู่ในยอดรวมด้านล่าง ไม่แสดงเป็นรายการ</span>}
+      {!showRoomPrices && <span className="text-xs text-ink-400">ไม่แสดงรายการค่าห้อง และยอดรวมด้านล่างไม่รวมค่าห้อง</span>}
     </div>
     </div>
   );

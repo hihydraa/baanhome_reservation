@@ -28,19 +28,22 @@ export default async function AccommodationQuotationPage({
   const customer = await prisma.customer.findFirst({ where: { name: booking.customerName.trim() } });
 
   // Every price is VAT-inclusive: room + add-ons = gross total, discount comes off, VAT is extracted from the net.
-  const { nights, subtotal, discountAmount, expectedTotal: netTotal } = accommodationExpectedTotal(booking, booking.addons);
+  const { nights, subtotal, discountAmount, expectedTotal: netTotal } = accommodationExpectedTotal(
+    // Without the room price the quotation covers only the add-ons; a percentage discount applies to that.
+    showRoomPrices ? booking : { ...booking, roomPrice: 0 },
+    booking.addons
+  );
   const { exVat, vat } = extractVat(netTotal);
 
   const roomPrice = booking.roomPrice == null ? 0 : Number(booking.roomPrice);
   const lineItems = [
-    {
+    ...(showRoomPrices ? [{
       id: "room",
-      isRoom: true,
       description: `ค่าห้องพัก ${booking.resource.name} (${formatThaiDate(booking.checkIn)} - ${formatThaiDate(booking.checkOut)})`,
       quantity: nights,
       unitPrice: roomPrice,
       amount: nights * roomPrice,
-    },
+    }] : []),
     ...booking.addons.map((a) => ({
       id: a.id,
       description: a.service?.name || a.description || "-",
