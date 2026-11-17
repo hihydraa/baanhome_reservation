@@ -6,8 +6,15 @@ import { accommodationExpectedTotal, extractVat } from "@/lib/payment-calc";
 import { QuotationDocument } from "@/components/quotation/QuotationDocument";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 
-export default async function AccommodationQuotationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AccommodationQuotationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ rooms?: string }>;
+}) {
   const { id } = await params;
+  const showRoomPrices = (await searchParams).rooms !== "hide";
 
   const session = await auth();
 
@@ -28,6 +35,7 @@ export default async function AccommodationQuotationPage({ params }: { params: P
   const lineItems = [
     {
       id: "room",
+      isRoom: true,
       description: `ค่าห้องพัก ${booking.resource.name} (${formatThaiDate(booking.checkIn)} - ${formatThaiDate(booking.checkOut)})`,
       quantity: nights,
       unitPrice: roomPrice,
@@ -57,6 +65,7 @@ export default async function AccommodationQuotationPage({ params }: { params: P
       address={customer?.address}
       projectLine={projectLine}
       lineItems={lineItems}
+      showRoomPrices={showRoomPrices}
       emptyHint="ยังไม่มีรายการ"
       subtotal={subtotal}
       discountAmount={discountAmount}

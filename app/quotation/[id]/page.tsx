@@ -7,8 +7,15 @@ import { QuotationDocument } from "@/components/quotation/QuotationDocument";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 import { extractVat, quotationTotals } from "@/lib/payment-calc";
 
-export default async function QuotationPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function QuotationPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ rooms?: string }>;
+}) {
   const { id } = await params;
+  const showRoomPrices = (await searchParams).rooms !== "hide";
 
   const session = await auth();
 
@@ -45,9 +52,9 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
 
   const lineItems = [
     ...(roomTotal > 0
-      ? [{ id: "room", description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
+      ? [{ id: "room", isRoom: true, description: `ค่าห้องจัดเลี้ยง ${booking.resource.name}`, quantity: 1, unitPrice: roomTotal, amount: roomTotal }]
       : []),
-    ...stays.map((st) => ({ ...st, amount: st.quantity * st.unitPrice })),
+    ...stays.map((st) => ({ ...st, isRoom: true, amount: st.quantity * st.unitPrice })),
     ...booking.addons.map((a) => ({
       id: a.id,
       description: a.service?.name || a.description || "-",
@@ -75,6 +82,7 @@ export default async function QuotationPage({ params }: { params: Promise<{ id: 
       address={customer?.address}
       projectLine={projectLine}
       lineItems={lineItems}
+      showRoomPrices={showRoomPrices}
       emptyHint='ยังไม่มีรายการ — เลือกห้องที่ระบุราคา หรือเพิ่ม "บริการเพิ่มเติม" ในหน้ารายละเอียดการจอง'
       subtotal={subtotal}
       discountAmount={discountAmount}
