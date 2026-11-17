@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { formatShortThaiDate, formatThaiDate, formatTime, todayDateOnly } from "@/lib/dates";
 import { stayLine } from "@/lib/quotation-log";
+import { projectText } from "@/lib/quotation-project";
 import { QuotationDocument } from "@/components/quotation/QuotationDocument";
 import { QuotationLogList } from "@/components/banquet/QuotationLogList";
 import { extractVat, quotationTotals } from "@/lib/payment-calc";
@@ -12,10 +13,11 @@ export default async function QuotationPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rooms?: string }>;
+  searchParams: Promise<{ rooms?: string; project?: string }>;
 }) {
   const { id } = await params;
-  const showRoomPrices = (await searchParams).rooms !== "hide";
+  const query = await searchParams;
+  const showRoomPrices = query.rooms !== "hide";
 
   const session = await auth();
 
@@ -73,6 +75,8 @@ export default async function QuotationPage({
   const quotationNumber = `QT${formatShortThaiDate(booking.eventDate).replace(/-/g, "")}-${booking.id.slice(-5).toUpperCase()}`;
   const projectLine = `${formatShortThaiDate(booking.eventDate)} ${formatTime(booking.startTime)} ห้อง ${booking.resource.name} ${booking.headcount} ท่าน`;
 
+  const project = projectText(query.project, projectLine, booking.notes);
+
   return (
     <QuotationDocument
       backHref={`/banquet/${booking.id}`}
@@ -82,7 +86,9 @@ export default async function QuotationPage({
       phone={booking.phone}
       taxId={customer?.taxId}
       address={customer?.address}
-      projectLine={projectLine}
+      projectLine={project.text}
+      projectSource={project.source}
+      hasNotes={!!booking.notes?.trim()}
       lineItems={lineItems}
       showRoomPrices={showRoomPrices}
       emptyHint='ยังไม่มีรายการ — เลือกห้องที่ระบุราคา หรือเพิ่ม "บริการเพิ่มเติม" ในหน้ารายละเอียดการจอง'

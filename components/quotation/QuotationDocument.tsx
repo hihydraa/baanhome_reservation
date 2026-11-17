@@ -1,5 +1,6 @@
 import { numberToThaiBahtText } from "@/lib/thai-baht-text";
 import { VAT_RATE } from "@/lib/payment-calc";
+import { EditableText } from "@/components/quotation/EditableText";
 import { QuotationActions } from "@/components/banquet/QuotationActions";
 import { PreparedByField } from "@/components/banquet/PreparedByField";
 
@@ -34,6 +35,8 @@ export function QuotationDocument({
   projectLine,
   lineItems,
   showRoomPrices = true,
+  projectSource = "auto",
+  hasNotes = false,
   emptyHint,
   subtotal,
   discountAmount,
@@ -59,6 +62,9 @@ export function QuotationDocument({
   lineItems: QuotationLineItem[];
   /** Off: the page leaves the room charges out of the lines and the totals; the document says so under the lines. */
   showRoomPrices?: boolean;
+  /** Where the text in the Project row comes from (the page has already put it in projectLine). */
+  projectSource?: "auto" | "notes" | "both";
+  hasNotes?: boolean;
   emptyHint: string;
   subtotal: number;
   discountAmount: number;
@@ -75,7 +81,7 @@ export function QuotationDocument({
   return (
     <div className="min-h-screen bg-cream-100 p-4 print:bg-white print:p-0 md:p-8">
       <div className="mx-auto flex w-full max-w-[210mm] flex-col gap-4">
-        <QuotationActions backHref={backHref} showRoomPrices={showRoomPrices} />
+        <QuotationActions backHref={backHref} showRoomPrices={showRoomPrices} projectSource={projectSource} hasNotes={hasNotes} />
 
         <div className="mx-auto flex w-[210mm] min-h-[297mm] max-w-full flex-col gap-3 rounded-lg border border-ink-900/20 bg-white p-6 text-sm text-ink-900 shadow-sm print:w-full print:rounded-none print:border-black print:p-8 print:shadow-none">
           {/* Header */}
@@ -117,7 +123,7 @@ export function QuotationDocument({
                 <tr>
                   <td className="border border-ink-900/20 px-2 py-1.5 font-medium">ที่อยู่</td>
                   <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
-                    {address}
+                    <EditableText field="address" value={address} />
                   </td>
                 </tr>
               )}
@@ -125,14 +131,14 @@ export function QuotationDocument({
                 <tr>
                   <td className="border border-ink-900/20 px-2 py-1.5 font-medium">เลขประจำตัว/นิติบุคคล</td>
                   <td className="border border-ink-900/20 px-2 py-1.5" colSpan={3}>
-                    {taxId}
+                    <EditableText field="taxId" value={taxId} />
                   </td>
                 </tr>
               )}
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-medium">Project</td>
                 <td className="border border-ink-900/20 px-2 py-1.5 font-semibold text-red-700" colSpan={3}>
-                  {projectLine}
+                  <EditableText field={`project:${projectSource}`} value={projectLine} className="whitespace-pre-line" />
                 </td>
               </tr>
             </tbody>
