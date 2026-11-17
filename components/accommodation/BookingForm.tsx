@@ -17,6 +17,7 @@ import {
 import { PaymentLedger, type PaymentEntryValue, type StaffOption } from "@/components/payment/PaymentLedger";
 import { DiscountField } from "@/components/quotation/DiscountField";
 import { CustomerNameInput, type CustomerOption } from "@/components/customers/CustomerNameInput";
+import { CustomerDetailsSection, customerDetailsPayload, detailsFromCustomer } from "@/components/customers/CustomerDetailsSection";
 import { useToast } from "@/components/ui/toast-provider";
 import { SOURCE_LABELS, ACCOMMODATION_STATUS_LABELS } from "@/lib/labels";
 import { toDateOnlyString } from "@/lib/dates";
@@ -110,6 +111,10 @@ export function AccommodationBookingForm({
     return initial;
   });
   const [initialDeposit, setInitialDeposit] = useState<InitialDepositValue>(DEFAULT_INITIAL_DEPOSIT);
+  // Optional address / ID number, opened already filled in when the directory knows them for this customer.
+  const [details, setDetails] = useState(() =>
+    detailsFromCustomer(initial.customerName ? customers.find((c) => c.name === initial.customerName.trim()) : null)
+  );
   const [saving, setSaving] = useState(false);
   // A reason is only required when this save is what cancels the booking (server enforces the same).
   const cancelReasonRequired = !(initial.status === "CANCELLED");
@@ -144,7 +149,7 @@ export function AccommodationBookingForm({
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(value.id ? value : { ...value, initialPayment: initialDeposit }),
+      body: JSON.stringify({ ...(value.id ? value : { ...value, initialPayment: initialDeposit }), customerDetails: customerDetailsPayload(details) }),
     });
 
     setSaving(false);
@@ -192,7 +197,10 @@ export function AccommodationBookingForm({
             required
             value={value.customerName}
             onChange={(customerName) => setValue({ ...value, customerName })}
-            onSelectCustomer={(c) => setValue({ ...value, customerName: c.name, phone: c.phone || value.phone })}
+            onSelectCustomer={(c) => {
+              setValue({ ...value, customerName: c.name, phone: c.phone || value.phone });
+              setDetails(detailsFromCustomer(c));
+            }}
             customers={customers}
           />
         </div>
@@ -204,6 +212,7 @@ export function AccommodationBookingForm({
             onChange={(e) => setValue({ ...value, phone: e.target.value })}
           />
         </div>
+        <CustomerDetailsSection value={details} onChange={setDetails} />
 
         <div className="flex flex-col gap-1.5">
           <Label>ช่องทางการจอง</Label>

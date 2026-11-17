@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (existing) return errorResponse("มีลูกค้าชื่อนี้อยู่แล้ว", 409);
 
   const customer = await prisma.customer.create({
-    data: { name: data.name.trim(), phone: data.phone || null, taxId: data.taxId || null },
+    data: { name: data.name.trim(), phone: data.phone || null, taxId: data.taxId || null, address: data.address?.trim() || null },
   });
   return NextResponse.json(customer, { status: 201 });
 }

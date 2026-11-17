@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-export type CustomerOption = { id: string; name: string; phone: string | null; taxId: string | null };
+export type CustomerOption = { id: string; name: string; phone: string | null; taxId: string | null; address: string | null };
 
 export function CustomerNameInput({
   value,

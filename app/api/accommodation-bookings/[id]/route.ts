@@ -179,7 +179,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
   }
 
-  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone });
+  await upsertCustomerFromBooking({ name: data.customerName, phone: data.phone, ...data.customerDetails });
 
   return NextResponse.json(booking);
 }
