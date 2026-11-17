@@ -20,6 +20,8 @@ export type QuotationLineItem = {
   quantity: number;
   unitPrice: number;
   amount: number;
+  /** A room charge (accommodation room, banquet room, linked stay): its price can be left off the printed quotation. */
+  isRoom?: boolean;
 };
 
 /** The printable A4 quotation shared by banquet and accommodation bookings. */
@@ -33,6 +35,7 @@ export function QuotationDocument({
   address,
   projectLine,
   lineItems,
+  showRoomPrices = true,
   emptyHint,
   subtotal,
   discountAmount,
@@ -56,6 +59,8 @@ export function QuotationDocument({
   address?: string | null;
   projectLine: string;
   lineItems: QuotationLineItem[];
+  /** Off: room lines keep their description and quantity but show no price; the totals below still include them. */
+  showRoomPrices?: boolean;
   emptyHint: string;
   subtotal: number;
   discountAmount: number;
@@ -72,7 +77,7 @@ export function QuotationDocument({
   return (
     <div className="min-h-screen bg-cream-100 p-4 print:bg-white print:p-0 md:p-8">
       <div className="mx-auto flex w-full max-w-[210mm] flex-col gap-4">
-        <QuotationActions backHref={backHref} />
+        <QuotationActions backHref={backHref} showRoomPrices={showRoomPrices} />
 
         <div className="mx-auto flex w-[210mm] min-h-[297mm] max-w-full flex-col gap-3 rounded-lg border border-ink-900/20 bg-white p-6 text-sm text-ink-900 shadow-sm print:w-full print:rounded-none print:border-black print:p-8 print:shadow-none">
           {/* Header */}
@@ -159,8 +164,16 @@ export function QuotationDocument({
                     <td className="border border-ink-900/20 px-2 py-1.5 text-center">{i + 1}</td>
                     <td className="border border-ink-900/20 px-2 py-1.5">{item.description}</td>
                     <td className="border border-ink-900/20 px-2 py-1.5 text-center">{item.quantity}</td>
-                    <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
-                    <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                    {item.isRoom && !showRoomPrices ? (
+                      <td colSpan={2} className="border border-ink-900/20 px-2 py-1.5 text-center text-ink-600">
+                        รวมอยู่ในยอดรวม
+                      </td>
+                    ) : (
+                      <>
+                        <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.unitPrice.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                        <td className="border border-ink-900/20 px-2 py-1.5 text-right">{item.amount.toLocaleString("th-TH", { minimumFractionDigits: 2 })}</td>
+                      </>
+                    )}
                   </tr>
                 ))
               )}
