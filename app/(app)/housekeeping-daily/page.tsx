@@ -146,7 +146,7 @@ export default async function HousekeepingDailyPage({
               <TableHead>วันที่</TableHead>
               <TableHead>ห้องเล็ก</TableHead>
               <TableHead>ห้องใหญ่</TableHead>
-              <TableHead>อื่นๆ</TableHead>
+              <TableHead>พูลวิลล่า</TableHead>
               <TableHead>ประเภท</TableHead>
               <TableHead className="text-right">ที่นอนเสริม</TableHead>
               {!isHousekeeper && <TableHead className="text-right">จำนวนเงิน</TableHead>}
@@ -206,6 +206,7 @@ export default async function HousekeepingDailyPage({
                   </TableCell>
                   <TableCell className="print:hidden">
                     <EditCleaningButton
+                      canDelete={session.user.role === "ADMIN"}
                       rooms={rooms}
                       maxDate={todayStr}
                       record={{

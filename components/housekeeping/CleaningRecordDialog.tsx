@@ -47,6 +47,7 @@ export function CleaningRecordDialog({
   initial,
   maxDate,
   onSaved,
+  canDelete = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -56,6 +57,8 @@ export function CleaningRecordDialog({
   initial: CleaningRecordFormValue;
   maxDate?: string;
   onSaved: () => void;
+  /** ADMIN only, and only for a record that already exists. */
+  canDelete?: boolean;
 }) {
   const { showToast } = useToast();
   const isEdit = !!initial.id;
@@ -73,6 +76,7 @@ export function CleaningRecordDialog({
   const [notes, setNotes] = useState(initial.notes);
   const [repair, setRepair] = useState(initial.repairNote);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   function bump(name: string, delta: number) {
     setQty((q) => ({ ...q, [name]: Math.max(0, Math.min(99, (q[name] ?? 0) + delta)) }));
@@ -106,6 +110,24 @@ export function CleaningRecordDialog({
     } else {
       const body = await res.json().catch(() => ({}));
       showToast(body.error ?? `บันทึกไม่สำเร็จ (${res.status})`);
+    }
+  }
+
+  async function remove() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setSaving(true);
+    const res = await fetch(`/api/housekeeping/records/${initial.id}`, { method: "DELETE" });
+    setSaving(false);
+    if (res.ok) {
+      showToast("ลบบันทึกแล้ว");
+      onOpenChange(false);
+      onSaved();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      showToast(body.error ?? `ลบไม่สำเร็จ (${res.status})`);
     }
   }
 
@@ -250,6 +272,12 @@ export function CleaningRecordDialog({
           <Button type="button" variant="gold" size="lg" disabled={!type || saving} onClick={save}>
             {saving ? "กำลังบันทึก..." : isEdit ? "บันทึกการแก้ไข" : "บันทึกการทำความสะอาด"}
           </Button>
+
+          {isEdit && canDelete && (
+            <Button type="button" variant="destructive" disabled={saving} onClick={remove}>
+              {confirmDelete ? "ยืนยันลบบันทึกนี้ (ลบแล้วกู้คืนไม่ได้)" : "ลบบันทึกนี้"}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

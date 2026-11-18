@@ -39,7 +39,7 @@ export const SUPPLY_ITEMS = [
 
 export type RoomSize = "SMALL" | "LARGE" | "OTHER";
 
-export const ROOM_SIZE_LABELS: Record<RoomSize, string> = { SMALL: "ห้องเล็ก", LARGE: "ห้องใหญ่", OTHER: "ห้องอื่นๆ" };
+export const ROOM_SIZE_LABELS: Record<RoomSize, string> = { SMALL: "ห้องเล็ก", LARGE: "ห้องใหญ่", OTHER: "พูลวิลล่า" };
 
 /** Resort rooms carry their size in the name ("ห้อง 1 เล็ก", "ห้อง 3 ใหญ่ (คู่)", "B2 เล็ก"); pool villas have none. */
 export function roomSizeOf(name: string): RoomSize {

@@ -11,10 +11,12 @@ export function EditCleaningButton({
   record,
   rooms,
   maxDate,
+  canDelete = false,
 }: {
   record: CleaningRecordFormValue & { id: string };
   rooms: { id: string; name: string }[];
   maxDate: string;
+  canDelete?: boolean;
 }) {
   const refresh = useScrollSafeRefresh();
   const [open, setOpen] = useState(false);
@@ -45,6 +47,7 @@ export function EditCleaningButton({
         maxDate={maxDate}
         initial={record}
         onSaved={refresh}
+        canDelete={canDelete}
       />
     </>
   );
