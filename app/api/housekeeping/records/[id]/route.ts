@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
+import { requireAdmin, requireSession, zodErrorResponse, errorResponse } from "@/lib/api-helpers";
 import { cleaningRecordUpdateSchema } from "@/lib/validators";
 import { parseDateOnly, todayDateOnly } from "@/lib/dates";
 import { TRACKED_KEYS } from "@/lib/housekeeping";
@@ -66,4 +66,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 
   return NextResponse.json(record);
+}
+
+/**
+ * ADMIN only: removes a cleaning record (e.g. one made while testing). Its items go with it, and anything the system
+ * had added to the stay's booking because of it (extra bed, hours, laundry…) is recalculated without it.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const { response } = await requireAdmin();
+  if (response) return response;
+
+  const { id } = await params;
+  const existing = await prisma.cleaningRecord.findUnique({ where: { id } });
+  if (!existing) return errorResponse("ไม่พบบันทึก", 404);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.cleaningRecord.delete({ where: { id } });
+    await syncHousekeepingBilling(tx, existing.resourceId, existing.ledgerDate);
+  });
+
+  return NextResponse.json({ deleted: true });
 }
