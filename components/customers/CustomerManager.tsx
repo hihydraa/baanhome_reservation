@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Pencil, Search, Trash2, Upload, X } from "lucide-react";
+import { History, Loader2, Plus, Pencil, Search, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -228,12 +229,21 @@ export function CustomerManager({ customers }: { customers: CustomerRow[] }) {
           <TableBody>
             {shown.map((c) => (
               <TableRow key={c.id}>
-                <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link href={`/customers/${c.id}`} className="text-forest-700 hover:underline" title="ดูประวัติการจองทั้งหมด">
+                    {c.name}
+                  </Link>
+                </TableCell>
                 <TableCell>{c.phone || "-"}</TableCell>
                 <TableCell>{c.taxId || "-"}</TableCell>
                 <TableCell className="max-w-xs truncate" title={c.address ?? undefined}>{c.address || "-"}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
+                    <Button asChild variant="ghost" size="icon" title="ประวัติการจอง">
+                      <Link href={`/customers/${c.id}`} aria-label="ดูประวัติการจอง">
+                        <History className="h-4 w-4 text-forest-700" />
+                      </Link>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
                       <Pencil className="h-4 w-4 text-forest-700" />
                     </Button>

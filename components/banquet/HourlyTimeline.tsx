@@ -36,7 +36,7 @@ export function HourlyTimeline({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-cream-200 bg-white">
-      <div className="grid min-w-[640px]" style={{ gridTemplateColumns: `64px repeat(${resources.length}, 1fr)` }}>
+      <div className="grid" style={{ gridTemplateColumns: `64px repeat(${resources.length}, 1fr)`, minWidth: 64 + resources.length * 150 }}>
         <div className="sticky left-0 z-10 border-b border-cream-200 bg-cream-100" />
         {resources.map((r) => (
           <div
