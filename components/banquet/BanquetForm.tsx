@@ -30,6 +30,7 @@ type AccommodationOption = { id: string; label: string };
 const TIME_SLOT_PRESETS = [
   { label: "ครึ่งวันเช้า (09:00-12:00)", startTime: "09:00", endTime: "12:00" },
   { label: "ครึ่งวันบ่าย (13:00-22:00)", startTime: "13:00", endTime: "22:00" },
+  { label: "ช่วงเย็น (17:00-22:00)", startTime: "17:00", endTime: "22:00" },
   { label: "ทั้งวัน (09:00-22:00)", startTime: "09:00", endTime: "22:00" },
 ];
 
@@ -238,7 +239,7 @@ export function BanquetForm({
 
         <div className="col-span-2 flex flex-col gap-1.5">
           <Label>ช่วงเวลาแบบด่วน</Label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {TIME_SLOT_PRESETS.map((preset) => {
               const active = value.startTime === preset.startTime && value.endTime === preset.endTime;
               return (
