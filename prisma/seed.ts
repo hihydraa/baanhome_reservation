@@ -58,6 +58,10 @@ const banquetResources = [
   { id: "banquet-vip-lek-1", name: "VIP เล็ก 1", capacity: 15 },
   { id: "banquet-vip-lek-2", name: "VIP เล็ก 2", capacity: 15 },
   { id: "banquet-vip-yai", name: "VIP ใหญ่", capacity: 50 },
+  // Outdoor venues: no capacity or rate sheet yet — set them on the pricing page.
+  { id: "banquet-lan-bon", name: "ลานบน", capacity: undefined },
+  { id: "banquet-lan-namtok", name: "ลานน้ำตก", capacity: undefined },
+  { id: "banquet-poolvilla", name: "พูลวิลล่า", capacity: undefined },
 ];
 
 function accommodationPriceFor(name: string): number | undefined {
