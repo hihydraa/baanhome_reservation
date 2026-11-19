@@ -15,6 +15,10 @@ import { KpiTrends, KpiTrendsFallback } from "@/components/kpi/KpiTrends";
 import { MonthPicker } from "@/components/kpi/MonthPicker";
 import { buildAlerts } from "@/lib/kpi-alerts";
 import { KpiInputForm } from "@/components/kpi/KpiInputForm";
+import { KpiToolbar } from "@/components/kpi/KpiToolbar";
+
+// Print/PDF: landscape A4, keep the colours, and keep each card in one piece.
+const PRINT_CSS = `@media print { @page { size: A4 landscape; margin: 10mm; } .kpi-page, .kpi-page * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .kpi-page { zoom: 0.64; } .kpi-page > *:not(.kpi-matrix) { break-inside: avoid; } .kpi-page tr { break-inside: avoid; } }`;
 
 // Always read the latest bookings and POS sales.
 export const dynamic = "force-dynamic";
@@ -49,13 +53,15 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
 
   if (view === "h2") {
     return (
-      <div className="flex flex-col gap-5">
+      <div className="kpi-page flex flex-col gap-5">
+        <style>{PRINT_CSS}</style>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-xl font-semibold text-forest-800">KPI Dashboard — BaanHome (BH)</h1>
             <p className="text-sm text-ink-400">ครึ่งปีหลัง 2569 · อัปเดตล่าสุด {updatedAt} น.</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <KpiToolbar />
             <Link href="/kpi" className={chip(false)}>
               รายเดือน
             </Link>
@@ -87,7 +93,8 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
   const navBtn = "flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-forest-800 hover:bg-cream-100";
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="kpi-page flex flex-col gap-5">
+      <style>{PRINT_CSS}</style>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-forest-800">KPI Dashboard — BaanHome (BH)</h1>
@@ -95,7 +102,8 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
             {monthTitle(month)} · อัปเดตล่าสุด {updatedAt} น.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <KpiToolbar />
           <Link href={`/kpi?month=${shiftMonth(month, -1)}`} className={navBtn} aria-label="เดือนก่อน">
             <ChevronLeft className="h-4 w-4" />
           </Link>
@@ -167,7 +175,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
       </Card>
 
       {isAdmin && (
-        <Card>
+        <Card className="print:hidden">
           <CardHeader>
             <CardTitle>ตัวเลขที่กรอกเอง — {monthTitle(month)}</CardTitle>
           </CardHeader>
@@ -182,7 +190,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
         </Card>
       )}
 
-      <details className="rounded-lg border border-cream-200 bg-white px-4 py-3 text-sm text-ink-600">
+      <details className="rounded-lg border border-cream-200 bg-white px-4 py-3 text-sm text-ink-600 print:hidden">
         <summary className="cursor-pointer font-medium text-forest-800">วิธีคิดคะแนนและแหล่งข้อมูล</summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>แต่ละ KPI มี 4 ระดับตามชีต Target BH: น้อยสุด (0%), ผ่าน (50%), ดีเยี่ยม (100%) และเกินเป้าหมาย (120%) ได้คะแนนเป็นสัดส่วนของน้ำหนัก คำนวณต่อเนื่องเป็นเส้นตรงระหว่างระดับ ต่ำกว่าระดับน้อยสุดได้ 0 และไม่เกิน 120%</li>
