@@ -23,7 +23,11 @@ export async function POST(req: NextRequest) {
   if (bad) return NextResponse.json({ error: bad }, { status: 400 });
 
   try {
-    const stream = await streamAnalysis(await buildAiContext(from, to));
+    const t0 = Date.now();
+    const context = await buildAiContext(from, to);
+    const t1 = Date.now();
+    const stream = await streamAnalysis(context);
+    console.log(`[kpi-ai] ${from}..${to} context=${t1 - t0}ms firstByte=${Date.now() - t1}ms`);
     return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "วิเคราะห์ไม่สำเร็จ" }, { status: 502 });
