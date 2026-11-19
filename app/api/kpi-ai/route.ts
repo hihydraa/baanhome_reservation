@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
             }
             controller.enqueue(enc.encode("\n\n"));
           }
+          console.log(`[kpi-ai] done model=${process.env.ANTHROPIC_MODEL ?? "default"} total=${Date.now() - t0}ms`);
           controller.close();
         } catch (e) {
           controller.enqueue(enc.encode(`\n\n> ⚠ การวิเคราะห์ถูกตัดกลางคัน (${e instanceof Error ? e.message : "ข้อผิดพลาด"}) กรุณากดวิเคราะห์ใหม่`));

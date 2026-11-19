@@ -22,6 +22,7 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
   const [text, setText] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState<number | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   const last = options[options.length - 1]?.value ?? defaultTo;
@@ -45,6 +46,8 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
     setRunning(true);
     setError(null);
     setText("");
+    setElapsed(null);
+    const started = Date.now();
     try {
       const res = await fetch("/api/kpi-ai", {
         method: "POST",
@@ -67,9 +70,13 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
     } catch (e) {
       if ((e as Error).name !== "AbortError") setError("การวิเคราะห์ถูกตัดกลางคัน ลองกดวิเคราะห์อีกครั้ง");
     } finally {
+      setElapsed(Math.round((Date.now() - started) / 1000));
       setRunning(false);
     }
   }
+
+  // The document always ends with section 8; if it is missing the stream was cut short.
+  const incomplete = !running && !!text && !text.includes("## 8.");
 
   function close(next: boolean) {
     if (!next) abort.current?.abort();
@@ -81,8 +88,8 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
   function exportDoc(kind: "pdf" | "word") {
     const body = document.getElementById("kpi-ai-result")?.innerHTML ?? "";
     const range = `${options.find((o) => o.value === from)?.label ?? from} – ${options.find((o) => o.value === to)?.label ?? to}`;
-    const css = `body{font-family:"Noto Sans Thai",Tahoma,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2,h3{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}h4{font-size:14px;margin:12px 0 4px}ul{margin:4px 0 4px 20px;padding:0}table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}th,td{border:1px solid #9ca3af;padding:3px 6px;text-align:left}th{background:#f3f4f6}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}@media print{table,tr{page-break-inside:avoid}h2,h3,h4{page-break-after:avoid}}`;
-    const html = `<!doctype html><html lang="th" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>${css}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${range}</div>${body}<div class="note">ตารางตัวเลขสร้างจากระบบ ส่วนวิเคราะห์จัดทำด้วย AI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`;
+    const css = `body{font-family:"Noto Sans Thai",Tahoma,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2,h3{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}h4{font-size:14px;margin:12px 0 4px}ul{margin:4px 0 4px 20px;padding:0}table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}th,td{border:1px solid #9ca3af;padding:3px 6px;text-align:left}th{background:#f3f4f6}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}.sign{display:flex;gap:24px;margin-top:36px}.sign div{flex:1;text-align:center;font-size:12px}.sign span{display:block;border-top:1px solid #6b7280;margin-top:36px;padding-top:4px}@media print{table,tr{page-break-inside:avoid}h2,h3,h4{page-break-after:avoid}}`;
+    const html = `<!doctype html><html lang="th" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>${css}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${range}</div>${body}<div class="sign"><div><span>ผู้จัดทำ</span></div><div><span>ผู้ตรวจสอบ</span></div><div><span>ผู้อนุมัติ</span></div></div><div class="note">ตารางตัวเลขสร้างจากระบบ ส่วนวิเคราะห์จัดทำด้วย AI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`;
     if (kind === "word") {
       const url = URL.createObjectURL(new Blob(["\ufeff", html], { type: "application/msword" }));
       const a = document.createElement("a");
@@ -165,6 +172,12 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
               {(text || running) && (
                 <div className="flex flex-col gap-2 rounded-lg border border-cream-200 bg-white p-4">
                   {text ? <div id="kpi-ai-result"><SimpleMarkdown text={text} /></div> : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 20–40 วินาที…</p>}
+                  {incomplete && (
+                    <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      เอกสารยังไม่ครบ (ไม่พบหัวข้อ 8) การตอบถูกตัดกลางคัน กรุณากดวิเคราะห์ใหม่ หรือเลือกช่วงเดือนให้สั้นลง
+                    </p>
+                  )}
+                  {elapsed != null && !running && <p className="text-xs text-ink-400">ใช้เวลา {elapsed} วินาที</p>}
                   {text && !running && (
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="ghost" size="sm" onClick={() => exportDoc("pdf")}>
