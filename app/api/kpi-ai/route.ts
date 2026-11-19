@@ -24,12 +24,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const t0 = Date.now();
-    const context = await buildAiContext(from, to);
+    const context = await Promise.race([
+      buildAiContext(from, to),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error("STAGE:data")), 25_000)),
+    ]);
     const t1 = Date.now();
-    const stream = await streamAnalysis(context);
+    const stream = await streamAnalysis(context, Math.max(5_000, 55_000 - (t1 - t0)));
     console.log(`[kpi-ai] ${from}..${to} context=${t1 - t0}ms firstByte=${Date.now() - t1}ms`);
     return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "วิเคราะห์ไม่สำเร็จ" }, { status: 502 });
+    const msg = e instanceof Error ? e.message : "";
+    const text =
+      msg === "STAGE:data"
+        ? "ขั้นรวบรวมข้อมูล KPI ใช้เวลาเกิน 25 วินาที (ช้าที่ฝั่งระบบ/POS ไม่ใช่ AI) ลองเลือกช่วงให้สั้นลง"
+        : /abort|timeout/i.test(msg)
+          ? "ขั้นรอ AI ตอบใช้เวลาเกินกำหนด (ช้าที่ฝั่ง Anthropic) ลองใหม่อีกครั้ง"
+          : msg || "วิเคราะห์ไม่สำเร็จ";
+    return NextResponse.json({ error: text }, { status: 502 });
   }
 }
