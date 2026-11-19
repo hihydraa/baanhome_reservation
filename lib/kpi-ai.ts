@@ -120,7 +120,7 @@ export const aiConfigured = () => !!process.env.ANTHROPIC_API_KEY;
  * Calls Claude with the figures and returns the text as it is written, ready to stream to the browser. Throws an
  * Error (with a message fit to show) when the key is missing or Anthropic refuses the request.
  */
-export async function streamAnalysis(context: unknown): Promise<ReadableStream<Uint8Array>> {
+export async function streamAnalysis(context: unknown, timeoutMs = 52_000): Promise<ReadableStream<Uint8Array>> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY ในเซิร์ฟเวอร์");
   const res = await fetch(`${API_BASE}/v1/messages`, {
@@ -134,7 +134,7 @@ export async function streamAnalysis(context: unknown): Promise<ReadableStream<U
       messages: [{ role: "user", content: `วิเคราะห์ Performance จากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
     }),
     cache: "no-store",
-    signal: AbortSignal.timeout(52_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");
