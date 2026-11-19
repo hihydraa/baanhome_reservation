@@ -16,6 +16,8 @@ import { MonthPicker } from "@/components/kpi/MonthPicker";
 import { buildAlerts } from "@/lib/kpi-alerts";
 import { KpiInputForm } from "@/components/kpi/KpiInputForm";
 import { KpiToolbar } from "@/components/kpi/KpiToolbar";
+import { KpiAiButton } from "@/components/kpi/KpiAiButton";
+import { aiConfigured } from "@/lib/kpi-ai";
 
 // Print/PDF: landscape A4, keep the colours, and keep each card in one piece.
 const PRINT_CSS = `@media print { @page { size: A4 landscape; margin: 10mm; } .kpi-page, .kpi-page * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .kpi-page { zoom: 0.64; } .kpi-page > *:not(.kpi-matrix) { break-inside: avoid; } .kpi-page tr { break-inside: avoid; } }`;
@@ -51,6 +53,13 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
     cn("rounded-full px-3 py-1.5 text-xs font-medium", active ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600 hover:bg-cream-100");
   const updatedAt = new Date().toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
 
+  // Months the AI can analyse: from the first month with targets up to this month.
+  const aiMonths: { value: string; label: string }[] = [];
+  for (let m = "2026-07"; m <= currentMonth; m = shiftMonth(m, 1)) aiMonths.push({ value: m, label: monthTitle(m) });
+  const aiButton = isAdmin && aiMonths.length > 0 ? (
+    <KpiAiButton options={aiMonths} configured={aiConfigured()} defaultFrom={aiMonths[Math.max(0, aiMonths.length - 3)].value} defaultTo={aiMonths[aiMonths.length - 1].value} />
+  ) : null;
+
   if (view === "h2") {
     return (
       <div className="kpi-page flex flex-col gap-5">
@@ -62,6 +71,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
           </div>
           <div className="flex flex-wrap items-center gap-2 print:hidden">
             <KpiToolbar />
+            {aiButton}
             <Link href="/kpi" className={chip(false)}>
               รายเดือน
             </Link>
@@ -104,6 +114,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
           <KpiToolbar />
+          {aiButton}
           <Link href={`/kpi?month=${shiftMonth(month, -1)}`} className={navBtn} aria-label="เดือนก่อน">
             <ChevronLeft className="h-4 w-4" />
           </Link>
