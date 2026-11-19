@@ -128,8 +128,12 @@ export async function streamAnalysis(context: unknown, timeoutMs = 52_000): Prom
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 1400,
+      max_tokens: 2000,
       stream: true,
+      // Summarising needs no deep reasoning; Sonnet 5.5 thinks at high effort by default, which delayed the answer past
+      // the 60s function limit. between_tools = thinking off (allowed at effort high or below).
+      thinking: { type: "between_tools" },
+      output_config: { effort: "low" },
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: `วิเคราะห์ Performance จากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
     }),
