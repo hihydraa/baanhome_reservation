@@ -36,6 +36,45 @@ export function validateRange(from: string, to: string): string | null {
   return null;
 }
 
+type MonthResult = Awaited<ReturnType<typeof computeKpiMonth>>;
+
+const fmtNum = (v: number, d = 0) => v.toLocaleString("th-TH", { maximumFractionDigits: d });
+function fmtVal(v: number | null, unit: string): string {
+  if (v == null) return "ไม่มีข้อมูล";
+  if (unit === "percent") return `${fmtNum(v, 1)}%`;
+  if (unit === "baht") return `${fmtNum(v)} บาท`;
+  if (unit === "perDay") return `${fmtNum(v, 1)} บิล/วัน`;
+  return `${fmtNum(v, 0)} งาน`;
+}
+
+/**
+ * The figures part of the meeting document, written by code (not the model) so it is always complete and exact: per
+ * month a scorecard table, the sales by channel, and data-quality notes where a channel has no sales at all.
+ */
+export function buildFactSheet(perMonth: MonthResult[]): string {
+  const out: string[] = ["## 1. ผลการดำเนินงานเทียบเป้าหมาย (ข้อมูลจากระบบ)"];
+  for (const m of perMonth) {
+    out.push(`### ${label(m.month)}${m.inProgress ? " (ระหว่างเดือน)" : ""}${m.hasTargets ? ` — คะแนนรวม ${fmtNum(m.points ?? 0, 1)}/100` : " — ไม่มีเป้าหมาย"}`);
+    if (m.hasTargets) {
+      out.push("| KPI | ผลจริง | เป้าผ่าน | เป้าดีเยี่ยม | ระดับ | คะแนน |");
+      out.push("|---|---|---|---|---|---|");
+      for (const k of m.kpis) {
+        out.push(
+          `| ${k.def.label} | ${fmtVal(k.value, k.def.unit)} | ${k.levels ? fmtVal(k.levels.pass, k.def.unit) : "-"} | ${k.levels ? fmtVal(k.levels.excellent, k.def.unit) : "-"} | ${k.grade ? GRADE_LABELS[k.grade] : k.missing === "INPUT" ? "ยังไม่กรอก" : k.missing === "POS" ? "อ่าน POS ไม่ได้" : "-"} | ${k.points == null ? "-" : `${fmtNum(k.points, 1)}/${k.def.weight}`} |`
+        );
+      }
+    }
+    out.push(`- ยอดขายแยกช่องทาง: สวนอาหาร ${m.sales.food == null ? "อ่านข้อมูล POS ไม่ได้" : fmtNum(m.sales.food)} / ห้องพัก ${fmtNum(m.sales.accommodation)} / งานจัดเลี้ยง ${fmtNum(m.sales.banquet)} บาท`);
+    const empty = [
+      m.sales.food == null ? "สวนอาหาร (อ่านข้อมูล POS ไม่ได้)" : m.sales.food <= 0 ? "สวนอาหาร" : null,
+      m.sales.accommodation <= 0 ? "ห้องพัก" : null,
+      m.sales.banquet <= 0 ? "งานจัดเลี้ยง" : null,
+    ].filter(Boolean);
+    if (empty.length) out.push(`- **ตรวจสอบข้อมูล:** ไม่มียอดขายช่อง ${empty.join(", ")} ในเดือนนี้ ควรยืนยันว่าบันทึกหรือดึงข้อมูลครบแล้ว ก่อนใช้ตัดสินใจ`);
+  }
+  return out.join("\n");
+}
+
 /**
  * Everything the model may use, as plain figures: each month's KPIs against the targets, the latest month's alerts and
  * pace, and room-level occupancy over the whole range. No customer names, phone numbers or other personal data.
@@ -70,7 +109,7 @@ export async function buildAiContext(from: string, to: string) {
       return { เดือน: label(m.month), KPI_เรียงตามคะแนนที่เสียไปมากสุด: rows };
     });
 
-  return {
+  const context = {
     ช่วงที่วิเคราะห์: `${label(from)} – ${label(to)}`,
     หมายเหตุ: [
       "คะแนนรวมเต็ม 100 (สูงสุด 120) ได้จากผลรวม น้ำหนัก × % คะแนน ของ KPI 9 ตัว",
@@ -113,35 +152,37 @@ export async function buildAiContext(from: string, to: string) {
     },
     ห้องจัดเลี้ยงตลอดช่วง: { OCC_เปอร์เซ็นต์: Math.round(perf.banquetOcc.rate * 10) / 10, จำนวนงาน: perf.bookingCounts.banquet },
   };
+  return { context, facts: buildFactSheet(perMonth) };
 }
 
 export const SYSTEM_PROMPT = `คุณเป็นที่ปรึกษาด้านผลการดำเนินงานของ "สวนอาหารบ้านโฮม (BaanHome)" ซึ่งมีร้านอาหาร ห้องพักรีสอร์ท พูลวิลล่า และห้องจัดเลี้ยง
-งานของคุณคือเขียน "เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน" ให้ผู้บริหารอ่านแล้วนำเข้าที่ประชุมได้ทันที เป็นภาษาไทยระดับทางการ กระชับ ชัดเจน
+คุณเขียนส่วน "วิเคราะห์" ของเอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน เป็นภาษาไทยระดับทางการ กระชับ ผู้บริหารอ่านแล้วนำเข้าที่ประชุมได้ทันที
+ตารางตัวเลข KPI รายเดือนและยอดขายแยกช่องทางถูกจัดทำไว้ในเอกสารแล้ว (หัวข้อ 1) ห้ามเขียนซ้ำเป็นรายเดือนอีก ให้อ้างเฉพาะตัวเลขที่จำเป็นต่อประเด็น
 
 กฎ:
 - ใช้เฉพาะตัวเลขที่ได้รับใน JSON ห้ามแต่งตัวเลขหรือข้อเท็จจริงเพิ่ม ถ้าไม่มีข้อมูลให้บอกว่าไม่มีข้อมูล
 - ตัวเลข "คำนวณสำเร็จรูป" ถูกต้องแล้ว ให้ใช้ตามนั้น ห้ามคำนวณใหม่เอง
-- อ้างตัวเลขจริงประกอบทุกข้อสังเกต (ผลจริง เทียบเป้า เทียบเดือนก่อน)
 - สาเหตุที่เป็นไปได้ต้องเขียนว่าเป็น "ข้อสันนิษฐาน" ที่ต้องยืนยันในที่ประชุม ห้ามพูดเหมือนเป็นข้อเท็จจริง
-- เดือนที่ยังไม่จบ ให้ระวังการเปรียบเทียบยอดสะสมกับเป้าทั้งเดือน และระบุว่าเป็นตัวเลขระหว่างเดือน
-- ข้อเสนอแนะต้องทำได้จริง ระบุตัวเลขเป้าที่ต้องไปให้ถึงเมื่อคำนวณได้ ผู้รับผิดชอบให้ระบุเป็น "แผนก/ฝ่าย" ที่เหมาะสมเท่านั้น (ห้ามแต่งชื่อบุคคล) และกำหนดเวลาเป็นช่วง เช่น "ภายในสิ้นเดือนหน้า"
-- ไม่ใช้ตาราง ใช้หัวข้อและรายการเท่านั้น
+- ถ้าช่องทางใดมียอด 0 หรือ KPI เป็น 0 ทั้งที่เดือนอื่นมีข้อมูล ให้ชี้ว่าอาจเป็นปัญหาการบันทึก/ดึงข้อมูล ไม่ใช่ผลงานจริง และอย่านำไปสรุปว่าผลงานแย่
+- เดือนที่ยังไม่จบ ให้ระบุว่าเป็นตัวเลขระหว่างเดือน
+- ผู้รับผิดชอบระบุเป็น "ฝ่าย/แผนก" เท่านั้น (ห้ามแต่งชื่อบุคคล) กรอบเวลาเป็นช่วง เช่น "ภายในสิ้นเดือนหน้า"
+- ไม่ใช้ตาราง ใช้หัวข้อและรายการ
+- ความยาวรวมไม่เกินประมาณ 550 คำ ต้องเขียนให้ครบทุกหัวข้อ อย่าขยายความหัวข้อใดจนยาว
 
-โครงเอกสาร (ใช้ markdown หัวข้อ ## และรายการ -):
-## 1. สรุปสำหรับผู้บริหาร
-(3–4 บรรทัด: คะแนนรวมและระดับ, แนวโน้มในช่วงที่เลือก, ข้อความสำคัญที่สุดที่ที่ประชุมต้องรู้)
-## 2. ผลการดำเนินงานเทียบเป้าหมาย
-(KPI ที่ผ่าน/ไม่ผ่าน อ้างผลจริงเทียบเป้า, ยอดขายแยกช่องทาง)
+โครงเอกสาร (ใช้ markdown หัวข้อ ## และรายการ -) เริ่มจากหัวข้อ 2:
+## 2. สรุปสำหรับผู้บริหาร
+(3–4 บรรทัด: คะแนนรวมและแนวโน้ม ข้อความสำคัญที่สุด รวมถึงข้อควรระวังด้านคุณภาพข้อมูลถ้ามี)
 ## 3. จุดแข็งที่ควรรักษา
+(2–3 ข้อ)
 ## 4. ประเด็นที่ต้องเร่งแก้ไข
-(เรียงตามคะแนนที่เสียไปมากสุดจากตัวเลขสำเร็จรูป ใส่ตัวเลขส่วนต่างจากเป้า)
-## 5. วิเคราะห์สาเหตุที่เป็นไปได้ (ข้อสันนิษฐาน)
+(3–4 ข้อ เรียงตามคะแนนที่เสียไปมากสุดของเดือนล่าสุดจากตัวเลขสำเร็จรูป ใส่ส่วนต่างจากเป้า)
+## 5. สาเหตุที่เป็นไปได้ (ข้อสันนิษฐาน)
+(2–4 ข้อ)
 ## 6. วาระและมติที่เสนอให้ที่ประชุม
-(รายการ "สิ่งที่ต้องทำ" 3–6 ข้อ แต่ละข้อ: เรื่อง — เป้าตัวเลข — ฝ่ายที่รับผิดชอบ — กรอบเวลา)
+(3–5 ข้อ แต่ละข้อ: เรื่อง — เป้าตัวเลข — ฝ่ายที่รับผิดชอบ — กรอบเวลา)
 ## 7. คำถามที่ควรถามในที่ประชุม
-(2–4 ข้อ ที่ข้อมูลตอบไม่ได้และต้องการข้อมูลจากหน้างาน)
-## 8. ข้อมูลที่ยังขาด
-(KPI ที่ยังไม่กรอก/อ่านไม่ได้)`;
+(2–3 ข้อ)
+## 8. ข้อมูลที่ยังขาด`;
 
 const API_BASE = process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com";
 export const aiConfigured = () => !!process.env.ANTHROPIC_API_KEY;
@@ -158,7 +199,7 @@ export async function streamAnalysis(context: unknown, timeoutMs = 52_000): Prom
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 3000,
+      max_tokens: 3500,
       stream: true,
       // Summarising needs no deep reasoning; Sonnet 5.5 thinks at high effort by default, which delayed the answer past
       // the 60s function limit. between_tools = thinking off (allowed at effort high or below).
