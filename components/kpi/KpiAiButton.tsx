@@ -85,11 +85,27 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
 
   const select = "h-9 rounded-md border border-cream-200 bg-white px-2 text-sm text-forest-800";
 
-  function exportDoc(kind: "pdf" | "word") {
+  async function logoDataUrl(): Promise<string> {
+    // Embedded so the PDF window and the Word file show the logo without fetching it again.
+    try {
+      const blob = await (await fetch("/icon.png")).blob();
+      return await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    } catch {
+      return `${window.location.origin}/icon.png`;
+    }
+  }
+
+  async function exportDoc(kind: "pdf" | "word") {
+    const logo = await logoDataUrl();
     const body = document.getElementById("kpi-ai-result")?.innerHTML ?? "";
     const range = `${options.find((o) => o.value === from)?.label ?? from} – ${options.find((o) => o.value === to)?.label ?? to}`;
-    const css = `body{font-family:"Noto Sans Thai",Tahoma,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2,h3{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}h4{font-size:14px;margin:12px 0 4px}ul{margin:4px 0 4px 20px;padding:0}table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}th,td{border:1px solid #9ca3af;padding:3px 6px;text-align:left}th{background:#f3f4f6}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}.sign{display:flex;gap:24px;margin-top:36px}.sign div{flex:1;text-align:center;font-size:12px}.sign span{display:block;border-top:1px solid #6b7280;margin-top:36px;padding-top:4px}@media print{table,tr{page-break-inside:avoid}h2,h3,h4{page-break-after:avoid}}`;
-    const html = `<!doctype html><html lang="th" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>${css}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${range}</div>${body}<div class="sign"><div><span>ผู้จัดทำ</span></div><div><span>ผู้ตรวจสอบ</span></div><div><span>ผู้อนุมัติ</span></div></div><div class="note">ตารางตัวเลขสร้างจากระบบ ส่วนวิเคราะห์จัดทำด้วย AI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`;
+    const css = `body{font-family:"Noto Sans Thai",Tahoma,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}table.head{border:0;margin-bottom:8px}table.head td{border:0;padding:0 12px 0 0;vertical-align:middle}table.head td.logo{width:84px}.brand{color:#6b7280;font-size:13px}h2,h3{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}h4{font-size:14px;margin:12px 0 4px}ul{margin:4px 0 4px 20px;padding:0}table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}th,td{border:1px solid #9ca3af;padding:3px 6px;text-align:left}th{background:#f3f4f6}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}.sign{display:flex;gap:24px;margin-top:36px}.sign div{flex:1;text-align:center;font-size:12px}.sign span{display:block;border-top:1px solid #6b7280;margin-top:36px;padding-top:4px}@media print{table,tr{page-break-inside:avoid}h2,h3,h4{page-break-after:avoid}}`;
+    const html = `<!doctype html><html lang="th" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>${css}</style></head><body><table class="head"><tr><td class="logo"><img src="${logo}" width="72" height="72" alt="Baan Home"></td><td><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน</h1><div class="brand">สวนอาหารบ้านโฮม (Baan Home)</div></td></tr></table><div class="meta">ช่วงที่วิเคราะห์: ${range}</div>${body}<div class="sign"><div><span>ผู้จัดทำ</span></div><div><span>ผู้ตรวจสอบ</span></div><div><span>ผู้อนุมัติ</span></div></div><div class="note">ตารางตัวเลขสร้างจากระบบ ส่วนวิเคราะห์จัดทำด้วย AI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`;
     if (kind === "word") {
       const url = URL.createObjectURL(new Blob(["\ufeff", html], { type: "application/msword" }));
       const a = document.createElement("a");
@@ -171,7 +187,19 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
               {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
               {(text || running) && (
                 <div className="flex flex-col gap-2 rounded-lg border border-cream-200 bg-white p-4">
-                  {text ? <div id="kpi-ai-result"><SimpleMarkdown text={text} /></div> : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 20–40 วินาที…</p>}
+                  {text ? (
+                    <>
+                      <div className="flex items-center gap-3 border-b border-cream-200 pb-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/icon.png" alt="Baan Home" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+                        <div>
+                          <p className="text-sm font-semibold text-forest-800">เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน</p>
+                          <p className="text-xs text-ink-400">สวนอาหารบ้านโฮม (Baan Home)</p>
+                        </div>
+                      </div>
+                      <div id="kpi-ai-result"><SimpleMarkdown text={text} /></div>
+                    </>
+                  ) : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 20–40 วินาที…</p>}
                   {incomplete && (
                     <p className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
                       เอกสารยังไม่ครบ (ไม่พบหัวข้อ 8) การตอบถูกตัดกลางคัน กรุณากดวิเคราะห์ใหม่ หรือเลือกช่วงเดือนให้สั้นลง
