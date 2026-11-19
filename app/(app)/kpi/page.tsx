@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -9,6 +10,8 @@ import { loadKpiMonth } from "@/lib/kpi";
 import { KpiAlerts } from "@/components/kpi/KpiAlerts";
 import { KpiHeadline } from "@/components/kpi/KpiHeadline";
 import { KpiMatrix } from "@/components/kpi/KpiMatrix";
+import { KpiHalfYear } from "@/components/kpi/KpiHalfYear";
+import { KpiTrends, KpiTrendsFallback } from "@/components/kpi/KpiTrends";
 import { MonthPicker } from "@/components/kpi/MonthPicker";
 import { buildAlerts } from "@/lib/kpi-alerts";
 import { KpiInputForm } from "@/components/kpi/KpiInputForm";
@@ -31,18 +34,45 @@ const baht = (n: number) => `${n.toLocaleString("th-TH", { maximumFractionDigits
  * One-page KPI scorecard for the executives: the nine BaanHome KPIs for a month with the target levels, the weighted
  * score, and where the sales come from. ADMIN and AUDITOR can open it; only ADMIN can enter the hand-typed figures.
  */
-export default async function KpiPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function KpiPage({ searchParams }: { searchParams: Promise<{ month?: string; view?: string }> }) {
   const session = await auth();
   if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "AUDITOR")) redirect("/dashboard");
   const isAdmin = session.user.role === "ADMIN";
 
   const currentMonth = toDateOnlyString(todayDateOnly()).slice(0, 7);
-  const { month: monthParam } = await searchParams;
+  const { month: monthParam, view } = await searchParams;
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam ?? "") ? monthParam! : currentMonth;
+
+  const chip = (active: boolean) =>
+    cn("rounded-full px-3 py-1.5 text-xs font-medium", active ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600 hover:bg-cream-100");
+  const updatedAt = new Date().toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
+
+  if (view === "h2") {
+    return (
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-forest-800">KPI Dashboard — BaanHome (BH)</h1>
+            <p className="text-sm text-ink-400">ครึ่งปีหลัง 2569 · อัปเดตล่าสุด {updatedAt} น.</p>
+          </div>
+          <div className="flex gap-2">
+            <Link href="/kpi" className={chip(false)}>
+              รายเดือน
+            </Link>
+            <Link href="/kpi?view=h2" className={chip(true)}>
+              ครึ่งปี ก.ค.–ธ.ค.
+            </Link>
+          </div>
+        </div>
+        <Suspense fallback={<KpiTrendsFallback />}>
+          <KpiHalfYear />
+        </Suspense>
+      </div>
+    );
+  }
 
   const data = await loadKpiMonth(month);
   const alerts = buildAlerts(data, isAdmin);
-  const updatedAt = new Date().toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" });
   // Every month from the first one with targets up to the later of this month and December, plus the one being viewed.
   const optionMonths = new Set<string>([month]);
   for (let m = "2026-07"; m <= (currentMonth > "2026-12" ? currentMonth : "2026-12"); m = shiftMonth(m, 1)) optionMonths.add(m);
@@ -54,8 +84,6 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
   ];
   const salesTotal = salesParts.reduce((s, p) => s + (p.value ?? 0), 0);
 
-  const chip = (active: boolean) =>
-    cn("rounded-full px-3 py-1.5 text-xs font-medium", active ? "bg-forest-700 text-cream-50" : "bg-cream-200 text-ink-600 hover:bg-cream-100");
   const navBtn = "flex h-9 w-9 items-center justify-center rounded-full border border-cream-200 bg-white text-forest-800 hover:bg-cream-100";
 
   return (
@@ -81,6 +109,9 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
           <Link href={`/kpi?month=${shiftMonth(currentMonth, -1)}`} className={chip(month === shiftMonth(currentMonth, -1))}>
             เดือนที่แล้ว
           </Link>
+          <Link href="/kpi?view=h2" className={chip(false)}>
+            ครึ่งปี ก.ค.–ธ.ค.
+          </Link>
         </div>
       </div>
 
@@ -104,6 +135,9 @@ export default async function KpiPage({ searchParams }: { searchParams: Promise<
       {data.hasTargets && <KpiAlerts alerts={alerts} />}
       <KpiHeadline data={data} />
       <KpiMatrix data={data} />
+      <Suspense fallback={<KpiTrendsFallback />}>
+        <KpiTrends month={month} />
+      </Suspense>
 
       <Card>
         <CardHeader>

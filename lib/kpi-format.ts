@@ -39,3 +39,7 @@ export function formatDelta(cur: number | null, prev: number | null, unit: KpiUn
   if (unit === "perDay") return { text: `${sign}${nf(abs, 1)} บิล/วัน`, dir };
   return { text: `${sign}${nf(abs, abs % 1 ? 1 : 0)} งาน`, dir };
 }
+
+const SHORT_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+/** "2026-07" → "ก.ค." */
+export const shortMonthLabel = (month: string) => SHORT_MONTHS[Number(month.slice(5, 7)) - 1];

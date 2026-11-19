@@ -76,6 +76,8 @@ export type PosMonth = {
   lodgingSales: number;
   /** Last date that has any row in the month ("yyyy-mm-dd"), or null if none. */
   lastDate: string | null;
+  /** Bills and food sales per day with sales, oldest first. */
+  daily: { date: string; bills: number; sales: number }[];
 };
 
 /** One month of the detail sheet → bill and sales totals. Voided bills ("Void All") are left out, as on the dashboard. */
@@ -89,6 +91,7 @@ export function summarizePos(table: GvizTable, month: string): PosMonth {
     cat: findCol(table, (l) => l.includes("หมวดสินค้า"), 25),
   };
   const foodBills = new Set<string>();
+  const byDay = new Map<string, { bills: Set<string>; sales: number }>();
   let foodSales = 0;
   let lodgingSales = 0;
   let lastDate: string | null = null;
@@ -102,26 +105,38 @@ export function summarizePos(table: GvizTable, month: string): PosMonth {
       lodgingSales += net;
     } else {
       foodSales += net;
-      foodBills.add(str(r, i.bill) || `${date}#${idx}`);
+      const bill = str(r, i.bill) || `${date}#${idx}`;
+      foodBills.add(bill);
+      const day = byDay.get(date) ?? { bills: new Set<string>(), sales: 0 };
+      day.bills.add(bill);
+      day.sales += net;
+      byDay.set(date, day);
     }
   });
-  return { month, foodBills: foodBills.size, foodSales, lodgingSales, lastDate };
+  const daily = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, d]) => ({ date, bills: d.bills.size, sales: d.sales }));
+  return { month, foodBills: foodBills.size, foodSales, lodgingSales, lastDate, daily };
 }
 
 async function fetchTable(query?: string): Promise<GvizTable> {
   const url =
     `${SHEETS_BASE}/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(DETAIL_TAB)}` +
     (query ? `&tq=${encodeURIComponent(query)}` : "");
-  const res = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(9_000) });
+  // Not Next's fetch cache: a month of POS rows can pass its 2 MB limit. posCache below keeps the result instead.
+  const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(9_000) });
   if (!res.ok) throw new Error(`Google Sheets ตอบกลับสถานะ ${res.status}`);
   return parseGviz(await res.text());
 }
+
+const POS_CACHE_MS = 5 * 60 * 1000;
+const posCache = new Map<string, { at: number; data: PosMonth }>();
 
 /**
  * The month's POS totals, or an error message when the sheet can't be read. It first asks Google for just the month
  * (column A is the date); if that query is refused it reads the whole tab, as the sales dashboard does.
  */
 export async function loadPosMonth(month: string): Promise<{ data: PosMonth } | { error: string }> {
+  const hit = posCache.get(month);
+  if (hit && Date.now() - hit.at < POS_CACHE_MS) return { data: hit.data };
   try {
     const [y, m] = month.split("-").map(Number);
     const next = m === 12 ? `${y + 1}-01-01` : `${y}-${pad2(m + 1)}-01`;
@@ -131,7 +146,9 @@ export async function loadPosMonth(month: string): Promise<{ data: PosMonth } | 
     } catch {
       table = await fetchTable();
     }
-    return { data: summarizePos(table, month) };
+    const data = summarizePos(table, month);
+    posCache.set(month, { at: Date.now(), data });
+    return { data };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "อ่านข้อมูลยอดขายร้านอาหารไม่สำเร็จ" };
   }

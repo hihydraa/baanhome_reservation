@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { GRADE_LABELS, type KpiKey } from "@/lib/kpi-config";
 import { formatKpi, formatPlain, nf } from "@/lib/kpi-format";
@@ -7,6 +8,8 @@ import { GRADE_STYLE } from "@/components/kpi/grade-style";
 
 const shell = "flex flex-col gap-2 rounded-xl border border-cream-200 bg-white p-4";
 const title = "text-sm font-medium text-ink-600";
+
+const detailHref = (data: KpiMonth, key: KpiKey) => `/kpi/${key}?month=${data.month}`;
 
 function Bar({ pct, cls }: { pct: number; cls: string }) {
   return (
@@ -74,7 +77,7 @@ export function KpiHeadline({ data }: { data: KpiMonth }) {
 
       {/* total sales */}
       <div className={shell}>
-        <p className={title}>ยอดขายรวม</p>
+        <Link href={detailHref(data, "TOTAL_SALES")} className={cn(title, "hover:underline")}>ยอดขายรวม</Link>
         <p className="text-2xl font-semibold text-ink-900">{sales?.value == null ? "—" : `${nf(sales.value)} บาท`}</p>
         {sales?.value != null && sales.levels && (
           <>
@@ -108,7 +111,7 @@ export function KpiHeadline({ data }: { data: KpiMonth }) {
 
       {/* occupancy */}
       <div className={shell}>
-        <p className={title}>OCC ห้องพัก</p>
+        <Link href={detailHref(data, "OCC_RESORT")} className={cn(title, "hover:underline")}>OCC ห้องพัก</Link>
         {[
           { k: resort, label: "รีสอร์ท" },
           { k: pool, label: "พูลวิลล่า" },
@@ -134,7 +137,7 @@ export function KpiHeadline({ data }: { data: KpiMonth }) {
 
       {/* restaurant */}
       <div className={shell}>
-        <p className={title}>สวนอาหาร</p>
+        <Link href={detailHref(data, "BILLS_PER_DAY")} className={cn(title, "hover:underline")}>สวนอาหาร</Link>
         <Line kpi={by("BILLS_PER_DAY")} label="บิล/วัน" />
         <Line kpi={by("BAHT_PER_BILL")} label="บาท/บิล" />
         <Line kpi={by("GP_RESTAURANT")} label="GP" />
@@ -143,7 +146,7 @@ export function KpiHeadline({ data }: { data: KpiMonth }) {
 
       {/* bookings */}
       <div className={shell}>
-        <p className={title}>งานจอง</p>
+        <Link href={detailHref(data, "BOOKINGS")} className={cn(title, "hover:underline")}>งานจอง</Link>
         <p className="text-2xl font-semibold text-ink-900">{bookings?.value == null ? "—" : `${nf(bookings.value)} งาน`}</p>
         {bookings?.levels && bookings.value != null && (
           <>

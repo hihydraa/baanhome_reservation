@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { GRADE_LABELS, GROUP_LABELS, type KpiGroup } from "@/lib/kpi-config";
 import { formatKpi, formatPlain, nf } from "@/lib/kpi-format";
@@ -56,7 +57,9 @@ export function KpiMatrix({ data }: { data: KpiMonth }) {
                   return (
                     <tr key={k.def.key} className={cn("border-t border-cream-100", style?.row)} title={k.def.measure}>
                       <td className="px-4 py-2.5">
-                        <span className="font-medium text-ink-900">{k.def.label}</span>
+                        <Link href={`/kpi/${k.def.key}?month=${data.month}`} className="font-medium text-forest-700 hover:underline">
+                          {k.def.label}
+                        </Link>
                         <span className="ml-2 text-xs text-ink-400">น้ำหนัก {k.def.weight}%</span>
                       </td>
                       <td className="px-3 py-2.5 text-right font-semibold text-ink-900">

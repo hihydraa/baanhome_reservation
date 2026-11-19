@@ -67,8 +67,10 @@ const daysIn = (month: string) => {
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 };
 
+export type BigBooking = { id: string; kind: "BANQUET" | "STAY"; place: string; customer: string; date: string; total: number };
+
 /** Bookings worth more than BOOKING_MIN_VALUE in the month: banquet events by event date, stays by check-in (a charter is one). */
-async function countBigBookings(from: Date, toExclusive: Date): Promise<number> {
+export async function listBigBookings(from: Date, toExclusive: Date): Promise<BigBooking[]> {
   const [banquet, stays] = await Promise.all([
     prisma.banquetBooking.findMany({
       where: { status: { not: "CANCELLED" }, eventDate: { gte: from, lt: toExclusive } },
@@ -76,24 +78,38 @@ async function countBigBookings(from: Date, toExclusive: Date): Promise<number> 
     }),
     prisma.accommodationBooking.findMany({
       where: { status: { not: "CANCELLED" }, checkIn: { gte: from, lt: toExclusive } },
-      include: { addons: true },
+      include: { resource: true, addons: true },
     }),
   ]);
-  let count = 0;
+  const out: BigBooking[] = [];
   for (const b of banquet) {
-    const t = banquetExpectedTotal(b, b.resource, b.addons, { type: b.discountType, value: b.discountValue }).expectedTotal;
-    if (t > BOOKING_MIN_VALUE) count++;
+    const total = banquetExpectedTotal(b, b.resource, b.addons, { type: b.discountType, value: b.discountValue }).expectedTotal;
+    if (total > BOOKING_MIN_VALUE) out.push({ id: b.id, kind: "BANQUET", place: b.resource.name, customer: b.customerName, date: toDateOnlyString(b.eventDate), total });
   }
-  const byUnit = new Map<string, number>();
+  const units = new Map<string, { first: (typeof stays)[number]; total: number; rooms: number }>();
   for (const s of stays) {
     const key = s.charterGroupId ?? s.id;
-    byUnit.set(key, (byUnit.get(key) ?? 0) + accommodationExpectedTotal(s, s.addons).expectedTotal);
+    const cur = units.get(key) ?? { first: s, total: 0, rooms: 0 };
+    cur.total += accommodationExpectedTotal(s, s.addons).expectedTotal;
+    cur.rooms += 1;
+    units.set(key, cur);
   }
-  for (const t of byUnit.values()) if (t > BOOKING_MIN_VALUE) count++;
-  return count;
+  for (const u of units.values()) {
+    if (u.total > BOOKING_MIN_VALUE) {
+      out.push({
+        id: u.first.id,
+        kind: "STAY",
+        place: u.rooms > 1 ? `เหมา ${u.rooms} ห้อง` : u.first.resource.name,
+        customer: u.first.customerName,
+        date: toDateOnlyString(u.first.checkIn),
+        total: u.total,
+      });
+    }
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-async function computeKpiMonth(month: string): Promise<Omit<KpiMonth, "prevMonth" | "prevPoints" | "pace">> {
+export async function computeKpiMonth(month: string): Promise<Omit<KpiMonth, "prevMonth" | "prevPoints" | "pace">> {
   const today = todayDateOnly();
   const todayStr = toDateOnlyString(today);
   const monthStart = parseDateOnly(`${month}-01`);
@@ -106,7 +122,7 @@ async function computeKpiMonth(month: string): Promise<Omit<KpiMonth, "prevMonth
   const [perf, pos, bigBookings, input] = await Promise.all([
     loadPerformance(month + "-01", toDateOnlyString(monthEnd)),
     future ? Promise.resolve(null) : loadPosMonth(month),
-    countBigBookings(monthStart, nextStart),
+    listBigBookings(monthStart, nextStart).then((l) => l.length),
     // The typed-in figures live in a table added by a migration: until it has been applied, show the page without them.
     prisma.kpiMonthlyInput.findUnique({ where: { month } }).catch(() => "NO_TABLE" as const),
   ]);
@@ -231,4 +247,35 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
   }
 
   return { ...cur, kpis, prevMonth, prevPoints: prev && prev.hasTargets ? prev.points : null, pace };
+}
+
+export type KpiSeriesPoint = {
+  month: string;
+  hasTargets: boolean;
+  /** Later than this month: nothing to show yet. */
+  future: boolean;
+  points: number | null;
+  sales: { food: number | null; accommodation: number; banquet: number };
+  kpis: Partial<Record<KpiKey, { value: number | null; levels: Levels | null; grade: Grade | null }>>;
+};
+
+/** The `count` months up to and including `endMonth`, oldest first, for the trend charts and the half-year table. */
+export async function loadKpiSeries(endMonth: string, count: number): Promise<KpiSeriesPoint[]> {
+  const todayMonth = toDateOnlyString(todayDateOnly()).slice(0, 7);
+  const months = Array.from({ length: count }, (_, i) => shiftMonth(endMonth, i - (count - 1)));
+  return Promise.all(
+    months.map(async (month): Promise<KpiSeriesPoint> => {
+      if (month > todayMonth) return { month, hasTargets: targetsFor("BOOKINGS", month) != null, future: true, points: null, sales: { food: null, accommodation: 0, banquet: 0 }, kpis: {} };
+      const m = await computeKpiMonth(month).catch(() => null);
+      if (!m) return { month, hasTargets: false, future: false, points: null, sales: { food: null, accommodation: 0, banquet: 0 }, kpis: {} };
+      return {
+        month,
+        hasTargets: m.hasTargets,
+        future: false,
+        points: m.hasTargets ? m.points : null,
+        sales: { food: m.sales.food, accommodation: m.sales.accommodation, banquet: m.sales.banquet },
+        kpis: Object.fromEntries(m.kpis.map((k) => [k.def.key, { value: k.value, levels: k.levels, grade: k.grade }])),
+      };
+    })
+  );
 }
