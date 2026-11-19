@@ -251,26 +251,38 @@ export async function streamAnalysis(context: unknown, part: number, timeoutMs =
   let buffer = "";
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        controller.close();
-        return;
-      }
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop() ?? "";
-      for (const ev of events) {
-        const data = ev.split("\n").find((l) => l.startsWith("data:"));
-        if (!data) continue;
-        try {
-          const json = JSON.parse(data.slice(5).trim());
-          if (json.type === "content_block_delta" && json.delta?.type === "text_delta") controller.enqueue(encoder.encode(json.delta.text));
-          if (json.type === "message_delta" && json.delta?.stop_reason === "max_tokens") {
-            controller.enqueue(encoder.encode("\n\n> ⚠ ข้อความยาวเกินกำหนดและถูกตัด กรุณากดวิเคราะห์ใหม่"));
+      // A network chunk can hold no complete event (events are split across chunks). Keep reading until something was
+      // enqueued or the stream ended: a pull that enqueues nothing is not called again, which used to stall the response.
+      let sent = false;
+      while (!sent) {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+        for (const ev of events) {
+          const data = ev.split("\n").find((l) => l.startsWith("data:"));
+          if (!data) continue;
+          try {
+            const json = JSON.parse(data.slice(5).trim());
+            if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
+              controller.enqueue(encoder.encode(json.delta.text));
+              sent = true;
+            }
+            if (json.type === "message_delta" && json.delta?.stop_reason === "max_tokens") {
+              controller.enqueue(encoder.encode("\n\n> ⚠ ข้อความยาวเกินกำหนดและถูกตัด กรุณากดวิเคราะห์ใหม่"));
+              sent = true;
+            }
+            if (json.type === "error") {
+              controller.error(new Error(json.error?.message ?? "Anthropic API error"));
+              return;
+            }
+          } catch {
+            // A partial or non-JSON line: ignore it.
           }
-          if (json.type === "error") controller.error(new Error(json.error?.message ?? "Anthropic API error"));
-        } catch {
-          // A partial or non-JSON line: ignore it.
         }
       }
     },
