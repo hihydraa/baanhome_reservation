@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/api-helpers";
 import { aiConfigured, buildAiContext, streamAnalysis, validateRange } from "@/lib/kpi-ai";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const schema = z.object({ from: z.string(), to: z.string() });
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("STAGE:data")), 25_000)),
     ]);
     const t1 = Date.now();
-    const stream = await streamAnalysis(context, Math.max(5_000, 55_000 - (t1 - t0)));
+    const stream = await streamAnalysis(context, Math.max(5_000, 285_000 - (t1 - t0)));
     console.log(`[kpi-ai] ${from}..${to} context=${t1 - t0}ms firstByte=${Date.now() - t1}ms`);
     // The figures section is written by code and goes out first; the model's analysis follows it.
     const enc = new TextEncoder();

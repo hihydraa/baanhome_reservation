@@ -185,26 +185,35 @@ export const SYSTEM_PROMPT = `คุณเป็นที่ปรึกษา�
 ## 8. ข้อมูลที่ยังขาด`;
 
 const API_BASE = process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com";
+/**
+ * Sonnet (the default) is kept fast: thinking off and low effort, enough for writing up figures that are already
+ * computed. Any other model (e.g. claude-opus-5-5, which cannot turn thinking off) thinks at ANTHROPIC_EFFORT
+ * (default "medium"); that is slower, so it relies on the 300s function limit.
+ */
+function modelOptions(model: string) {
+  if (/sonnet-5-5/.test(model)) return { thinking: { type: "between_tools" }, output_config: { effort: "low" } };
+  const effort = ["low", "medium", "high", "xhigh", "max"].includes(process.env.ANTHROPIC_EFFORT ?? "") ? process.env.ANTHROPIC_EFFORT : "medium";
+  return { output_config: { effort } };
+}
+
 export const aiConfigured = () => !!process.env.ANTHROPIC_API_KEY;
 
 /**
  * Calls Claude with the figures and returns the text as it is written, ready to stream to the browser. Throws an
  * Error (with a message fit to show) when the key is missing or Anthropic refuses the request.
  */
-export async function streamAnalysis(context: unknown, timeoutMs = 52_000): Promise<ReadableStream<Uint8Array>> {
+export async function streamAnalysis(context: unknown, timeoutMs = 285_000): Promise<ReadableStream<Uint8Array>> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY ในเซิร์ฟเวอร์");
+  const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
   const res = await fetch(`${API_BASE}/v1/messages`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
-      model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
+      model,
       max_tokens: 3500,
       stream: true,
-      // Summarising needs no deep reasoning; Sonnet 5.5 thinks at high effort by default, which delayed the answer past
-      // the 60s function limit. between_tools = thinking off (allowed at effort high or below).
-      thinking: { type: "between_tools" },
-      output_config: { effort: "low" },
+      ...modelOptions(model),
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: `จัดทำเอกสารประกอบการประชุมประจำเดือนจากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
     }),
