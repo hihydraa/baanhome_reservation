@@ -14,7 +14,7 @@ const GROUP_ORDER: KpiGroup[] = ["SALES", "LODGING", "RESTAURANT", "BOOKINGS", "
  */
 export function KpiMatrix({ data }: { data: KpiMonth }) {
   return (
-    <div className="rounded-xl border border-cream-200 bg-white">
+    <div className="kpi-matrix rounded-xl border border-cream-200 bg-white">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cream-200 px-4 py-3">
         <h2 className="text-sm font-semibold text-forest-800">
           KPI ทั้ง 9 ตัว <span className="font-normal text-ink-400">(ผลจริง เทียบเป้าระดับดีเยี่ยม)</span>
