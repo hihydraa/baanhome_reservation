@@ -167,22 +167,28 @@ export const SYSTEM_PROMPT = `คุณเป็นที่ปรึกษา�
 - เดือนที่ยังไม่จบ ให้ระบุว่าเป็นตัวเลขระหว่างเดือน
 - ผู้รับผิดชอบระบุเป็น "ฝ่าย/แผนก" เท่านั้น (ห้ามแต่งชื่อบุคคล) กรอบเวลาเป็นช่วง เช่น "ภายในสิ้นเดือนหน้า"
 - ไม่ใช้ตาราง ใช้หัวข้อและรายการ
-- ความยาวรวมไม่เกินประมาณ 550 คำ ต้องเขียนให้ครบทุกหัวข้อ อย่าขยายความหัวข้อใดจนยาว
+- เขียนให้ครบทุกหัวข้อที่ได้รับมอบหมาย อย่าขยายความหัวข้อใดจนยาว
 
-โครงเอกสาร (ใช้ markdown หัวข้อ ## และรายการ -) เริ่มจากหัวข้อ 2:
+รูปแบบ: markdown หัวข้อ ## และรายการ - ตามหัวข้อที่ได้รับมอบหมายเท่านั้น (ใช้เลขหัวข้อตามที่ระบุ)`;
+
+/** The document's analysis is written in two parts, in parallel: it halves the wait and each part fits its token limit. */
+export const PARTS = [
+  `ให้เขียนเฉพาะหัวข้อ 2–4 (ความยาวรวมไม่เกินประมาณ 350 คำ):
 ## 2. สรุปสำหรับผู้บริหาร
 (3–4 บรรทัด: คะแนนรวมและแนวโน้ม ข้อความสำคัญที่สุด รวมถึงข้อควรระวังด้านคุณภาพข้อมูลถ้ามี)
 ## 3. จุดแข็งที่ควรรักษา
 (2–3 ข้อ)
 ## 4. ประเด็นที่ต้องเร่งแก้ไข
-(3–4 ข้อ เรียงตามคะแนนที่เสียไปมากสุดของเดือนล่าสุดจากตัวเลขสำเร็จรูป ใส่ส่วนต่างจากเป้า)
+(3–4 ข้อ เรียงตามคะแนนที่เสียไปมากสุดของเดือนล่าสุดจากตัวเลขสำเร็จรูป ใส่ส่วนต่างจากเป้า)`,
+  `ให้เขียนเฉพาะหัวข้อ 5–8 (ความยาวรวมไม่เกินประมาณ 350 คำ) เริ่มที่หัวข้อ 5 ทันที ไม่ต้องเขียนหัวข้อ 2–4:
 ## 5. สาเหตุที่เป็นไปได้ (ข้อสันนิษฐาน)
 (2–4 ข้อ)
 ## 6. วาระและมติที่เสนอให้ที่ประชุม
 (3–5 ข้อ แต่ละข้อ: เรื่อง — เป้าตัวเลข — ฝ่ายที่รับผิดชอบ — กรอบเวลา)
 ## 7. คำถามที่ควรถามในที่ประชุม
 (2–3 ข้อ)
-## 8. ข้อมูลที่ยังขาด`;
+## 8. ข้อมูลที่ยังขาด`,
+];
 
 const API_BASE = process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com";
 /**
@@ -202,7 +208,7 @@ export const aiConfigured = () => !!process.env.ANTHROPIC_API_KEY;
  * Calls Claude with the figures and returns the text as it is written, ready to stream to the browser. Throws an
  * Error (with a message fit to show) when the key is missing or Anthropic refuses the request.
  */
-export async function streamAnalysis(context: unknown, timeoutMs = 285_000): Promise<ReadableStream<Uint8Array>> {
+export async function streamAnalysis(context: unknown, part: number, timeoutMs = 285_000): Promise<ReadableStream<Uint8Array>> {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error("ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY ในเซิร์ฟเวอร์");
   const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
@@ -211,11 +217,11 @@ export async function streamAnalysis(context: unknown, timeoutMs = 285_000): Pro
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model,
-      max_tokens: 3500,
+      max_tokens: /sonnet-5-5/.test(model) ? 3000 : 8000, // thinking models spend part of this on reasoning
       stream: true,
       ...modelOptions(model),
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `จัดทำเอกสารประกอบการประชุมประจำเดือนจากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
+      messages: [{ role: "user", content: `จัดทำส่วนวิเคราะห์ของเอกสารประกอบการประชุมประจำเดือนจากข้อมูล KPI นี้\n\n${PARTS[part]}\n\nข้อมูล:\n${JSON.stringify(context, null, 1)}` }],
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(timeoutMs),
@@ -246,6 +252,9 @@ export async function streamAnalysis(context: unknown, timeoutMs = 285_000): Pro
         try {
           const json = JSON.parse(data.slice(5).trim());
           if (json.type === "content_block_delta" && json.delta?.type === "text_delta") controller.enqueue(encoder.encode(json.delta.text));
+          if (json.type === "message_delta" && json.delta?.stop_reason === "max_tokens") {
+            controller.enqueue(encoder.encode("\n\n> ⚠ ข้อความยาวเกินกำหนดและถูกตัด กรุณากดวิเคราะห์ใหม่"));
+          }
           if (json.type === "error") controller.error(new Error(json.error?.message ?? "Anthropic API error"));
         } catch {
           // A partial or non-JSON line: ignore it.

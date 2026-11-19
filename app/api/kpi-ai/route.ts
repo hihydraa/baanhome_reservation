@@ -29,19 +29,24 @@ export async function POST(req: NextRequest) {
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("STAGE:data")), 25_000)),
     ]);
     const t1 = Date.now();
-    const stream = await streamAnalysis(context, Math.max(5_000, 285_000 - (t1 - t0)));
+    const budget = Math.max(5_000, 285_000 - (t1 - t0));
+    // Two parts written at the same time; the second waits (buffered) until the first has been sent.
+    const [p1, p2] = await Promise.all([streamAnalysis(context, 0, budget), streamAnalysis(context, 1, budget)]);
     console.log(`[kpi-ai] ${from}..${to} context=${t1 - t0}ms firstByte=${Date.now() - t1}ms`);
     // The figures section is written by code and goes out first; the model's analysis follows it.
     const enc = new TextEncoder();
     const combined = new ReadableStream<Uint8Array>({
       async start(controller) {
         controller.enqueue(enc.encode(`${facts}\n\n`));
-        const reader = stream.getReader();
         try {
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
+          for (const stream of [p1, p2]) {
+            const reader = stream.getReader();
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              controller.enqueue(value);
+            }
+            controller.enqueue(enc.encode("\n\n"));
           }
           controller.close();
         } catch (e) {
@@ -50,7 +55,8 @@ export async function POST(req: NextRequest) {
         }
       },
       cancel() {
-        stream.cancel().catch(() => {});
+        p1.cancel().catch(() => {});
+        p2.cancel().catch(() => {});
       },
     });
     return new Response(combined, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
