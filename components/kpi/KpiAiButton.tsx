@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Copy, Loader2, Sparkles } from "lucide-react";
+import { Copy, Loader2, Printer, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -142,9 +142,28 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
               {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
               {(text || running) && (
                 <div className="flex flex-col gap-2 rounded-lg border border-cream-200 bg-white p-4">
-                  {text ? <SimpleMarkdown text={text} /> : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 10–30 วินาที…</p>}
+                  {text ? <div id="kpi-ai-result"><SimpleMarkdown text={text} /></div> : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 20–40 วินาที…</p>}
                   {text && !running && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const body = document.getElementById("kpi-ai-result")?.innerHTML ?? "";
+                          const w = window.open("", "_blank");
+                          if (!w) return showToast("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");
+                          w.document.write(
+                            `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>body{font-family:system-ui,"Noto Sans Thai",sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}ul{margin:4px 0 4px 20px;padding:0}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${options.find((o) => o.value === from)?.label ?? from} – ${options.find((o) => o.value === to)?.label ?? to}</div>${body}<div class="note">จัดทำด้วย AI จากตัวเลขสรุป KPI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`,
+                          );
+                          w.document.close();
+                          w.focus();
+                          setTimeout(() => w.print(), 300);
+                        }}
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        พิมพ์ / บันทึก PDF
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"
