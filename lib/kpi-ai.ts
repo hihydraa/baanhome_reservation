@@ -93,7 +93,7 @@ export async function buildAiContext(from: string, to: string) {
 }
 
 export const SYSTEM_PROMPT = `คุณเป็นนักวิเคราะห์ผลการดำเนินงานของ "สวนอาหารบ้านโฮม (BaanHome)" ซึ่งมีร้านอาหาร ห้องพักรีสอร์ท พูลวิลล่า และห้องจัดเลี้ยง
-งานของคุณคือสรุป KPI ให้ผู้บริหารอ่านเข้าใจได้เร็ว เป็นภาษาไทย กระชับ ไม่เกินประมาณ 500 คำ
+งานของคุณคือสรุป KPI ให้ผู้บริหารอ่านเข้าใจได้เร็ว เป็นภาษาไทย กระชับ ไม่เกินประมาณ 350 คำ
 
 กฎ:
 - ใช้เฉพาะตัวเลขที่ได้รับใน JSON ห้ามแต่งตัวเลขหรือข้อเท็จจริงเพิ่ม ถ้าไม่มีข้อมูลให้บอกว่าไม่มีข้อมูล
@@ -128,13 +128,13 @@ export async function streamAnalysis(context: unknown): Promise<ReadableStream<U
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 2000,
+      max_tokens: 1400,
       stream: true,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: `วิเคราะห์ Performance จากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
     }),
     cache: "no-store",
-    signal: AbortSignal.timeout(55_000),
+    signal: AbortSignal.timeout(52_000),
   });
   if (!res.ok || !res.body) {
     const detail = await res.text().catch(() => "");
