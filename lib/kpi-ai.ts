@@ -51,8 +51,21 @@ function fmtVal(v: number | null, unit: string): string {
  * The figures part of the meeting document, written by code (not the model) so it is always complete and exact: per
  * month a scorecard table, the sales by channel, and data-quality notes where a channel has no sales at all.
  */
-export function buildFactSheet(perMonth: MonthResult[]): string {
-  const out: string[] = ["## 1. ผลการดำเนินงานเทียบเป้าหมาย (ข้อมูลจากระบบ)"];
+export function buildFactSheet(perMonth: MonthResult[], from: string, to: string): string {
+  const today = toDateOnlyString(todayDateOnly());
+  const todayLabel = `${Number(today.slice(8, 10))} ${THAI_MONTHS[Number(today.slice(5, 7)) - 1]} ${Number(today.slice(0, 4)) + 543}`;
+  const out: string[] = [
+    "## ข้อมูลเอกสาร",
+    "| หัวข้อ | รายละเอียด |",
+    "|---|---|",
+    "| เรื่อง | รายงานผลการดำเนินงานและ KPI ประจำเดือน |",
+    `| ช่วงข้อมูล | ${label(from)} – ${label(to)} |`,
+    `| วันที่จัดทำ | ${todayLabel} |`,
+    "| วันที่ประชุม | ........................................ |",
+    "| ผู้เข้าร่วมประชุม | ........................................ |",
+    `| จัดทำโดย | ระบบ BaanHome Reservation และ AI (โมเดล ${process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5"}) |`,
+    "",
+    "## 1. ผลการดำเนินงานเทียบเป้าหมาย (ข้อมูลจากระบบ)"];
   for (const m of perMonth) {
     out.push(`### ${label(m.month)}${m.inProgress ? " (ระหว่างเดือน)" : ""}${m.hasTargets ? ` — คะแนนรวม ${fmtNum(m.points ?? 0, 1)}/100` : " — ไม่มีเป้าหมาย"}`);
     if (m.hasTargets) {
@@ -152,7 +165,7 @@ export async function buildAiContext(from: string, to: string) {
     },
     ห้องจัดเลี้ยงตลอดช่วง: { OCC_เปอร์เซ็นต์: Math.round(perf.banquetOcc.rate * 10) / 10, จำนวนงาน: perf.bookingCounts.banquet },
   };
-  return { context, facts: buildFactSheet(perMonth) };
+  return { context, facts: buildFactSheet(perMonth, from, to) };
 }
 
 export const SYSTEM_PROMPT = `คุณเป็นที่ปรึกษาด้านผลการดำเนินงานของ "สวนอาหารบ้านโฮม (BaanHome)" ซึ่งมีร้านอาหาร ห้องพักรีสอร์ท พูลวิลล่า และห้องจัดเลี้ยง
