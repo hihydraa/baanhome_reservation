@@ -22,6 +22,24 @@ export type KpiResult = {
   missing: "INPUT" | "POS" | null;
   /** Extra line under the value, e.g. a run-rate for the whole month. */
   hint: string | null;
+  /** The same figure for the month before (null when it had none), for the up/down arrows. */
+  prevValue: number | null;
+};
+
+/** How the month's sales stand against the "excellent" target at this point of the month. */
+export type SalesPace = {
+  elapsedDays: number;
+  daysInMonth: number;
+  remainingDays: number;
+  /** The month's "excellent" sales target, and the share of it that should be done by now. */
+  target: number;
+  expectedToDate: number;
+  /** Actual ÷ expected to date, as a percent. */
+  toDatePct: number;
+  /** Where the month ends if sales carry on at the same daily rate. */
+  projected: number;
+  /** What each remaining day must bring to reach the target (null once the month is over). */
+  neededPerDay: number | null;
 };
 
 export type KpiMonth = {
@@ -38,6 +56,10 @@ export type KpiMonth = {
   sales: { food: number | null; accommodation: number; banquet: number; upcoming: number };
   inputs: { banquetCost: number | null; restaurantGp: number | null; evaluationPct: number | null; updatedByName: string | null; updatedAt: Date | null };
   warnings: string[];
+  prevMonth: string;
+  /** Weighted points of the month before, or null when it could not be worked out. */
+  prevPoints: number | null;
+  pace: SalesPace | null;
 };
 
 const daysIn = (month: string) => {
@@ -71,7 +93,7 @@ async function countBigBookings(from: Date, toExclusive: Date): Promise<number> 
   return count;
 }
 
-export async function loadKpiMonth(month: string): Promise<KpiMonth> {
+async function computeKpiMonth(month: string): Promise<Omit<KpiMonth, "prevMonth" | "prevPoints" | "pace">> {
   const today = todayDateOnly();
   const todayStr = toDateOnlyString(today);
   const monthStart = parseDateOnly(`${month}-01`);
@@ -152,6 +174,7 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
       points: scorePct == null ? null : (def.weight * scorePct) / 100,
       missing: r.missing ?? null,
       hint: r.hint ?? null,
+      prevValue: null,
     };
   });
 
@@ -174,4 +197,38 @@ export async function loadKpiMonth(month: string): Promise<KpiMonth> {
     },
     warnings,
   };
+}
+
+const shiftMonth = (month: string, by: number) => {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + by, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+
+/** The month's KPIs, each with the month before alongside, and the sales pace while the month is still running. */
+export async function loadKpiMonth(month: string): Promise<KpiMonth> {
+  const prevMonth = shiftMonth(month, -1);
+  const [cur, prev] = await Promise.all([computeKpiMonth(month), computeKpiMonth(prevMonth).catch(() => null)]);
+
+  const kpis = cur.kpis.map((k) => ({ ...k, prevValue: prev?.kpis.find((p) => p.def.key === k.def.key)?.value ?? null }));
+
+  let pace: SalesPace | null = null;
+  const sales = kpis.find((k) => k.def.key === "TOTAL_SALES");
+  if (cur.inProgress && sales?.value != null && sales.levels && cur.elapsedDays > 0) {
+    const target = sales.levels.excellent;
+    const remaining = cur.daysInMonth - cur.elapsedDays;
+    const expectedToDate = (target * cur.elapsedDays) / cur.daysInMonth;
+    pace = {
+      elapsedDays: cur.elapsedDays,
+      daysInMonth: cur.daysInMonth,
+      remainingDays: remaining,
+      target,
+      expectedToDate,
+      toDatePct: expectedToDate > 0 ? (sales.value / expectedToDate) * 100 : 0,
+      projected: (sales.value / cur.elapsedDays) * cur.daysInMonth,
+      neededPerDay: remaining > 0 ? Math.max(0, (target - sales.value) / remaining) : null,
+    };
+  }
+
+  return { ...cur, kpis, prevMonth, prevPoints: prev && prev.hasTargets ? prev.points : null, pace };
 }

@@ -17,8 +17,19 @@ export type KpiKey =
 
 export type KpiUnit = "count" | "perDay" | "baht" | "percent";
 
+export type KpiGroup = "SALES" | "LODGING" | "RESTAURANT" | "BOOKINGS" | "QUALITY";
+
+export const GROUP_LABELS: Record<KpiGroup, string> = {
+  SALES: "ยอดขาย",
+  LODGING: "ที่พัก",
+  RESTAURANT: "สวนอาหาร",
+  BOOKINGS: "งานจอง",
+  QUALITY: "คุณภาพ",
+};
+
 export type KpiDef = {
   key: KpiKey;
+  group: KpiGroup;
   label: string;
   weight: number;
   unit: KpiUnit;
@@ -28,15 +39,15 @@ export type KpiDef = {
 
 /** In the order of the scorecard. Weights add up to 100. */
 export const KPI_DEFS: KpiDef[] = [
-  { key: "BOOKINGS", label: "จำนวนงานจอง/เดือน", weight: 8, unit: "count", measure: "การจองที่ยอดเกิน 10,000 บาทต่อครั้ง (งานจัดเลี้ยง + ห้องพัก เหมากลุ่มนับเป็น 1 ครั้ง) สะสมทั้งเดือน" },
-  { key: "BILLS_PER_DAY", label: "จำนวนบิล/วัน", weight: 8, unit: "perDay", measure: "จำนวนบิลสวนอาหาร (ไม่นับบิลที่มีแต่ที่พัก) ÷ จำนวนวันของเดือนที่ผ่านมา" },
-  { key: "BAHT_PER_BILL", label: "บาท/บิล", weight: 8, unit: "baht", measure: "ยอดขายอาหารสุทธิ ÷ จำนวนบิลสวนอาหาร" },
-  { key: "OCC_RESORT", label: "OCC. Rate - รีสอร์ท", weight: 10, unit: "percent", measure: "คืนที่มีแขกพัก ÷ (จำนวนห้อง × จำนวนวันทั้งเดือน) รวมการจองล่วงหน้า" },
-  { key: "OCC_POOL_VILLA", label: "OCC. Rate - พูลวิลล่า", weight: 6, unit: "percent", measure: "คืนที่มีแขกพัก ÷ (จำนวนห้อง × จำนวนวันทั้งเดือน) รวมการจองล่วงหน้า" },
-  { key: "GP_RESTAURANT", label: "GP - สวนอาหาร", weight: 14, unit: "percent", measure: "% กำไรขั้นต้น/ยอดขาย กรอกรายเดือน" },
-  { key: "GP_BANQUET", label: "GP - งานจอง", weight: 8, unit: "percent", measure: "(รายได้งานจัดเลี้ยงของเดือน − ต้นทุนที่กรอก) ÷ รายได้งานจัดเลี้ยง" },
-  { key: "EVALUATION", label: "%คะแนนการประเมิน", weight: 18, unit: "percent", measure: "% คะแนนที่ได้จากการตรวจ/คะแนนเต็ม กรอกรายเดือน" },
-  { key: "TOTAL_SALES", label: "ยอดขายรวม", weight: 20, unit: "baht", measure: "ยอดขายอาหาร (POS) + รายได้ห้องพัก + รายได้งานจัดเลี้ยง ที่ให้บริการแล้วในเดือน" },
+  { key: "BOOKINGS", group: "BOOKINGS", label: "จำนวนงานจอง/เดือน", weight: 8, unit: "count", measure: "การจองที่ยอดเกิน 10,000 บาทต่อครั้ง (งานจัดเลี้ยง + ห้องพัก เหมากลุ่มนับเป็น 1 ครั้ง) สะสมทั้งเดือน" },
+  { key: "BILLS_PER_DAY", group: "RESTAURANT", label: "จำนวนบิล/วัน", weight: 8, unit: "perDay", measure: "จำนวนบิลสวนอาหาร (ไม่นับบิลที่มีแต่ที่พัก) ÷ จำนวนวันของเดือนที่ผ่านมา" },
+  { key: "BAHT_PER_BILL", group: "RESTAURANT", label: "บาท/บิล", weight: 8, unit: "baht", measure: "ยอดขายอาหารสุทธิ ÷ จำนวนบิลสวนอาหาร" },
+  { key: "OCC_RESORT", group: "LODGING", label: "OCC. Rate - รีสอร์ท", weight: 10, unit: "percent", measure: "คืนที่มีแขกพัก ÷ (จำนวนห้อง × จำนวนวันทั้งเดือน) รวมการจองล่วงหน้า" },
+  { key: "OCC_POOL_VILLA", group: "LODGING", label: "OCC. Rate - พูลวิลล่า", weight: 6, unit: "percent", measure: "คืนที่มีแขกพัก ÷ (จำนวนห้อง × จำนวนวันทั้งเดือน) รวมการจองล่วงหน้า" },
+  { key: "GP_RESTAURANT", group: "RESTAURANT", label: "GP - สวนอาหาร", weight: 14, unit: "percent", measure: "% กำไรขั้นต้น/ยอดขาย กรอกรายเดือน" },
+  { key: "GP_BANQUET", group: "BOOKINGS", label: "GP - งานจอง", weight: 8, unit: "percent", measure: "(รายได้งานจัดเลี้ยงของเดือน − ต้นทุนที่กรอก) ÷ รายได้งานจัดเลี้ยง" },
+  { key: "EVALUATION", group: "QUALITY", label: "%คะแนนการประเมิน", weight: 18, unit: "percent", measure: "% คะแนนที่ได้จากการตรวจ/คะแนนเต็ม กรอกรายเดือน" },
+  { key: "TOTAL_SALES", group: "SALES", label: "ยอดขายรวม", weight: 20, unit: "baht", measure: "ยอดขายอาหาร (POS) + รายได้ห้องพัก + รายได้งานจัดเลี้ยง ที่ให้บริการแล้วในเดือน" },
 ];
 
 export type Levels = { min: number; pass: number; excellent: number; exceed: number };
