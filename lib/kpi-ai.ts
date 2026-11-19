@@ -48,6 +48,28 @@ export async function buildAiContext(from: string, to: string) {
   const perf = await loadPerformance(`${from}-01`, `${to}-${String(lastDay).padStart(2, "0")}`);
   const rooms = [...perf.accommodationOcc.byRoom].sort((a, b) => b.rate - a.rate);
 
+  // Figures computed here (not by the model) so the arithmetic is exact: where each KPI lost points, and the gap to targets.
+  const insights = perMonth
+    .filter((m) => m.hasTargets)
+    .map((m) => {
+      const rows = m.kpis
+        .filter((k) => k.value != null && k.levels && k.scorePct != null)
+        .map((k) => {
+          const v = k.value as number;
+          const l = k.levels!;
+          const lost = Math.round(k.def.weight * (100 - (k.scorePct as number))) / 100;
+          return {
+            ชื่อ: k.def.label,
+            คะแนนที่เสียไปจากเต็ม: Math.max(0, lost),
+            ส่วนต่างจากเป้าผ่าน: Math.round((v - l.pass) * 10) / 10,
+            ส่วนต่างจากเป้าดีเยี่ยม: Math.round((v - l.excellent) * 10) / 10,
+            ต้องเพิ่มอีกเท่าไรถึงดีเยี่ยม: v >= l.excellent ? 0 : Math.round((l.excellent - v) * 10) / 10,
+          };
+        })
+        .sort((a, b) => b.คะแนนที่เสียไปจากเต็ม - a.คะแนนที่เสียไปจากเต็ม);
+      return { เดือน: label(m.month), KPI_เรียงตามคะแนนที่เสียไปมากสุด: rows };
+    });
+
   return {
     ช่วงที่วิเคราะห์: `${label(from)} – ${label(to)}`,
     หมายเหตุ: [
@@ -56,6 +78,7 @@ export async function buildAiContext(from: string, to: string) {
       "เดือนที่ยังไม่จบ ตัวเลขสะสมเป็นยอดถึงวันนี้ ส่วน OCC นับรวมการจองล่วงหน้าทั้งเดือน",
       "เป้าหมายมีเฉพาะ ก.ค.–ธ.ค. 2569 เดือนอื่นไม่มีเป้าและไม่มีคะแนน",
     ],
+    คำนวณสำเร็จรูป_ใช้ตัวเลขนี้ตามที่ให้ไม่ต้องคำนวณใหม่: insights,
     รายเดือน: perMonth.map((m) => ({
       เดือน: label(m.month),
       ยังไม่จบเดือน: m.inProgress,
@@ -92,26 +115,33 @@ export async function buildAiContext(from: string, to: string) {
   };
 }
 
-export const SYSTEM_PROMPT = `คุณเป็นนักวิเคราะห์ผลการดำเนินงานของ "สวนอาหารบ้านโฮม (BaanHome)" ซึ่งมีร้านอาหาร ห้องพักรีสอร์ท พูลวิลล่า และห้องจัดเลี้ยง
-งานของคุณคือสรุป KPI ให้ผู้บริหารอ่านเข้าใจได้เร็ว เป็นภาษาไทย กระชับ ไม่เกินประมาณ 350 คำ
+export const SYSTEM_PROMPT = `คุณเป็นที่ปรึกษาด้านผลการดำเนินงานของ "สวนอาหารบ้านโฮม (BaanHome)" ซึ่งมีร้านอาหาร ห้องพักรีสอร์ท พูลวิลล่า และห้องจัดเลี้ยง
+งานของคุณคือเขียน "เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน" ให้ผู้บริหารอ่านแล้วนำเข้าที่ประชุมได้ทันที เป็นภาษาไทยระดับทางการ กระชับ ชัดเจน
 
 กฎ:
 - ใช้เฉพาะตัวเลขที่ได้รับใน JSON ห้ามแต่งตัวเลขหรือข้อเท็จจริงเพิ่ม ถ้าไม่มีข้อมูลให้บอกว่าไม่มีข้อมูล
+- ตัวเลข "คำนวณสำเร็จรูป" ถูกต้องแล้ว ให้ใช้ตามนั้น ห้ามคำนวณใหม่เอง
 - อ้างตัวเลขจริงประกอบทุกข้อสังเกต (ผลจริง เทียบเป้า เทียบเดือนก่อน)
-- สาเหตุที่เป็นไปได้ให้เขียนว่าเป็น "ข้อสันนิษฐาน" ที่ควรตรวจสอบ ห้ามพูดเหมือนเป็นข้อเท็จจริง
-- เดือนที่ยังไม่จบ ให้ระวังเปรียบเทียบยอดสะสมกับเป้าทั้งเดือน
-- ถ้า KPI ไหนยังไม่มีข้อมูล (ยังไม่ได้กรอก/อ่านไม่ได้) ให้ระบุในส่วนสุดท้าย
+- สาเหตุที่เป็นไปได้ต้องเขียนว่าเป็น "ข้อสันนิษฐาน" ที่ต้องยืนยันในที่ประชุม ห้ามพูดเหมือนเป็นข้อเท็จจริง
+- เดือนที่ยังไม่จบ ให้ระวังการเปรียบเทียบยอดสะสมกับเป้าทั้งเดือน และระบุว่าเป็นตัวเลขระหว่างเดือน
+- ข้อเสนอแนะต้องทำได้จริง ระบุตัวเลขเป้าที่ต้องไปให้ถึงเมื่อคำนวณได้ ผู้รับผิดชอบให้ระบุเป็น "แผนก/ฝ่าย" ที่เหมาะสมเท่านั้น (ห้ามแต่งชื่อบุคคล) และกำหนดเวลาเป็นช่วง เช่น "ภายในสิ้นเดือนหน้า"
+- ไม่ใช้ตาราง ใช้หัวข้อและรายการเท่านั้น
 
-รูปแบบคำตอบ (ใช้ markdown หัวข้อ ## และรายการ -):
-## ภาพรวม
-(2–3 ประโยค: คะแนนรวม แนวโน้มในช่วงที่เลือก ระดับ Performance)
-## จุดแข็ง
-## ต้องเร่งแก้ไข
-(เรียงตามน้ำหนักคะแนน ใส่ตัวเลข)
-## ข้อสังเกตและสาเหตุที่เป็นไปได้
-## ข้อเสนอแนะ
-(3–5 ข้อ ทำได้จริง ระบุตัวเลขที่ต้องไปให้ถึงถ้าคำนวณได้)
-## ข้อมูลที่ยังขาด`;
+โครงเอกสาร (ใช้ markdown หัวข้อ ## และรายการ -):
+## 1. สรุปสำหรับผู้บริหาร
+(3–4 บรรทัด: คะแนนรวมและระดับ, แนวโน้มในช่วงที่เลือก, ข้อความสำคัญที่สุดที่ที่ประชุมต้องรู้)
+## 2. ผลการดำเนินงานเทียบเป้าหมาย
+(KPI ที่ผ่าน/ไม่ผ่าน อ้างผลจริงเทียบเป้า, ยอดขายแยกช่องทาง)
+## 3. จุดแข็งที่ควรรักษา
+## 4. ประเด็นที่ต้องเร่งแก้ไข
+(เรียงตามคะแนนที่เสียไปมากสุดจากตัวเลขสำเร็จรูป ใส่ตัวเลขส่วนต่างจากเป้า)
+## 5. วิเคราะห์สาเหตุที่เป็นไปได้ (ข้อสันนิษฐาน)
+## 6. วาระและมติที่เสนอให้ที่ประชุม
+(รายการ "สิ่งที่ต้องทำ" 3–6 ข้อ แต่ละข้อ: เรื่อง — เป้าตัวเลข — ฝ่ายที่รับผิดชอบ — กรอบเวลา)
+## 7. คำถามที่ควรถามในที่ประชุม
+(2–4 ข้อ ที่ข้อมูลตอบไม่ได้และต้องการข้อมูลจากหน้างาน)
+## 8. ข้อมูลที่ยังขาด
+(KPI ที่ยังไม่กรอก/อ่านไม่ได้)`;
 
 const API_BASE = process.env.ANTHROPIC_API_BASE ?? "https://api.anthropic.com";
 export const aiConfigured = () => !!process.env.ANTHROPIC_API_KEY;
@@ -128,14 +158,14 @@ export async function streamAnalysis(context: unknown, timeoutMs = 52_000): Prom
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5",
-      max_tokens: 2000,
+      max_tokens: 3000,
       stream: true,
       // Summarising needs no deep reasoning; Sonnet 5.5 thinks at high effort by default, which delayed the answer past
       // the 60s function limit. between_tools = thinking off (allowed at effort high or below).
       thinking: { type: "between_tools" },
       output_config: { effort: "low" },
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `วิเคราะห์ Performance จากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
+      messages: [{ role: "user", content: `จัดทำเอกสารประกอบการประชุมประจำเดือนจากข้อมูล KPI นี้:\n\n${JSON.stringify(context, null, 1)}` }],
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(timeoutMs),
