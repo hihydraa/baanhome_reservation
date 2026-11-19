@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Copy, Loader2, Printer, Sparkles } from "lucide-react";
+import { Copy, FileText, Loader2, Printer, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -78,6 +78,28 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
 
   const select = "h-9 rounded-md border border-cream-200 bg-white px-2 text-sm text-forest-800";
 
+  function exportDoc(kind: "pdf" | "word") {
+    const body = document.getElementById("kpi-ai-result")?.innerHTML ?? "";
+    const range = `${options.find((o) => o.value === from)?.label ?? from} – ${options.find((o) => o.value === to)?.label ?? to}`;
+    const css = `body{font-family:"Noto Sans Thai",Tahoma,sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2,h3{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}h4{font-size:14px;margin:12px 0 4px}ul{margin:4px 0 4px 20px;padding:0}table{width:100%;border-collapse:collapse;font-size:12px;margin:4px 0}th,td{border:1px solid #9ca3af;padding:3px 6px;text-align:left}th{background:#f3f4f6}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}@media print{table,tr{page-break-inside:avoid}h2,h3,h4{page-break-after:avoid}}`;
+    const html = `<!doctype html><html lang="th" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>${css}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${range}</div>${body}<div class="note">ตารางตัวเลขสร้างจากระบบ ส่วนวิเคราะห์จัดทำด้วย AI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`;
+    if (kind === "word") {
+      const url = URL.createObjectURL(new Blob(["\ufeff", html], { type: "application/msword" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `KPI-meeting-${from}_${to}.doc`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return;
+    }
+    const w = window.open("", "_blank");
+    if (!w) return showToast("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
+
   return (
     <>
       <Button type="button" variant="outline" size="sm" className="print:hidden" onClick={() => setOpen(true)}>
@@ -145,24 +167,13 @@ export function KpiAiButton({ options, configured, defaultFrom, defaultTo }: { o
                   {text ? <div id="kpi-ai-result"><SimpleMarkdown text={text} /></div> : <p className="text-sm text-ink-400">กำลังวิเคราะห์ ใช้เวลาประมาณ 20–40 วินาที…</p>}
                   {text && !running && (
                     <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const body = document.getElementById("kpi-ai-result")?.innerHTML ?? "";
-                          const w = window.open("", "_blank");
-                          if (!w) return showToast("เบราว์เซอร์บล็อกหน้าต่างพิมพ์");
-                          w.document.write(
-                            `<!doctype html><html lang="th"><head><meta charset="utf-8"><title>เอกสารประกอบการประชุม KPI</title><style>body{font-family:system-ui,"Noto Sans Thai",sans-serif;max-width:780px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.6;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px;border-bottom:1px solid #d1d5db;padding-bottom:3px}ul{margin:4px 0 4px 20px;padding:0}.meta{color:#6b7280;font-size:12px;margin-bottom:12px}.note{color:#6b7280;font-size:11px;margin-top:20px;border-top:1px solid #d1d5db;padding-top:6px}</style></head><body><h1>เอกสารประกอบการประชุมผลการดำเนินงานประจำเดือน — สวนอาหารบ้านโฮม</h1><div class="meta">ช่วงที่วิเคราะห์: ${options.find((o) => o.value === from)?.label ?? from} – ${options.find((o) => o.value === to)?.label ?? to}</div>${body}<div class="note">จัดทำด้วย AI จากตัวเลขสรุป KPI ควรตรวจสอบความถูกต้องก่อนนำเข้าที่ประชุม</div></body></html>`,
-                          );
-                          w.document.close();
-                          w.focus();
-                          setTimeout(() => w.print(), 300);
-                        }}
-                      >
+                      <Button type="button" variant="ghost" size="sm" onClick={() => exportDoc("pdf")}>
                         <Printer className="h-3.5 w-3.5" />
-                        พิมพ์ / บันทึก PDF
+                        ดาวน์โหลด PDF
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => exportDoc("word")}>
+                        <FileText className="h-3.5 w-3.5" />
+                        ดาวน์โหลด Word
                       </Button>
                       <Button
                         type="button"

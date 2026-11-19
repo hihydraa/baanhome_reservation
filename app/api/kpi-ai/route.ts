@@ -24,14 +24,36 @@ export async function POST(req: NextRequest) {
 
   try {
     const t0 = Date.now();
-    const context = await Promise.race([
+    const { context, facts } = await Promise.race([
       buildAiContext(from, to),
       new Promise<never>((_, rej) => setTimeout(() => rej(new Error("STAGE:data")), 25_000)),
     ]);
     const t1 = Date.now();
     const stream = await streamAnalysis(context, Math.max(5_000, 55_000 - (t1 - t0)));
     console.log(`[kpi-ai] ${from}..${to} context=${t1 - t0}ms firstByte=${Date.now() - t1}ms`);
-    return new Response(stream, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
+    // The figures section is written by code and goes out first; the model's analysis follows it.
+    const enc = new TextEncoder();
+    const combined = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        controller.enqueue(enc.encode(`${facts}\n\n`));
+        const reader = stream.getReader();
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        } catch (e) {
+          controller.enqueue(enc.encode(`\n\n> ⚠ การวิเคราะห์ถูกตัดกลางคัน (${e instanceof Error ? e.message : "ข้อผิดพลาด"}) กรุณากดวิเคราะห์ใหม่`));
+          controller.close();
+        }
+      },
+      cancel() {
+        stream.cancel().catch(() => {});
+      },
+    });
+    return new Response(combined, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     const text =
