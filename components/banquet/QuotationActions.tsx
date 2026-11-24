@@ -11,11 +11,13 @@ export type ProjectSource = "auto" | "notes" | "both";
 export function QuotationActions({
   backHref,
   showRoomPrices = true,
+  showVat = true,
   projectSource = "auto",
   hasNotes = false,
 }: {
   backHref: string;
   showRoomPrices?: boolean;
+  showVat?: boolean;
   projectSource?: ProjectSource;
   hasNotes?: boolean;
 }) {
@@ -55,6 +57,16 @@ export function QuotationActions({
         ไม่ระบุราคา
       </Link>
       {!showRoomPrices && <span className="text-xs text-ink-400">ไม่แสดงรายการค่าห้อง และยอดรวมด้านล่างไม่รวมค่าห้อง</span>}
+    </div>
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm">
+      <span className="text-ink-700">แจกแจง VAT ในใบเสนอราคา</span>
+      <Link href={href("vat", null)} replace className={chip(showVat)}>
+        แสดง
+      </Link>
+      <Link href={href("vat", "hide")} replace className={chip(!showVat)}>
+        ไม่แสดง
+      </Link>
+      <span className="text-xs text-ink-400">ยอดเงินเท่าเดิม แค่เพิ่ม/ซ่อนบรรทัด “มูลค่าก่อนภาษี” และ “ภาษีมูลค่าเพิ่ม”</span>
     </div>
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-cream-200 bg-white px-3 py-2 text-sm">
       <span className="text-ink-700">ข้อความในช่อง Project</span>

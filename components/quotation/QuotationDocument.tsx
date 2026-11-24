@@ -35,6 +35,7 @@ export function QuotationDocument({
   projectLine,
   lineItems,
   showRoomPrices = true,
+  showVat = true,
   projectSource = "auto",
   hasNotes = false,
   emptyHint,
@@ -62,6 +63,8 @@ export function QuotationDocument({
   lineItems: QuotationLineItem[];
   /** Off: the page leaves the room charges out of the lines and the totals; the document says so under the lines. */
   showRoomPrices?: boolean;
+  /** Off: the VAT breakdown rows are left out; the amounts stay the same (prices are VAT-inclusive either way). */
+  showVat?: boolean;
   /** Where the text in the Project row comes from (the page has already put it in projectLine). */
   projectSource?: "auto" | "notes" | "both";
   hasNotes?: boolean;
@@ -81,7 +84,7 @@ export function QuotationDocument({
   return (
     <div className="min-h-screen bg-cream-100 p-4 print:bg-white print:p-0 md:p-8">
       <div className="mx-auto flex w-full max-w-[210mm] flex-col gap-4">
-        <QuotationActions backHref={backHref} showRoomPrices={showRoomPrices} projectSource={projectSource} hasNotes={hasNotes} />
+        <QuotationActions backHref={backHref} showRoomPrices={showRoomPrices} showVat={showVat} projectSource={projectSource} hasNotes={hasNotes} />
 
         <div className="mx-auto flex w-[210mm] min-h-[297mm] max-w-full flex-col gap-3 rounded-lg border border-ink-900/20 bg-white p-6 text-sm text-ink-900 shadow-sm print:w-full print:rounded-none print:border-black print:p-8 print:shadow-none">
           {/* Header */}
@@ -183,7 +186,7 @@ export function QuotationDocument({
             <tbody>
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
-                  รวมเงิน (รวม VAT) / TOTAL
+                  {showVat ? "รวมเงิน (รวม VAT) / TOTAL" : "รวมเงิน / TOTAL"}
                 </td>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-semibold">
                   {subtotal.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
@@ -200,6 +203,8 @@ export function QuotationDocument({
                   </td>
                 </tr>
               )}
+              {showVat && (
+                <>
               <tr>
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-medium" colSpan={4}>
                   มูลค่าก่อนภาษี / PRICE BEFORE VAT
@@ -216,6 +221,8 @@ export function QuotationDocument({
                   {vat.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
                 </td>
               </tr>
+                </>
+              )}
               <tr className="bg-gold-100 print:bg-white">
                 <td className="border border-ink-900/20 px-2 py-1.5 text-right font-bold" colSpan={4}>
                   ยอดเงินสุทธิ / NET AMOUNT

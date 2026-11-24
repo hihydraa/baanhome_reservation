@@ -13,11 +13,12 @@ export default async function QuotationPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ rooms?: string; project?: string }>;
+  searchParams: Promise<{ rooms?: string; project?: string; vat?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
   const showRoomPrices = query.rooms !== "hide";
+  const showVat = query.vat !== "hide";
 
   const session = await auth();
 
@@ -91,6 +92,7 @@ export default async function QuotationPage({
       hasNotes={!!booking.notes?.trim()}
       lineItems={lineItems}
       showRoomPrices={showRoomPrices}
+      showVat={showVat}
       emptyHint='ยังไม่มีรายการ — เลือกห้องที่ระบุราคา หรือเพิ่ม "บริการเพิ่มเติม" ในหน้ารายละเอียดการจอง'
       subtotal={subtotal}
       discountAmount={discountAmount}
